@@ -82,3 +82,4 @@ if(NOT ANDROID)
         COMPONENT list_json)
 endif()
 
+target_include_directories(list_json PUBLIC $ENV{OCULUS_OPENXR_MOBILE_SDK}/OpenXR/Include)
