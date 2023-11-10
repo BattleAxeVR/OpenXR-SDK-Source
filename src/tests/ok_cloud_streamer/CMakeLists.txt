@@ -113,6 +113,7 @@ if(WIN32)
     if(MSVC)
         target_compile_definitions(ok_cloud_streamer PRIVATE _CRT_SECURE_NO_WARNINGS)
         target_compile_options(ok_cloud_streamer PRIVATE /Zc:wchar_t /Zc:forScope /W4)
+        
         if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             # If actually msvc and not clang-cl
             target_compile_options(openxr_c_compile_test PRIVATE /WX)
@@ -132,6 +133,28 @@ endif()
 target_include_directories(ok_cloud_streamer PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
 target_include_directories(ok_cloud_streamer PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
 
+option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" OFF)
+
+if(ENABLE_CLOUDXR_SDK)
+    add_library(CloudXRClient SHARED IMPORTED)
+    target_include_directories(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include)
+
+    if(ANDROID)
+        set_target_properties(CloudXRClient
+                PROPERTIES
+                IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/${ANDROID_ABI}/libCloudXRClient.so
+                )
+        
+        #IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/arm64-v8a/libCloudXRClient.so
+        target_link_libraries(ok_cloud_streamer CloudXRClient)
+        #target_sources(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include/CloudXRController.cpp)
+        
+    else()
+        message(FATAL_ERROR "Missing CloudXR")
+    endif()
+    
+endif()
+
 
 if(NOT ANDROID)
     install(TARGETS ok_cloud_streamer
@@ -141,4 +164,4 @@ if(NOT ANDROID)
         install(FILES ok_cloud_streamer.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1/ COMPONENT ManPages)
     endif()
 endif()
-
+        

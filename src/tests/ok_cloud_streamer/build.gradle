@@ -9,6 +9,11 @@ plugins {
     id 'com.android.application' version '7.4.2'
 }
 
+def CLOUDXR_LIB_PATH = file("${project.rootDir}/CloudXR")
+def CLOUDXR_AAR = file("${CLOUDXR_LIB_PATH}/Lib/Android/CloudXR.aar")
+def CLOUDXR_ROOT_DIR = file("${project.buildDir}/tmp/CloudXR")
+
+//def ANDROID_ABI = "arm64-v8a"
 
 // These next few lines are just to make the version match the OpenXR release.
 project.ext.repoRoot = file('../../../')
@@ -34,7 +39,9 @@ android {
                         '-DBUILD_TESTS=ON',
                         '-DBUILD_LOADER=ON',
                         '-DBUILD_CONFORMANCE_TESTS=OFF',
-                        '-DBUILD_ALL_EXTENSIONS=ON'
+                        '-DBUILD_ALL_EXTENSIONS=ON',
+                        '-DENABLE_CLOUDXR_SDK=OFF',
+                        "-DCLOUDXR_ROOT_DIR=${CLOUDXR_ROOT_DIR}"
                 targets "openxr_loader", "ok_cloud_streamer"
             }
         }
@@ -106,3 +113,9 @@ if (keystorePropertiesFilename) {
     }
 }
 
+tasks.register('UnzipCloudXR', Copy) {
+    from zipTree(CLOUDXR_AAR)
+    into CLOUDXR_ROOT_DIR
+}
+
+preBuild.dependsOn(UnzipCloudXR)
