@@ -13,8 +13,6 @@ def CLOUDXR_LIB_PATH = file("${project.rootDir}/CloudXR")
 def CLOUDXR_AAR = file("${CLOUDXR_LIB_PATH}/Lib/Android/CloudXR.aar")
 def CLOUDXR_ROOT_DIR = file("${project.buildDir}/tmp/CloudXR")
 
-//def ANDROID_ABI = "arm64-v8a"
-
 // These next few lines are just to make the version match the OpenXR release.
 project.ext.repoRoot = file('../../../')
 apply from: file('../../version.gradle')
@@ -23,15 +21,16 @@ android {
     compileSdk 29
     ndkVersion "21.4.7075529"
     buildToolsVersion = "30.0.3"
-    namespace 'battleaxevr.ok_cloud_streamer'
+    namespace 'com.battleaxevr.ok_cloud_streamer'
 
     defaultConfig {
-        applicationId "battleaxevr.ok_cloud_streamer"
+        applicationId "com.battleaxevr.ok_cloud_streamer"
         // for Vulkan, need at least 24
         minSdkVersion 24
 
-        versionName = project.versionOpenXR.toString() + project.versionQualifier
-        versionCode = project.versionOpenXR.getVersionCode()
+        ndk {
+            abiFilters "arm64-v8a"
+        }
 
         externalNativeBuild {
             cmake {
