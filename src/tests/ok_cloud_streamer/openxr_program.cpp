@@ -1550,7 +1550,7 @@ struct OpenXrProgram : IOpenXrProgram
 #ifdef XR_USE_PLATFORM_WIN32
         const std::string filename = "d:\\TEST\\windows_hello_xr_screenshot.png";
 #else
-        const std::string directory = "/sdcard/Android/data/com.khronos.openxr.hello_xr.opengles/files/";
+        const std::string directory = "/sdcard/Android/data/battleaxevr.ok_cloud_streamer.opengles/files/";
         const std::string filename = directory + "android_hello_xr_screenshot.png";
 #endif
 

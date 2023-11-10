@@ -260,7 +260,7 @@ struct CmdBuffer {
         cmdPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         cmdPoolInfo.queueFamilyIndex = queueFamilyIndex;
         CHECK_VKCMD(vkCreateCommandPool(m_vkDevice, &cmdPoolInfo, nullptr, &pool));
-        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)pool, "hello_xr command pool"));
+        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_COMMAND_POOL, (uint64_t)pool, "ok_cloud_streamer command pool"));
 
         // Create the command buffer from the command pool
         VkCommandBufferAllocateInfo cmd{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
@@ -268,11 +268,11 @@ struct CmdBuffer {
         cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         cmd.commandBufferCount = 1;
         CHECK_VKCMD(vkAllocateCommandBuffers(m_vkDevice, &cmd, &buf));
-        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_COMMAND_BUFFER, (uint64_t)buf, "hello_xr command buffer"));
+        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_COMMAND_BUFFER, (uint64_t)buf, "ok_cloud_streamer command buffer"));
 
         VkFenceCreateInfo fenceInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
         CHECK_VKCMD(vkCreateFence(m_vkDevice, &fenceInfo, nullptr, &execFence));
-        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_FENCE, (uint64_t)execFence, "hello_xr fence"));
+        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_FENCE, (uint64_t)execFence, "ok_cloud_streamer fence"));
 
         SetState(CmdBufferState::Initialized);
         return true;
@@ -579,7 +579,7 @@ struct RenderPass {
         }
 
         CHECK_VKCMD(vkCreateRenderPass(m_vkDevice, &rpInfo, nullptr, &pass));
-        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_RENDER_PASS, (uint64_t)pass, "hello_xr render pass"));
+        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_RENDER_PASS, (uint64_t)pass, "ok_cloud_streamer render pass"));
 
         return true;
     }
@@ -685,7 +685,7 @@ struct RenderTarget {
             colorViewInfo.subresourceRange.baseArrayLayer = 0;
             colorViewInfo.subresourceRange.layerCount = 1;
             CHECK_VKCMD(vkCreateImageView(m_vkDevice, &colorViewInfo, nullptr, &colorView));
-            CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)colorView, "hello_xr color image view"));
+            CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)colorView, "ok_cloud_streamer color image view"));
             attachments[attachmentCount++] = colorView;
         }
 
@@ -705,7 +705,7 @@ struct RenderTarget {
             depthViewInfo.subresourceRange.baseArrayLayer = 0;
             depthViewInfo.subresourceRange.layerCount = 1;
             CHECK_VKCMD(vkCreateImageView(m_vkDevice, &depthViewInfo, nullptr, &depthView));
-            CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)depthView, "hello_xr depth image view"));
+            CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)depthView, "ok_cloud_streamer depth image view"));
             attachments[attachmentCount++] = depthView;
         }
 
@@ -717,7 +717,7 @@ struct RenderTarget {
         fbInfo.height = size.height;
         fbInfo.layers = 1;
         CHECK_VKCMD(vkCreateFramebuffer(m_vkDevice, &fbInfo, nullptr, &fb));
-        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_FRAMEBUFFER, (uint64_t)fb, "hello_xr framebuffer"));
+        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_FRAMEBUFFER, (uint64_t)fb, "ok_cloud_streamer framebuffer"));
     }
 
     RenderTarget(const RenderTarget&) = delete;
@@ -955,12 +955,12 @@ struct DepthBuffer {
         imageInfo.samples = (VkSampleCountFlagBits)swapchainCreateInfo.sampleCount;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         CHECK_VKCMD(vkCreateImage(device, &imageInfo, nullptr, &depthImage));
-        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE, (uint64_t)depthImage, "hello_xr fallback depth image"));
+        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_IMAGE, (uint64_t)depthImage, "ok_cloud_streamer fallback depth image"));
 
         VkMemoryRequirements memRequirements{};
         vkGetImageMemoryRequirements(device, depthImage, &memRequirements);
         memAllocator->Allocate(memRequirements, &depthMemory, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_DEVICE_MEMORY, (uint64_t)depthMemory, "hello_xr fallback depth image memory"));
+        CHECK_VKCMD(namer.SetName(VK_OBJECT_TYPE_DEVICE_MEMORY, (uint64_t)depthMemory, "ok_cloud_streamer fallback depth image memory"));
         CHECK_VKCMD(vkBindImageMemory(device, depthImage, depthMemory, 0));
     }
 
@@ -1095,7 +1095,7 @@ struct Swapchain {
         if (hWnd) {
             DestroyWindow(hWnd);
             hWnd = nullptr;
-            UnregisterClassW(L"hello_xr", hInst);
+            UnregisterClassW(L"ok_cloud_streamer", hInst);
         }
         if (hUser32Dll != NULL) {
             ::FreeLibrary(hUser32Dll);
@@ -1138,7 +1138,7 @@ void Swapchain::Create(VkInstance instance, VkPhysicalDevice physDevice, VkDevic
     wc.lpfnWndProc = DefWindowProcW;
     wc.cbWndExtra = sizeof(this);
     wc.hInstance = hInst;
-    wc.lpszClassName = L"hello_xr";
+    wc.lpszClassName = L"ok_cloud_streamer";
     RegisterClassW(&wc);
 
 // adjust the window size and show at InitDevice time
@@ -1153,7 +1153,7 @@ void Swapchain::Create(VkInstance instance, VkPhysicalDevice physDevice, VkDevic
 #endif
     RECT rect{0, 0, (LONG)size.width, (LONG)size.height};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, false);
-    hWnd = CreateWindowW(wc.lpszClassName, L"hello_xr (Vulkan)", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
+    hWnd = CreateWindowW(wc.lpszClassName, L"ok_cloud_streamer (Vulkan)", WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT,
                          rect.right - rect.left, rect.bottom - rect.top, 0, 0, hInst, 0);
     assert(hWnd != NULL);
 
@@ -1387,9 +1387,9 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 #endif  // defined(USE_MIRROR_WINDOW)
 
         VkApplicationInfo appInfo{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-        appInfo.pApplicationName = "hello_xr";
+        appInfo.pApplicationName = "ok_cloud_streamer";
         appInfo.applicationVersion = 1;
-        appInfo.pEngineName = "hello_xr";
+        appInfo.pEngineName = "ok_cloud_streamer";
         appInfo.engineVersion = 1;
         appInfo.apiVersion = VK_API_VERSION_1_0;
 
@@ -1534,7 +1534,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         // Semaphore to block on draw complete
         VkSemaphoreCreateInfo semInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
         CHECK_VKCMD(vkCreateSemaphore(m_vkDevice, &semInfo, nullptr, &m_vkDrawDone));
-        CHECK_VKCMD(m_namer.SetName(VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)m_vkDrawDone, "hello_xr draw done semaphore"));
+        CHECK_VKCMD(m_namer.SetName(VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)m_vkDrawDone, "ok_cloud_streamer draw done semaphore"));
 
         if (!m_cmdBuffer.Init(m_namer, m_vkDevice, m_queueFamilyIndex)) THROW("Failed to create command buffer");
 

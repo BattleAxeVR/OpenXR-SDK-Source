@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Open this directory in Android Studio, or build with Gradle,
-// to build the "hello_xr" sample application
+// to build the "ok_cloud_streamer" sample application
 
 plugins {
     id 'com.android.application' version '7.4.2'
@@ -18,10 +18,10 @@ android {
     compileSdk 29
     ndkVersion "21.4.7075529"
     buildToolsVersion = "30.0.3"
-    namespace 'org.khronos.openxr.hello_xr'
+    namespace 'battleaxevr.ok_cloud_streamer'
 
     defaultConfig {
-        applicationId "org.khronos.openxr.hello_xr"
+        applicationId "battleaxevr.ok_cloud_streamer"
         // for Vulkan, need at least 24
         minSdkVersion 24
 
@@ -35,7 +35,7 @@ android {
                         '-DBUILD_LOADER=ON',
                         '-DBUILD_CONFORMANCE_TESTS=OFF',
                         '-DBUILD_ALL_EXTENSIONS=ON'
-                targets "openxr_loader", "hello_xr"
+                targets "openxr_loader", "ok_cloud_streamer"
             }
         }
     }
@@ -91,7 +91,7 @@ def keystorePropertiesFilename = System.getenv("KEYSTORE_PROPERTIES")
 if (keystorePropertiesFilename) {
     def keystorePropertiesFile = file("${keystorePropertiesFilename}")
     if (keystorePropertiesFile.exists()) {
-        println("Signing release artifacts for hello_xr")
+        println("Signing release artifacts for ok_cloud_streamer")
         def keystoreProperties = new Properties()
         keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
         android.signingConfigs {
