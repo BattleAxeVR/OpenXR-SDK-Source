@@ -108,6 +108,10 @@
 #include <vulkan/vulkan.h>
 #endif
 
+#ifndef ENABLE_CLOUDXR
+#define ENABLE_CLOUDXR 0
+#endif
+
 //
 // OpenXR Headers
 //
@@ -192,7 +196,7 @@
 
 #define USE_SDL_JOYSTICKS 0
 
-#define USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION 1
+#define USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION 0
 #define PREFER_SNAP_TURNING 1
 #define SNAP_TURN_DEGREES 30.0f
 
