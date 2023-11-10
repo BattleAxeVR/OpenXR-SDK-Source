@@ -218,7 +218,8 @@ const glm::vec3 forward_direction(0.0f, 0.0f, -1.0f);
 const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 #endif
 
-#if ENABLE_CLOUDXR_SDK
+#if ENABLE_CLOUDXR
+#include "CloudXRFileLogger.h"
 extern "C" void dispatchLogMsg(cxrLogLevel level, cxrMessageCategory category, void *extra, const char *tag, const char *fmt, ...) {
 }
 #endif

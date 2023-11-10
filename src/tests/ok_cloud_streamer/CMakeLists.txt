@@ -138,6 +138,10 @@ option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" OFF)
 if(ENABLE_CLOUDXR_SDK)
     add_library(CloudXRClient SHARED IMPORTED)
     target_include_directories(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include)
+    target_compile_definitions(ok_cloud_streamer PRIVATE ENABLE_CLOUDXR=1)
+
+    target_compile_options(ok_cloud_streamer PRIVATE -Wno-unused-parameter)
+    target_sources(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include/CloudXRController.cpp)
 
     if(ANDROID)
         set_target_properties(CloudXRClient
@@ -146,9 +150,7 @@ if(ENABLE_CLOUDXR_SDK)
                 )
         
         #IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/arm64-v8a/libCloudXRClient.so
-        target_link_libraries(ok_cloud_streamer CloudXRClient)
-        #target_sources(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include/CloudXRController.cpp)
-        
+        #target_link_libraries(ok_cloud_streamer CloudXRClient)
     else()
         message(FATAL_ERROR "Missing CloudXR")
     endif()
