@@ -19,6 +19,7 @@
 
 add_subdirectory(c_compile_test)
 add_subdirectory(hello_xr)
+add_subdirectory(ok_cloud_streamer)
 add_subdirectory(list_json)
 
 if(NOT ANDROID)
