@@ -31,7 +31,7 @@ if(ANDROID)
     target_link_libraries(ok_cloud_streamer ${ANDROID_LIBRARY} ${ANDROID_LOG_LIBRARY})
 
     # Only for Android because it lacks a command line
-    set(HELLOXR_DEFAULT_GRAPHICS_PLUGIN "OpenGLES" CACHE STRING "Which graphics plugin should be used by default for Hello XR artifacts?")
+    set(HELLOXR_DEFAULT_GRAPHICS_PLUGIN "OpenGLES" CACHE STRING "Which graphics plugin should be used by default for artifacts?")
     # These are the recognized options: provide them as a helper in the CMake GUI
     set_property(CACHE HELLOXR_DEFAULT_GRAPHICS_PLUGIN PROPERTY STRINGS "OpenGLES" "Vulkan")
 
@@ -55,11 +55,11 @@ set_target_properties(ok_cloud_streamer PROPERTIES FOLDER ${SAMPLES_FOLDER})
 source_group("Headers" FILES ${LOCAL_HEADERS})
 source_group("Shaders" FILES ${VULKAN_SHADERS})
 
-compile_glsl(run_hello_xr_glsl_compiles ${VULKAN_SHADERS})
+compile_glsl(run_ok_cloud_streamer_glsl_compiles ${VULKAN_SHADERS})
 
 add_dependencies(ok_cloud_streamer
     generate_openxr_header
-    run_hello_xr_glsl_compiles
+    run_ok_cloud_streamer_glsl_compiles
 )
 
 target_include_directories(ok_cloud_streamer
