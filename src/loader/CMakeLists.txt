@@ -208,6 +208,9 @@ elseif(WIN32)
         file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/../tests/hello_xr/$<CONFIGURATION>/
              COPY_DST_HELLO_XR_PATH
         )
+        file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/../tests/ok_cloud_streamer/$<CONFIGURATION>/
+             COPY_DST_OK_CLOUD_STREAMER_PATH
+        )
         file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/../tests/loader_test/$<CONFIGURATION>/
              COPY_DST_LOADER_TEST_PATH
         )
@@ -218,6 +221,8 @@ elseif(WIN32)
             TARGET openxr_loader POST_BUILD
             COMMAND xcopy /Y /I ${COPY_DLL_SRC_PATH} ${COPY_DST_HELLO_XR_PATH}
             COMMAND if exist ${COPY_PDB_SRC_PATH} xcopy /Y /I ${COPY_PDB_SRC_PATH} ${COPY_DST_HELLO_XR_PATH}
+            COMMAND xcopy /Y /I ${COPY_DLL_SRC_PATH} ${COPY_DST_OK_CLOUD_STREAMER_PATH}
+            COMMAND if exist ${COPY_PDB_SRC_PATH} xcopy /Y /I ${COPY_PDB_SRC_PATH} ${COPY_DST_OK_CLOUD_STREAMER_PATH}
             COMMAND xcopy /Y /I ${COPY_DLL_SRC_PATH} ${COPY_DST_LOADER_TEST_PATH}
             COMMAND if exist ${COPY_PDB_SRC_PATH} xcopy /Y /I ${COPY_PDB_SRC_PATH} ${COPY_DST_LOADER_TEST_PATH}
             COMMAND xcopy /Y /I ${COPY_DLL_SRC_PATH} ${COPY_DST_CONFORMANCE_TEST_PATH}
