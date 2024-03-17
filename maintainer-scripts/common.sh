@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2019-2023, The Khronos Group Inc.
+# Copyright (c) 2019-2024, The Khronos Group Inc.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -36,7 +36,7 @@ makeSubset() {
 
 COMMON_FILES=".gitignore .gitattributes .git-blame-ignore-revs CODE_OF_CONDUCT.md LICENSES .reuse .editorconfig HOTFIX"
 export COMMON_FILES
-COMMON_EXCLUDE_PATTERN="KhronosExperimental"
+COMMON_EXCLUDE_PATTERN="(KhronosExperimental|KhronosConfidential)"
 export COMMON_EXCLUDE_PATTERN
 
 add_to_tar() {
@@ -110,6 +110,7 @@ getDocsFilenames() {
     # TODO omitting style guide VUID chapter for now
     git ls-files \
         $COMMON_FILES \
+        .env \
         .proclamation.json \
         .proclamation.json.license \
         CHANGELOG.Docs.md \
@@ -128,7 +129,7 @@ getDocsFilenames() {
         specification/sources/extprocess/ \
         include/ \
         specification/ \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "specification/loader" \
         | grep -v "vuid[.]adoc" \
         | grep -v "CMakeLists.txt" \
@@ -145,6 +146,7 @@ getSDKSourceFilenames() {
     git ls-files \
         $COMMON_FILES \
         .appveyor.yml \
+        .env \
         .proclamation.json \
         .proclamation.json.license \
         BUILDING.md \
@@ -210,7 +212,7 @@ getSDKSourceFilenames() {
         src/tests \
         src/version.cmake \
         src/version.gradle \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "conformance" \
         | grep -v "template_gen_dispatch" \
         | grep -v "function_info" \
@@ -249,7 +251,7 @@ getSDKFilenames() {
         src/external/jsoncpp \
         src/loader \
         src/version.cmake \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "gfxwrapper" \
         | grep -v "include/.gitignore" \
         | grep -v "images"
@@ -258,9 +260,9 @@ getSDKFilenames() {
 getConformanceFilenames() {
     set -e
     # The src/conformance directory, plus the minimum subset of the other files required.
-    # TODO need a mention in the spec folder about how it's not under the same license (?)
     git ls-files \
         $COMMON_FILES \
+        .env \
         .proclamation.json \
         .proclamation.json.license \
         BUILDING.md \
@@ -272,8 +274,6 @@ getConformanceFilenames() {
         openxr-codespell.exclude \
         runClangFormat.sh \
         tox.ini \
-        .azure-pipelines/shared \
-        .azure-pipelines/openxr-cts.yml \
         .github/dependabot.yml \
         .github/scripts \
         .github/workflows/android-cts-build.yml \
@@ -313,7 +313,7 @@ getConformanceFilenames() {
         src/scripts \
         src/version.cmake \
         src/version.gradle \
-        | grep -v "${COMMON_EXCLUDE_PATTERN}" \
+        | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \
         | grep -v "htmldiff" \
         | grep -v "katex"
 }

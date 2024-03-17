@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2017-2023, The Khronos Group Inc.
+Copyright (c) 2017-2024, The Khronos Group Inc.
 Copyright (c) 2016 Oculus VR, LLC.
 Portions of macOS, iOS, functionality copyright (c) 2016 The Brenwill Workshop Ltd.
 
@@ -512,7 +512,7 @@ void GlInitExtensions() {
     glUniform2fv = (PFNGLUNIFORM2FVPROC)GetExtension("glUniform2fv");
     glUniform3fv = (PFNGLUNIFORM3FVPROC)GetExtension("glUniform3fv");
     glUniform4fv = (PFNGLUNIFORM4FVPROC)GetExtension("glUniform4fv");
-    glUniformMatrix2fv = (PFNGLUNIFORMMATRIX2FVPROC)GetExtension("glUniformMatrix3fv");
+    glUniformMatrix2fv = (PFNGLUNIFORMMATRIX2FVPROC)GetExtension("glUniformMatrix2fv");
     glUniformMatrix2x3fv = (PFNGLUNIFORMMATRIX2X3FVPROC)GetExtension("glUniformMatrix2x3fv");
     glUniformMatrix2x4fv = (PFNGLUNIFORMMATRIX2X4FVPROC)GetExtension("glUniformMatrix2x4fv");
     glUniformMatrix3x2fv = (PFNGLUNIFORMMATRIX3X2FVPROC)GetExtension("glUniformMatrix3x2fv");

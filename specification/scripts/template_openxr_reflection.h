@@ -2,7 +2,7 @@
 #define OPENXR_REFLECTION_H_ 1
 
 /*
-** Copyright (c) 2017-2023, The Khronos Group Inc.
+** Copyright (c) 2017-2024, The Khronos Group Inc.
 **
 ** SPDX-License-Identifier: Apache-2.0 OR MIT
 */
@@ -105,6 +105,23 @@ XR_ENUM_STR(XrResult);
 #define XR_LIST_EXTENSIONS(_) \
 //# for extname, extdata in extensions
     _(/*{extname}*/, /*{extdata.number}*/) \
+//# endfor
+
+//## Preceding line intentionally left blank to absorb the trailing backslash
+
+
+//# for featname in functions_by_feature
+/// For every function defined by /*{ featname }*/ in this version of the spec,
+/// calls your macro with the function name and extension name.
+/// Trims the leading `xr` from the function name and the leading `XR_` from the feature name,
+/// because it is easy to add back but impossible to remove with the preprocessor.
+#define XR_LIST_FUNCTIONS_/*{ featname }*/(_) \
+//# for command, feature in functions_by_feature[featname]
+    _(/*{ command | remove_prefix("xr") }*/, /*{ feature | remove_prefix("XR_") }*/) \
+//# endfor
+
+//## Preceding line intentionally left blank to absorb the trailing backslash
+
 //# endfor
 
 //## Preceding line intentionally left blank to absorb the trailing backslash

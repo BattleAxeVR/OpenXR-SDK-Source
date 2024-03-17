@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -i
 #
-# Copyright (c) 2019-2023, The Khronos Group Inc.
+# Copyright (c) 2019-2024, The Khronos Group Inc.
 # Copyright (c) 2019 Collabora, Ltd.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -57,6 +57,11 @@ def _protect_end(entity):
     if entity.protect_value:
         return "#endif // {}".format(entity.protect_string)
     return ""
+
+def _remove_prefix(s: str, prefix: str):
+    if s.startswith(prefix):
+        return s[len(prefix):]
+    return s
 
 
 def make_jinja_environment(file_with_templates_as_sibs=None, search_path=None):
@@ -118,6 +123,7 @@ def make_jinja_environment(file_with_templates_as_sibs=None, search_path=None):
     env.filters['undecorate'] = _undecorate
     env.filters['base_name'] = _base_name
     env.filters['collapse_whitespace'] = _collapse_whitespace
+    env.filters['remove_prefix'] = _remove_prefix
     env.globals['protect_begin'] = _protect_begin
     env.globals['protect_end'] = _protect_end
 

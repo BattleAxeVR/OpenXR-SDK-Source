@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2023, The Khronos Group Inc.
+// Copyright (c) 2017-2024, The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
@@ -47,7 +47,7 @@
 #define XR_ARCH_ABI "aarch64"
 #elif (defined(__ARM_ARCH) && __ARM_ARCH >= 7 && (defined(__ARM_PCS_VFP) || defined(__ANDROID__))) || defined(_M_ARM)
 #define XR_ARCH_ABI "armv7a-vfp"
-#elif defined(__ARM_ARCH_5TE__)
+#elif defined(__ARM_ARCH_5TE__) || (defined(__ARM_ARCH) && __ARM_ARCH > 5)
 #define XR_ARCH_ABI "armv5te"
 #elif defined(__mips64)
 #define XR_ARCH_ABI "mips64"
@@ -323,6 +323,8 @@ static inline std::string PlatformUtilsGetSecureEnv(const char* name) {
     const std::string envValue = PlatformUtilsGetEnv(name);
 
     // Do not allow high integrity processes to act on data that can be controlled by medium integrity processes.
+    // Specifically, medium integrity processes can set environment variables which could then
+    // be read by high integrity processes.
     if (IsHighIntegrityLevel()) {
         if (!envValue.empty()) {
             LogPlatformUtilsError(std::string("!!! WARNING !!! Environment variable ") + name +
