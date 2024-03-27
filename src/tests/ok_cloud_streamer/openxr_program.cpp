@@ -232,7 +232,7 @@ const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 namespace BVR 
 {
 class OKCloudSession : public OKOpenXRInterface 
-        {
+{
 public:
     virtual XrInstance get_instance() override 
     {
@@ -327,6 +327,9 @@ public:
     XrView views_[2] = {};
 };
 }
+
+#else
+#error "CXR NOT OK"
 #endif
 
 #ifndef XR_LOAD
@@ -1588,28 +1591,19 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if ENABLE_CLOUDXR
-
-        XrInstance m_instance{XR_NULL_HANDLE};
-        XrSession m_session{XR_NULL_HANDLE};
-        XrSpace m_appSpace{XR_NULL_HANDLE};
-        XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
-
-        std::vector<XrViewConfigurationView> m_configViews;
-        std::vector<Swapchain> m_swapchains;
-        std::map<XrSwapchain, std::vector<XrSwapchainImageBaseHeader*>> m_swapchainImages;
-        std::vector<XrView> m_views;
-        int64_t m_colorSwapchainFormat{-1};
-
-        
         ok_session_.xr_instance_ = m_instance;
         ok_session_.xr_session_ = m_session;
         
         ok_session_.base_space_ = m_appSpace;
         ok_session_.head_space_ = m_appSpace;
         
-        const XrBaseInStructure *graphicsBinding = m_graphicsPlugin->GetGraphicsBinding();
-        const XrGraphicsBindingOpenGLESAndroidKHR *gles =
-                reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(graphicsBinding);
+        ok_session_.views_[LEFT_EYE] = m_views[LEFT_EYE];
+        ok_session_.views_[RIGHT_EYE] = m_views[RIGHT_EYE];
+        
+        const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
+        
+        const XrGraphicsBindingOpenGLESAndroidKHR* gles =
+                reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(binding);
         
         EGLDisplay egl_display = (void *)gles->display;
         EGLContext egl_context = (void *)gles->context;

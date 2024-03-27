@@ -9,9 +9,12 @@ plugins {
     id 'com.android.application' version '7.4.2'
 }
 
-def CLOUDXR_LIB_PATH = file("${project.rootDir}/CloudXR")
-def CLOUDXR_AAR = file("${CLOUDXR_LIB_PATH}/Lib/Android/CloudXR.aar")
-def CLOUDXR_ROOT_DIR = file("${project.buildDir}/tmp/CloudXR")
+def CLOUDXR_AAR_PATH = file("${project.rootDir}/libs/CloudXR.aar")
+def CLOUDXR_ROOT = file("${project.buildDir}/tmp/CloudXR")
+
+def OBOE_AAR_PATH = file("${project.rootDir}/libs/oboe.aar")
+def OBOE_SDK_ROOT = file("${project.buildDir}/tmp/oboe")
+
 def OK_CLOUD_STREAMER_DIR = "D:\\BVR\\OK_Cloud_Streamer\\client\\src\\renderSessions"
 
 // These next few lines are just to make the version match the OpenXR release.
@@ -19,7 +22,7 @@ project.ext.repoRoot = file('../../../')
 apply from: file('../../version.gradle')
 
 android {
-    compileSdk 29
+    compileSdk 33
     ndkVersion "21.4.7075529"
     buildToolsVersion = "30.0.3"
     namespace 'com.battleaxevr.ok_cloud_streamer'
@@ -27,7 +30,8 @@ android {
     defaultConfig {
         applicationId "com.battleaxevr.ok_cloud_streamer"
         // for Vulkan, need at least 24
-        minSdkVersion 24
+        minSdk 25
+        targetSdk 33
 
         ndk {
             abiFilters "arm64-v8a"
@@ -41,7 +45,9 @@ android {
                         '-DBUILD_CONFORMANCE_TESTS=OFF',
                         '-DBUILD_ALL_EXTENSIONS=ON',
                         '-DENABLE_CLOUDXR_SDK=ON',
-                        "-DCLOUDXR_ROOT_DIR=${CLOUDXR_ROOT_DIR}",
+                        "-DCLOUDXR_ROOT=${CLOUDXR_ROOT}",
+                        '-DENABLE_OBOE=ON', 
+                        "-DOBOE_SDK_ROOT=${OBOE_SDK_ROOT}",
                         "-DOK_CLOUD_STREAMER_DIR=${OK_CLOUD_STREAMER_DIR}"
                 targets "openxr_loader", "ok_cloud_streamer"
             }
@@ -114,9 +120,20 @@ if (keystorePropertiesFilename) {
     }
 }
 
-tasks.register('UnzipCloudXR', Copy) {
-    from zipTree(CLOUDXR_AAR)
-    into CLOUDXR_ROOT_DIR
+dependencies {
+    implementation files("${CLOUDXR_AAR_PATH}")
+    //implementation "com.google.oboe:oboe:1.7.0"
 }
 
-preBuild.dependsOn(UnzipCloudXR)
+tasks.register('extractCloudXR', Copy) {
+    from zipTree(CLOUDXR_AAR_PATH)
+    into CLOUDXR_ROOT
+}
+
+tasks.register('extractOboeSDK', Copy) {
+    from zipTree(OBOE_AAR_PATH)
+    into OBOE_SDK_ROOT
+}
+
+preBuild.dependsOn(extractCloudXR)
+preBuild.dependsOn(extractOboeSDK)

@@ -52,6 +52,13 @@ else()
 endif()
 set_target_properties(ok_cloud_streamer PROPERTIES FOLDER ${SAMPLES_FOLDER})
 
+#function(set_cxxstd target cpp_version)
+#    set_property(TARGET ${target} PROPERTY CXX_STANDARD ${cpp_version})
+#    set_property(TARGET ${target} PROPERTY CXX_STANDARD_REQUIRED ON)
+#endfunction()
+
+#set_cxxstd(ok_cloud_streamer 17)
+
 source_group("Headers" FILES ${LOCAL_HEADERS})
 source_group("Shaders" FILES ${VULKAN_SHADERS})
 
@@ -137,11 +144,11 @@ option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" OFF)
 
 if(ENABLE_CLOUDXR_SDK)
     add_library(CloudXRClient SHARED IMPORTED)
-    target_include_directories(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include)
+    target_include_directories(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT}/include)
     target_compile_definitions(ok_cloud_streamer PRIVATE ENABLE_CLOUDXR=1)
 
     target_compile_options(ok_cloud_streamer PRIVATE -Wno-unused-parameter)
-    target_sources(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include/CloudXRController.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT}/include/CloudXRController.cpp)
 
     target_include_directories(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR})
 
@@ -157,14 +164,9 @@ if(ENABLE_CLOUDXR_SDK)
     if(ANDROID)
         set_target_properties(CloudXRClient
                 PROPERTIES
-                IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/${ANDROID_ABI}/libCloudXRClient.so
+                IMPORTED_LOCATION ${CLOUDXR_ROOT}/jni/${ANDROID_ABI}/libCloudXRClient.so
                 )
 
-        #set_target_properties(CloudXRClient
-        #        PROPERTIES
-        #        IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/${ANDROID_ABI}/libgrid.so
-        #)
-        
         target_link_libraries(ok_cloud_streamer CloudXRClient)
     else()
         message(FATAL_ERROR "Missing CloudXR")
