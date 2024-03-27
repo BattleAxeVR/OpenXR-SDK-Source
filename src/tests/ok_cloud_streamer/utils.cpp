@@ -1,5 +1,7 @@
 #include "utils.h"
 
+#if !ENABLE_CLOUDXR
+
 namespace BVR
 {
 
@@ -130,7 +132,5 @@ XrPosef convert_to_xr(const GLMPose& glm_pose)
 
 }
 
-
-
-
+#endif
 

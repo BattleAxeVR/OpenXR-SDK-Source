@@ -12,6 +12,7 @@ plugins {
 def CLOUDXR_LIB_PATH = file("${project.rootDir}/CloudXR")
 def CLOUDXR_AAR = file("${CLOUDXR_LIB_PATH}/Lib/Android/CloudXR.aar")
 def CLOUDXR_ROOT_DIR = file("${project.buildDir}/tmp/CloudXR")
+def OK_CLOUD_STREAMER_DIR = "D:\\BVR\\OK_Cloud_Streamer\\client\\src\\renderSessions"
 
 // These next few lines are just to make the version match the OpenXR release.
 project.ext.repoRoot = file('../../../')
@@ -40,7 +41,8 @@ android {
                         '-DBUILD_CONFORMANCE_TESTS=OFF',
                         '-DBUILD_ALL_EXTENSIONS=ON',
                         '-DENABLE_CLOUDXR_SDK=ON',
-                        "-DCLOUDXR_ROOT_DIR=${CLOUDXR_ROOT_DIR}"
+                        "-DCLOUDXR_ROOT_DIR=${CLOUDXR_ROOT_DIR}",
+                        "-DOK_CLOUD_STREAMER_DIR=${OK_CLOUD_STREAMER_DIR}"
                 targets "openxr_loader", "ok_cloud_streamer"
             }
         }

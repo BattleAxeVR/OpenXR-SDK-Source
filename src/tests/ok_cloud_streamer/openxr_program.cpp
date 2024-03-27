@@ -219,9 +219,15 @@ const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 #endif
 
 #if ENABLE_CLOUDXR
-#include "CloudXRFileLogger.h"
-extern "C" void dispatchLogMsg(cxrLogLevel level, cxrMessageCategory category, void *extra, const char *tag, const char *fmt, ...) {
-}
+#include "defines.h"
+#include "EGLHelper.h"
+#include "GLMPose.h"
+#include "OKDigitalButton.h"
+#include "OKAnalogAxis.h"
+#include "OKPlayerState.h"
+#include "OKController.h"
+#include "OKConfig.h"
+#include "OKCloudClient.h"
 #endif
 
 #ifndef XR_LOAD

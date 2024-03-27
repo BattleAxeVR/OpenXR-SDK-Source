@@ -35,6 +35,7 @@ const float ROOT_OF_HALF = 0.7071067690849304f;
 #define rad2deg(a) ((a)*RAD_TO_DEG)
 #define deg2rad(a) ((a)*DEG_TO_RAD)
 
+#if !ENABLE_CLOUDXR
 namespace BVR
 {
     
@@ -112,8 +113,8 @@ struct GLMPose
 GLMPose convert_to_glm(const XrVector3f& position, const XrQuaternionf& rotation, const XrVector3f& scale);
 GLMPose convert_to_glm(const XrPosef& xr_pose);
 XrPosef convert_to_xr(const GLMPose& glm_pose);
-
 }
+#endif
 
 #endif
 

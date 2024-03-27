@@ -143,14 +143,29 @@ if(ENABLE_CLOUDXR_SDK)
     target_compile_options(ok_cloud_streamer PRIVATE -Wno-unused-parameter)
     target_sources(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT_DIR}/include/CloudXRController.cpp)
 
+    target_include_directories(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR})
+
+    #target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/EGLHelper.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/GLMPose.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKDigitalButton.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKAnalogAxis.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKPlayerState.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKController.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKConfig.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKCloudClient.cpp)
+
     if(ANDROID)
         set_target_properties(CloudXRClient
                 PROPERTIES
                 IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/${ANDROID_ABI}/libCloudXRClient.so
                 )
+
+        #set_target_properties(CloudXRClient
+        #        PROPERTIES
+        #        IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/${ANDROID_ABI}/libgrid.so
+        #)
         
-        #IMPORTED_LOCATION ${CLOUDXR_ROOT_DIR}/jni/arm64-v8a/libCloudXRClient.so
-        #target_link_libraries(ok_cloud_streamer CloudXRClient)
+        target_link_libraries(ok_cloud_streamer CloudXRClient)
     else()
         message(FATAL_ERROR "Missing CloudXR")
     endif()
