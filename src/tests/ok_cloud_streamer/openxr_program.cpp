@@ -1608,6 +1608,8 @@ struct OpenXrProgram : IOpenXrProgram
         EGLDisplay egl_display = (void *)gles->display;
         EGLContext egl_context = (void *)gles->context;
         
+        ok_session_.ok_client_.ok_config_.app_directory_ = "/sdcard/Android/data/com.battleaxevr.ok_cloud_streamer.opengles/files/";
+        
         const bool init_cxr_ok = ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
 
         if (init_cxr_ok && ok_session_.ok_client_.ok_config_.enable_auto_connect_)
