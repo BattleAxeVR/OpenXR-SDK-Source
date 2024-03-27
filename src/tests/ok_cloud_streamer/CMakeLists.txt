@@ -154,7 +154,8 @@ if(ENABLE_CLOUDXR_SDK)
     else()
         message(FATAL_ERROR "Missing CloudXR")
     endif()
-    
+else()
+    target_compile_definitions(ok_cloud_streamer PRIVATE ENABLE_CLOUDXR=0)
 endif()
 
 

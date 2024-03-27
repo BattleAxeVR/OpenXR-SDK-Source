@@ -115,6 +115,7 @@
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_reflection.h>
 
+#if 0
 #include <openxr/fb_composition_layer_depth_test.h>
 #include <openxr/fb_eye_tracking_social.h>
 #include <openxr/fb_haptic_amplitude_envelope.h>
@@ -138,6 +139,7 @@
 #include <openxr/metax1_simultaneous_hands_controllers_management.h>
 #include <openxr/metax2_detached_controllers.h>
 #include <openxr/metax2_environment_depth.h>
+#endif
 
 #ifdef XR_USE_PLATFORM_ANDROID
 #define PLATFORM_ANDROID 1
@@ -176,8 +178,8 @@
 #define ENABLE_OPENXR_FB_FACE_TRACKING 0
 
 #define ENABLE_OPENXR_HAND_TRACKING 0
-#define ENABLE_OPENXR_FB_BODY_TRACKING 1 // Hand tracking is redundant if you have body tracking, which includes all the same finger joints
-#define ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS ((ENABLE_OPENXR_FB_BODY_TRACKING || ENABLE_OPENXR_HAND_TRACKING) && 1)
+#define ENABLE_OPENXR_FB_BODY_TRACKING 0
+#define ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS ((ENABLE_OPENXR_FB_BODY_TRACKING || ENABLE_OPENXR_HAND_TRACKING) && 0)
 
 #define ENABLE_QUAD_LAYER 0
 
