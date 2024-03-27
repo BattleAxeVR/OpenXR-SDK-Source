@@ -228,6 +228,105 @@ const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 #include "OKController.h"
 #include "OKConfig.h"
 #include "OKCloudClient.h"
+
+namespace BVR 
+{
+class OKCloudSession : public OKOpenXRInterface 
+        {
+public:
+    virtual XrInstance get_instance() override 
+    {
+        return xr_instance_;
+    }
+
+    virtual XrSession get_session() override 
+    {
+        return xr_session_;
+    }
+
+    virtual OKOpenXRControllerActions &get_actions() override 
+    {
+        return ok_inputs_;
+    }
+
+    virtual const OKOpenXRControllerActions &get_actions() const override 
+    {
+        return ok_inputs_;
+    }
+
+    virtual XrTime get_predicted_display_time_ns() override 
+    {
+        return 0;
+    }
+
+    virtual float get_current_refresh_rate() override 
+    {
+        return 0.0f;
+    }
+
+    virtual void query_refresh_rates() override 
+    {
+
+    }
+
+    virtual bool set_refresh_rate(const float refresh_rate) override 
+    {
+        return false;
+    }
+
+#if ENABLE_CLOUDXR_LINK_SHARPENING
+    virtual void set_sharpening_enabled(const bool enabled) override
+    {
+        
+    }
+#endif
+
+    virtual void handle_stream_connected() override 
+    {
+
+    }
+
+    virtual void handle_stream_disconnected() override 
+    {
+
+    }
+
+    virtual const XrView get_view(const int view_id) override 
+    {
+        return views_[view_id];
+    }
+
+    virtual void poll_actions(const bool main_thread) override 
+    {
+        const XrActiveActionSet activeActionSet{ok_inputs_.actionSet, XR_NULL_PATH};
+        XrActionsSyncInfo syncInfo{XR_TYPE_ACTIONS_SYNC_INFO};
+        syncInfo.countActiveActionSets = 1;
+        syncInfo.activeActionSets = &activeActionSet;
+        xrSyncActions(xr_session_, &syncInfo);
+    }
+
+    virtual XrSpace get_base_space() override 
+    {
+        return base_space_;
+    }
+
+    virtual XrSpace get_head_space() override 
+    {
+        return head_space_;
+    }
+
+    BVR::OKCloudClient ok_client_;
+    BVR::OKOpenXRControllerActions ok_inputs_;
+
+    XrInstance xr_instance_ = nullptr;
+    XrSession xr_session_ = nullptr;
+
+    XrSpace base_space_ = nullptr;
+    XrSpace head_space_ = nullptr;
+
+    XrView views_[2] = {};
+};
+}
 #endif
 
 #ifndef XR_LOAD
@@ -1487,7 +1586,46 @@ struct OpenXrProgram : IOpenXrProgram
 		const bool init_ok = quad_layer_.init(width, height, format, m_graphicsPlugin, m_session, m_appSpace);
         assert(init_ok);
 #endif
+
+#if ENABLE_CLOUDXR
+
+        XrInstance m_instance{XR_NULL_HANDLE};
+        XrSession m_session{XR_NULL_HANDLE};
+        XrSpace m_appSpace{XR_NULL_HANDLE};
+        XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
+
+        std::vector<XrViewConfigurationView> m_configViews;
+        std::vector<Swapchain> m_swapchains;
+        std::map<XrSwapchain, std::vector<XrSwapchainImageBaseHeader*>> m_swapchainImages;
+        std::vector<XrView> m_views;
+        int64_t m_colorSwapchainFormat{-1};
+
+        
+        ok_session_.xr_instance_ = m_instance;
+        ok_session_.xr_session_ = m_session;
+        
+        ok_session_.base_space_ = m_appSpace;
+        ok_session_.head_space_ = m_appSpace;
+        
+        const XrBaseInStructure *graphicsBinding = m_graphicsPlugin->GetGraphicsBinding();
+        const XrGraphicsBindingOpenGLESAndroidKHR *gles =
+                reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(graphicsBinding);
+        
+        EGLDisplay egl_display = (void *)gles->display;
+        EGLContext egl_context = (void *)gles->context;
+        
+        const bool init_cxr_ok = ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
+
+        if (init_cxr_ok && ok_session_.ok_client_.ok_config_.enable_auto_connect_)
+        {
+            ok_session_.ok_client_.connect();
+        }
+#endif
     }
+
+#if ENABLE_CLOUDXR
+    BVR::OKCloudSession ok_session_;
+#endif
 
 #if USE_DUAL_LAYERS
 	void CreateSecondSwapchains()
