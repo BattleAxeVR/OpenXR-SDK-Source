@@ -381,6 +381,11 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glClearDepthf(1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+        if (cubes.empty())
+        {
+            return;
+        }
+        
         // Set shaders and uniform variables.
         glUseProgram(m_program);
 

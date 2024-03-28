@@ -3156,6 +3156,11 @@ struct OpenXrProgram : IOpenXrProgram
         {
             ok_session_.ok_client_.latch_frame();
         }
+        
+        if (ok_session_.ok_client_.is_latched_) 
+        {
+            cubes.clear();
+        }
 #endif
 
         // Render view to the appropriate part of the swapchain image.
@@ -3213,18 +3218,17 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
             const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
+            m_graphicsPlugin->RenderView(projectionLayerViews[view_id], swapchainImage, m_colorSwapchainFormat, cubes);
 
 #if ENABLE_CLOUDXR
             BVR::GLMPose eye_pose;
 
             if (ok_session_.ok_client_.blit_frame(view_id, eye_pose))
             {
-                //XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
-                //projectionLayerViews[view_id].pose = xr_eye_pose;
+                XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
+                projectionLayerViews[view_id].pose = xr_eye_pose;
             }
 #endif
-            
-            m_graphicsPlugin->RenderView(projectionLayerViews[view_id], swapchainImage, m_colorSwapchainFormat, cubes);
 
 #if SUPPORT_SCREENSHOTS
             if (view_id == Side::LEFT) 
