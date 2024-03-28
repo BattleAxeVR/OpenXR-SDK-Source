@@ -15,7 +15,7 @@ def CLOUDXR_ROOT = file("${project.buildDir}/tmp/CloudXR")
 def OBOE_AAR_PATH = file("${project.rootDir}/libs/oboe.aar")
 def OBOE_SDK_ROOT = file("${project.buildDir}/tmp/oboe")
 
-def OK_CLOUD_STREAMER_DIR = "D:\\BVR\\OK_Cloud_Streamer\\client\\src\\renderSessions"
+def OK_CLOUD_STREAMER_DIR = "D:\\BVR\\OK_Cloud_Streamer\\client\\android\\app\\src\\cpp"
 
 // These next few lines are just to make the version match the OpenXR release.
 project.ext.repoRoot = file('../../../')

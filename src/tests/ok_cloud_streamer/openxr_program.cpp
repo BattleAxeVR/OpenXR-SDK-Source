@@ -219,8 +219,7 @@ const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 #endif
 
 #if ENABLE_CLOUDXR
-#include "defines.h"
-#include "EGLHelper.h"
+#include "ok_defines.h"
 #include "GLMPose.h"
 #include "OKDigitalButton.h"
 #include "OKAnalogAxis.h"

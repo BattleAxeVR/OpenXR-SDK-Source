@@ -150,9 +150,16 @@ if(ENABLE_CLOUDXR_SDK)
     target_compile_options(ok_cloud_streamer PRIVATE -Wno-unused-parameter)
     target_sources(ok_cloud_streamer PRIVATE ${CLOUDXR_ROOT}/include/CloudXRController.cpp)
 
+    target_compile_definitions(ok_cloud_streamer PRIVATE ENABLE_CLOUDXR_LOGGING_STUB=1)
+    
+    target_include_directories(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/jsoncpp)
+
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/jsoncpp/json_reader.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/jsoncpp/json_writer.cpp)
+    target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/jsoncpp/json_value.cpp)
+    
     target_include_directories(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR})
 
-    #target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/EGLHelper.cpp)
     target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/GLMPose.cpp)
     target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKDigitalButton.cpp)
     target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKAnalogAxis.cpp)
