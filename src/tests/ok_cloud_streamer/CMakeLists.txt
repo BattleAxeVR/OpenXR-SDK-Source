@@ -168,6 +168,9 @@ if(ENABLE_CLOUDXR_SDK)
     target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKConfig.cpp)
     target_sources(ok_cloud_streamer PRIVATE ${OK_CLOUD_STREAMER_DIR}/OKCloudClient.cpp)
 
+    target_compile_definitions(hello_xr PRIVATE USE_ADVANCED_IMAGE_READER_DECODER=0)
+    target_compile_definitions(hello_xr PRIVATE USE_OK_CALLBACKS=0)
+
     if(ANDROID)
         set_target_properties(CloudXRClient
                 PROPERTIES
