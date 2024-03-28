@@ -1608,13 +1608,7 @@ struct OpenXrProgram : IOpenXrProgram
         EGLContext egl_context = (void *)gles->context;
         
         ok_session_.ok_client_.ok_config_.app_directory_ = "/sdcard/Android/data/com.battleaxevr.ok_cloud_streamer.opengles/files/";
-        
-        const bool init_cxr_ok = ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
-
-        if (init_cxr_ok && ok_session_.ok_client_.ok_config_.enable_auto_connect_)
-        {
-            ok_session_.ok_client_.connect();
-        }
+        ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
 #endif
     }
 
@@ -3109,13 +3103,25 @@ struct OpenXrProgram : IOpenXrProgram
 		local_hmd_pose.translation_ = (local_left_eye_pose.translation_ + local_right_eye_pose.translation_) * 0.5f; // Average
 #endif
 
-        // Render view to the appropriate part of the swapchain image.
-        for (uint32_t i = 0; i < viewCountOutput; i++) 
+#if ENABLE_CLOUDXR
+        if (ok_session_.ok_client_.is_ready_to_connect() && ok_session_.ok_client_.ok_config_.enable_auto_connect_)
         {
-            current_eye = i;
+            ok_session_.ok_client_.connect();
+        }
+        
+        if (ok_session_.ok_client_.is_connected())
+        {
+            ok_session_.ok_client_.latch_frame();
+        }
+#endif
+
+        // Render view to the appropriate part of the swapchain image.
+        for (uint32_t view_id = 0; view_id < viewCountOutput; view_id++) 
+        {
+            current_eye = view_id;
 
             // Each view has a separate swapchain which is acquired, rendered to, and released.
-            const Swapchain viewSwapchain = m_swapchains[i];
+            const Swapchain viewSwapchain = m_swapchains[view_id];
 
             XrSwapchainImageAcquireInfo acquireInfo{XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
 
@@ -3126,35 +3132,35 @@ struct OpenXrProgram : IOpenXrProgram
             waitInfo.timeout = XR_INFINITE_DURATION;
             CHECK_XRCMD(xrWaitSwapchainImage(viewSwapchain.handle, &waitInfo));
 
-            projectionLayerViews[i] = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
-            projectionLayerViews[i].pose = m_views[i].pose;
-            projectionLayerViews[i].fov = m_views[i].fov;
-            projectionLayerViews[i].subImage.swapchain = viewSwapchain.handle;
-            projectionLayerViews[i].subImage.imageRect.offset = {0, 0};
-            projectionLayerViews[i].subImage.imageRect.extent = {viewSwapchain.width, viewSwapchain.height};
+            projectionLayerViews[view_id] = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
+            projectionLayerViews[view_id].pose = m_views[view_id].pose;
+            projectionLayerViews[view_id].fov = m_views[view_id].fov;
+            projectionLayerViews[view_id].subImage.swapchain = viewSwapchain.handle;
+            projectionLayerViews[view_id].subImage.imageRect.offset = {0, 0};
+            projectionLayerViews[view_id].subImage.imageRect.extent = {viewSwapchain.width, viewSwapchain.height};
 
 #if LOG_MATRICES
             static bool log_projection_matrices = true;
 
             if (log_projection_matrices) 
             {
-				const float tanLeft = tanf(projectionLayerViews[i].fov.angleLeft);
-				const float tanRight = tanf(projectionLayerViews[i].fov.angleRight);
+				const float tanLeft = tanf(projectionLayerViews[view_id].fov.angleLeft);
+				const float tanRight = tanf(projectionLayerViews[view_id].fov.angleRight);
 
-				const float tanDown = tanf(projectionLayerViews[i].fov.angleDown);
-				const float tanUp = tanf(projectionLayerViews[i].fov.angleUp);
+				const float tanDown = tanf(projectionLayerViews[view_id].fov.angleDown);
+				const float tanUp = tanf(projectionLayerViews[view_id].fov.angleUp);
 
-                const std::string side_prefix = (i == Side::LEFT) ? "LEFT " : "RIGHT ";
+                const std::string side_prefix = (view_id == Side::LEFT) ? "LEFT " : "RIGHT ";
 
-				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleLeft = %.7f (tan = %.7f)", projectionLayerViews[i].fov.angleLeft, tanLeft));
-				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleRight = %.7f (tan = %.7f)", projectionLayerViews[i].fov.angleRight, tanRight));
-				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleDown = %.7f (tan = %.7f)", projectionLayerViews[i].fov.angleDown, tanDown));
-				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleUp = %.7f (tan = %.7f)", projectionLayerViews[i].fov.angleUp, tanUp));
+				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleLeft = %.7f (tan = %.7f)", projectionLayerViews[view_id].fov.angleLeft, tanLeft));
+				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleRight = %.7f (tan = %.7f)", projectionLayerViews[view_id].fov.angleRight, tanRight));
+				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleDown = %.7f (tan = %.7f)", projectionLayerViews[view_id].fov.angleDown, tanDown));
+				Log::Write(Log::Level::Info, side_prefix + Fmt("FOV angleUp = %.7f (tan = %.7f)", projectionLayerViews[view_id].fov.angleUp, tanUp));
 
                 Log::Write(Log::Level::Info, side_prefix + " Projection matrix:");
 
                 XrMatrix4x4f proj;
-                XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL, projectionLayerViews[i].fov, 0.05f, 100.0f);
+                XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL, projectionLayerViews[view_id].fov, 0.05f, 100.0f);
 
                 Log::Write(Log::Level::Info, Fmt("%.7f\t%.7f\t%.7f\t%.7f", proj.m[0], proj.m[4], proj.m[8], proj.m[12]));
                 Log::Write(Log::Level::Info, Fmt("%.7f\t%.7f\t%.7f\t%.7f", proj.m[1], proj.m[5], proj.m[9], proj.m[13]));
@@ -3164,10 +3170,24 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
             const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
-            m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+
+#if ENABLE_CLOUDXR
+            if (ok_session_.ok_client_.is_connected()) 
+            {
+                BVR::GLMPose eye_pose;
+
+                if (ok_session_.ok_client_.blit_frame(view_id, eye_pose)) 
+                {
+                    XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
+                    projectionLayerViews[view_id].pose = xr_eye_pose;
+                }
+            }
+#endif
+            
+            m_graphicsPlugin->RenderView(projectionLayerViews[view_id], swapchainImage, m_colorSwapchainFormat, cubes);
 
 #if SUPPORT_SCREENSHOTS
-            if (i == Side::LEFT) 
+            if (view_id == Side::LEFT) 
             {
                 SaveScreenShotIfNecessary();
             }
