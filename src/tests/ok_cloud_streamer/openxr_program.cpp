@@ -1547,15 +1547,23 @@ struct OpenXrProgram : IOpenXrProgram
                            Fmt("Creating swapchain for view %d with dimensions Width=%d Height=%d SampleCount=%d", i,
                                vp.recommendedImageRectWidth, vp.recommendedImageRectHeight, vp.recommendedSwapchainSampleCount));
 
+#if ENABLE_CLOUDXR
+                uint32_t width = ok_session_.ok_client_.ok_config_.per_eye_width_;
+                uint32_t height = ok_session_.ok_client_.ok_config_.per_eye_height_;
+#else
+                uint32_t width = vp.recommendedImageRectWidth;
+                uint32_t height = vp.recommendedImageRectHeight;
+#endif
+
                 // Create the swapchain.
                 XrSwapchainCreateInfo swapchainCreateInfo{XR_TYPE_SWAPCHAIN_CREATE_INFO};
                 swapchainCreateInfo.arraySize = 1;
                 swapchainCreateInfo.format = m_colorSwapchainFormat;
-                swapchainCreateInfo.width = vp.recommendedImageRectWidth;
-                swapchainCreateInfo.height = vp.recommendedImageRectHeight;
+                swapchainCreateInfo.width = width;
+                swapchainCreateInfo.height = height;
                 swapchainCreateInfo.mipCount = 1;
                 swapchainCreateInfo.faceCount = 1;
-                swapchainCreateInfo.sampleCount = m_graphicsPlugin->GetSupportedSwapchainSampleCount(vp);
+                swapchainCreateInfo.sampleCount = 1;//m_graphicsPlugin->GetSupportedSwapchainSampleCount(vp);
                 swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
 
                 Swapchain swapchain;

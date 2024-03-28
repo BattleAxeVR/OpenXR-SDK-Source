@@ -19,12 +19,15 @@
     android:required="false"
     android:version="1" />
 
-  <!-- Recommended for haptic feedback -->
-  <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-  <!-- If building externally with the OpenXR loader AAR, this would be merged in automatically. -->
-  <uses-permission android:name="org.khronos.openxr.permission.OPENXR" />
-  <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM" />
+    <!-- Recommended for haptic feedback -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- If building externally with the OpenXR loader AAR, this would be merged in automatically. -->
+    <uses-permission android:name="org.khronos.openxr.permission.OPENXR" />
+    <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM" />
 
     <!-- Enable overlay keyboard. -->
     <uses-feature android:name="oculus.software.overlay_keyboard" android:required="false" />
@@ -57,7 +60,7 @@
     <uses-permission android:name="com.oculus.permission.BODY_TRACKING" />
     <uses-feature android:name="com.oculus.experimental.enabled" android:required="false" />
 
-  <queries>
+    <queries>
     <!-- to talk to the broker -->
     <provider android:authorities="org.khronos.openxr.runtime_broker;org.khronos.openxr.system_runtime_broker" />
 
@@ -68,7 +71,7 @@
     <intent>
       <action android:name="org.khronos.openxr.OpenXRApiLayerService" />
     </intent>
-  </queries>
+    </queries>
   <!-- end of elements normally merged from the OpenXR loader AAR -->
 
   <application
