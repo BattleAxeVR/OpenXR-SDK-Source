@@ -255,7 +255,13 @@ public:
 
     virtual XrTime get_predicted_display_time_ns() override 
     {
-        return 0;
+        struct timespec now_ts = {0};
+        clock_gettime(CLOCK_MONOTONIC, &now_ts);
+
+        XrTime now_time = 0;
+        now_time = ((uint64_t)(now_ts.tv_sec * 1e9) + now_ts.tv_nsec);
+
+        return now_time;
     }
 
     virtual float get_current_refresh_rate() override 
@@ -1418,6 +1424,11 @@ struct OpenXrProgram : IOpenXrProgram
         {
             XrReferenceSpaceCreateInfo referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo(m_options->AppSpace);
             CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_appSpace));
+            
+            m_worldReferenceSpace = m_appSpace;
+
+            referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+            CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_viewReferenceSpace));
         }
 
 #if ENABLE_OPENXR_FB_REFRESH_RATE
@@ -1601,11 +1612,31 @@ struct OpenXrProgram : IOpenXrProgram
         ok_session_.xr_instance_ = m_instance;
         ok_session_.xr_session_ = m_session;
         
-        ok_session_.base_space_ = m_appSpace;
-        ok_session_.head_space_ = m_appSpace;
+        ok_session_.base_space_ = m_worldReferenceSpace;
+        ok_session_.head_space_ = m_viewReferenceSpace;
         
         ok_session_.views_[LEFT_EYE] = m_views[LEFT_EYE];
         ok_session_.views_[RIGHT_EYE] = m_views[RIGHT_EYE];
+
+#if ENABLE_CLOUDXR_CONTROLLERS
+        ok_session_.ok_inputs_.actionSet = m_input.actionSet;
+
+        ok_session_.ok_inputs_.gripPoseAction = m_input.poseAction;
+        ok_session_.ok_inputs_.grabAction = m_input.grabAction;
+        
+        ok_session_.ok_inputs_.aimPoseAction = m_input.poseAction;
+        ok_session_.ok_inputs_.vibrateAction = m_input.vibrateAction;
+
+        ok_session_.ok_inputs_.handSubactionPath[Side::LEFT] = m_input.handSubactionPath[Side::LEFT];
+        ok_session_.ok_inputs_.handSubactionPath[Side::RIGHT] = m_input.handSubactionPath[Side::RIGHT];
+
+#if ADD_AIM_POSE
+        ok_session_.ok_inputs_.aimPoseAction = m_input.aimPoseAction;
+        ok_session_.ok_inputs_.aimSpace[Side::LEFT] = m_input.aimSpace[Side::LEFT];
+        ok_session_.ok_inputs_.aimSpace[Side::RIGHT] = m_input.aimSpace[Side::RIGHT];
+#endif // ADD_AIM_POSE
+        
+#endif        // ENABLE_CLOUDXR_CONTROLLERS
         
         const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
         
@@ -3188,8 +3219,8 @@ struct OpenXrProgram : IOpenXrProgram
 
             if (ok_session_.ok_client_.blit_frame(view_id, eye_pose))
             {
-                XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
-                projectionLayerViews[view_id].pose = xr_eye_pose;
+                //XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
+                //projectionLayerViews[view_id].pose = xr_eye_pose;
             }
 #endif
             
@@ -3395,6 +3426,8 @@ struct OpenXrProgram : IOpenXrProgram
     XrInstance m_instance{XR_NULL_HANDLE};
     XrSession m_session{XR_NULL_HANDLE};
     XrSpace m_appSpace{XR_NULL_HANDLE};
+    XrSpace m_worldReferenceSpace{XR_NULL_HANDLE};
+    XrSpace m_viewReferenceSpace{XR_NULL_HANDLE};
     XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
 
     std::vector<XrViewConfigurationView> m_configViews;
