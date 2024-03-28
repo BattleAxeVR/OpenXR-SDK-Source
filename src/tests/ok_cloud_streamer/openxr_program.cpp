@@ -3104,9 +3104,13 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if ENABLE_CLOUDXR
-        if (ok_session_.ok_client_.is_ready_to_connect() && ok_session_.ok_client_.ok_config_.enable_auto_connect_)
+        static bool tried_yet = false;
+        const bool try_auto_connect = (m_input.handScale[Side::LEFT] < 0.6f) && !tried_yet;
+        
+        if (ok_session_.ok_client_.is_ready_to_connect() && ok_session_.ok_client_.ok_config_.enable_auto_connect_ && try_auto_connect)
         {
             ok_session_.ok_client_.connect();
+            tried_yet = true;
         }
         
         if (ok_session_.ok_client_.is_connected())
@@ -3172,15 +3176,12 @@ struct OpenXrProgram : IOpenXrProgram
             const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
 
 #if ENABLE_CLOUDXR
-            if (ok_session_.ok_client_.is_connected()) 
-            {
-                BVR::GLMPose eye_pose;
+            BVR::GLMPose eye_pose;
 
-                if (ok_session_.ok_client_.blit_frame(view_id, eye_pose)) 
-                {
-                    XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
-                    projectionLayerViews[view_id].pose = xr_eye_pose;
-                }
+            if (ok_session_.ok_client_.blit_frame(view_id, eye_pose))
+            {
+                XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
+                projectionLayerViews[view_id].pose = xr_eye_pose;
             }
 #endif
             
