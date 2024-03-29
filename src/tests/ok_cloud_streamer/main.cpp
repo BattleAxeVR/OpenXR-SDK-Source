@@ -206,8 +206,10 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd) {
  * android_native_app_glue.  It runs in its own thread, with its own
  * event loop for receiving input events and doing other things.
  */
-void android_main(struct android_app* app) {
-    try {
+void android_main(struct android_app* app) 
+{
+    try 
+    {
         JNIEnv* Env;
         app->activity->vm->AttachCurrentThread(&Env, nullptr);
 
@@ -217,7 +219,9 @@ void android_main(struct android_app* app) {
         app->onAppCmd = app_handle_cmd;
 
         std::shared_ptr<Options> options = std::make_shared<Options>();
-        if (!UpdateOptionsFromSystemProperties(*options)) {
+        
+        if (!UpdateOptionsFromSystemProperties(*options)) 
+        {
             return;
         }
 
@@ -243,8 +247,8 @@ void android_main(struct android_app* app) {
 
         // Initialize the loader for this platform
         PFN_xrInitializeLoaderKHR initializeLoader = nullptr;
-        if (XR_SUCCEEDED(
-                xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)(&initializeLoader)))) {
+        if (XR_SUCCEEDED(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)(&initializeLoader)))) 
+        {
             XrLoaderInitInfoAndroidKHR loaderInitInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
             loaderInitInfoAndroid.applicationVM = app->activity->vm;
             loaderInitInfoAndroid.applicationContext = app->activity->clazz;
@@ -263,33 +267,35 @@ void android_main(struct android_app* app) {
         program->InitializeSession();
         program->CreateSwapchains();
 
-        while (app->destroyRequested == 0) {
+        while (app->destroyRequested == 0) 
+        {
             // Read all pending events.
-            for (;;) {
+            for (;;) 
+            {
                 int events;
                 struct android_poll_source* source;
-                // If the timeout is zero, returns immediately without blocking.
-                // If the timeout is negative, waits indefinitely until an event appears.
-                const int timeoutMilliseconds =
-                    (!appState.Resumed && !program->IsSessionRunning() && app->destroyRequested == 0) ? -1 : 0;
-                if (ALooper_pollAll(timeoutMilliseconds, nullptr, &events, (void**)&source) < 0) {
+                const int timeoutMilliseconds = (!appState.Resumed && !program->IsSessionRunning() && app->destroyRequested == 0) ? -1 : 0;
+                
+                if (ALooper_pollAll(timeoutMilliseconds, nullptr, &events, (void**)&source) < 0) 
+                {
                     break;
                 }
 
-                // Process this event.
-                if (source != nullptr) {
+                if (source != nullptr) 
+                {
                     source->process(app, source);
                 }
             }
 
             program->PollEvents(&exitRenderLoop, &requestRestart);
-            if (exitRenderLoop) {
+            if (exitRenderLoop) 
+            {
                 ANativeActivity_finish(app->activity);
                 continue;
             }
 
-            if (!program->IsSessionRunning()) {
-                // Throttle loop since xrWaitFrame won't be called.
+            if (!program->IsSessionRunning()) 
+            {
                 std::this_thread::sleep_for(std::chrono::milliseconds(250));
                 continue;
             }
@@ -315,11 +321,15 @@ void android_main(struct android_app* app) {
 extern bool InitStreamLine();
 #endif
 
-int main(int argc, char* argv[]) {
-    try {
+int main(int argc, char* argv[]) 
+{
+    try 
+    {
         // Parse command-line arguments into Options.
         std::shared_ptr<Options> options = std::make_shared<Options>();
-        if (!UpdateOptionsFromCommandLine(*options, argc, argv)) {
+        
+        if (!UpdateOptionsFromCommandLine(*options, argc, argv)) 
+        {
             return 1;
         }
 
@@ -328,7 +338,8 @@ int main(int argc, char* argv[]) {
         // Spawn a thread to wait for a keypress
         static bool quitKeyPressed = false;
         static bool takeScreenShot = false;
-        auto exitPollingThread = std::thread{[] {
+        auto exitPollingThread = std::thread{[] 
+                                             {
             Log::Write(Log::Level::Info, "Press q to shutdown");
             int c = getchar();
 
@@ -341,7 +352,9 @@ int main(int argc, char* argv[]) {
         exitPollingThread.detach();
 
         bool requestRestart = false;
-        do {
+        
+        do 
+        {
 
 #if ENABLE_STREAMLINE
 			InitStreamLine();
@@ -373,14 +386,18 @@ int main(int argc, char* argv[]) {
             program->InitializeSession();
             program->CreateSwapchains();
 
-            while (!quitKeyPressed) {
+            while (!quitKeyPressed) 
+            {
                 bool exitRenderLoop = false;
                 program->PollEvents(&exitRenderLoop, &requestRestart);
-                if (exitRenderLoop) {
+                
+                if (exitRenderLoop) 
+                {
                     break;
                 }
 
-                if (program->IsSessionRunning()) {
+                if (program->IsSessionRunning()) 
+                {
 
 #if USE_SDL_JOYSTICKS
 					program->UpdateSDLJoysticks();
@@ -388,7 +405,9 @@ int main(int argc, char* argv[]) {
                     program->PollActions();
                     program->RenderFrame();
 
-                } else {
+                } 
+                else 
+                {
                     // Throttle loop since xrWaitFrame won't be called.
                     std::this_thread::sleep_for(std::chrono::milliseconds(250));
                 }
@@ -397,10 +416,14 @@ int main(int argc, char* argv[]) {
         } while (!quitKeyPressed && requestRestart);
 
         return 0;
-    } catch (const std::exception& ex) {
+    } 
+    catch (const std::exception& ex) 
+    {
         Log::Write(Log::Level::Error, ex.what());
         return 1;
-    } catch (...) {
+    } 
+    catch (...) 
+    {
         Log::Write(Log::Level::Error, "Unknown Error");
         return 1;
     }
