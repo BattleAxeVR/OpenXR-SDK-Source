@@ -264,6 +264,11 @@ void android_main(struct android_app* app)
         graphicsPlugin->UpdateOptions(options);
 
         program->InitializeDevice();
+        
+#if ENABLE_CLOUDXR
+        program->InitializeCloudXR();
+#endif
+        
         program->InitializeSession();
         program->CreateSwapchains();
 
@@ -288,6 +293,7 @@ void android_main(struct android_app* app)
             }
 
             program->PollEvents(&exitRenderLoop, &requestRestart);
+            
             if (exitRenderLoop) 
             {
                 ANativeActivity_finish(app->activity);
@@ -305,13 +311,31 @@ void android_main(struct android_app* app)
 #endif
 
             program->PollActions();
+
+#if ENABLE_CLOUDXR
+            program->UpdateCloudXR();
+#endif
+            
             program->RenderFrame();
+
+#if ENABLE_CLOUDXR
+            program->ReleaseCloudXRFrame();
+#endif
         }
 
+#if ENABLE_CLOUDXR
+        program->ShutdownCloudXR();
+#endif
+
         app->activity->vm->DetachCurrentThread();
-    } catch (const std::exception& ex) {
+        
+    } 
+    catch (const std::exception& ex) 
+    {
         Log::Write(Log::Level::Error, ex.what());
-    } catch (...) {
+    } 
+    catch (...) 
+    {
         Log::Write(Log::Level::Error, "Unknown Error");
     }
 }

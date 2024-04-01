@@ -1607,14 +1607,19 @@ struct OpenXrProgram : IOpenXrProgram
 		const bool init_ok = quad_layer_.init(width, height, format, m_graphicsPlugin, m_session, m_appSpace);
         assert(init_ok);
 #endif
+    }
 
 #if ENABLE_CLOUDXR
+    BVR::OKCloudSession ok_session_;
+    
+    bool InitializeCloudXR() override
+    {
         ok_session_.xr_instance_ = m_instance;
         ok_session_.xr_session_ = m_session;
-        
+
         ok_session_.base_space_ = m_worldReferenceSpace;
         ok_session_.head_space_ = m_viewReferenceSpace;
-        
+
         ok_session_.views_[LEFT_EYE] = m_views[LEFT_EYE];
         ok_session_.views_[RIGHT_EYE] = m_views[RIGHT_EYE];
 
@@ -1623,7 +1628,7 @@ struct OpenXrProgram : IOpenXrProgram
 
         ok_session_.ok_inputs_.gripPoseAction = m_input.poseAction;
         ok_session_.ok_inputs_.grabAction = m_input.grabAction;
-        
+
         ok_session_.ok_inputs_.aimPoseAction = m_input.poseAction;
         ok_session_.ok_inputs_.vibrateAction = m_input.vibrateAction;
 
@@ -1635,24 +1640,69 @@ struct OpenXrProgram : IOpenXrProgram
         ok_session_.ok_inputs_.aimSpace[Side::LEFT] = m_input.aimSpace[Side::LEFT];
         ok_session_.ok_inputs_.aimSpace[Side::RIGHT] = m_input.aimSpace[Side::RIGHT];
 #endif // ADD_AIM_POSE
-        
+
 #endif        // ENABLE_CLOUDXR_CONTROLLERS
-        
+
         const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
-        
+
         const XrGraphicsBindingOpenGLESAndroidKHR* gles =
                 reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(binding);
-        
+
         EGLDisplay egl_display = (void *)gles->display;
         EGLContext egl_context = (void *)gles->context;
-        
+
         ok_session_.ok_client_.ok_config_.app_directory_ = "/sdcard/Android/data/com.battleaxevr.ok_cloud_streamer.opengles/files/";
-        ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
-#endif
+        bool init_cxr_ok = ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
+        return init_cxr_ok;
     }
 
-#if ENABLE_CLOUDXR
-    BVR::OKCloudSession ok_session_;
+    bool UpdateCloudXR() override
+    {
+        static bool tried_yet = false;
+        const bool try_auto_connect = (m_input.handScale[Side::LEFT] < 0.6f) && !tried_yet;
+
+        if (ok_session_.ok_client_.is_ready_to_connect() && ok_session_.ok_client_.ok_config_.enable_auto_connect_ && try_auto_connect)
+        {
+            ok_session_.ok_client_.connect();
+            tried_yet = true;
+        }
+
+        if (ok_session_.ok_client_.is_connected())
+        {
+            bool latched_ok = ok_session_.ok_client_.latch_frame();
+            
+            if (latched_ok)
+            {
+                Log::Write(Log::Level::Info, "UpdateCloudXR LATCH SUCCESS");
+            }
+        }
+        
+        return true;
+    }
+    
+    bool BlitCloudXR(const int view_id, XrPosef& xr_eye_pose) override 
+    {
+        BVR::GLMPose eye_pose;
+        bool blit_ok = ok_session_.ok_client_.blit_frame(view_id, eye_pose);
+        
+        if (blit_ok)
+        {
+            Log::Write(Log::Level::Info, "BlitCloudXR BLIT SUCCESS");
+            xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
+        }
+        
+        return blit_ok;
+    }
+
+    void ReleaseCloudXRFrame() override
+    {
+        ok_session_.ok_client_.release_frame();
+    }
+    
+    void ShutdownCloudXR() override
+    {
+        ok_session_.ok_client_.shutdown_cxr();
+    }
 #endif
 
 #if USE_DUAL_LAYERS
@@ -3143,23 +3193,9 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if ENABLE_CLOUDXR
-        static bool tried_yet = false;
-        const bool try_auto_connect = (m_input.handScale[Side::LEFT] < 0.6f) && !tried_yet;
-        
-        if (ok_session_.ok_client_.is_ready_to_connect() && ok_session_.ok_client_.ok_config_.enable_auto_connect_ && try_auto_connect)
-        {
-            ok_session_.ok_client_.connect();
-            tried_yet = true;
-        }
-        
-        if (ok_session_.ok_client_.is_connected())
-        {
-            ok_session_.ok_client_.latch_frame();
-        }
-        
         if (ok_session_.ok_client_.is_latched_) 
         {
-            cubes.clear();
+            cubes.empty();
         }
 #endif
 
@@ -3221,11 +3257,10 @@ struct OpenXrProgram : IOpenXrProgram
             m_graphicsPlugin->RenderView(projectionLayerViews[view_id], swapchainImage, m_colorSwapchainFormat, cubes);
 
 #if ENABLE_CLOUDXR
-            BVR::GLMPose eye_pose;
+            XrPosef xr_eye_pose;
 
-            if (ok_session_.ok_client_.blit_frame(view_id, eye_pose))
+            if (BlitCloudXR(view_id, xr_eye_pose))
             {
-                XrPosef xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
                 projectionLayerViews[view_id].pose = xr_eye_pose;
             }
 #endif
@@ -3250,6 +3285,7 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
         layer.viewCount = (uint32_t)projectionLayerViews.size();
         layer.views = projectionLayerViews.data();
+
         return true;
     }
 

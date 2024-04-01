@@ -93,6 +93,14 @@ struct IOpenXrProgram
     virtual void ShutdownSDLJoySticks() = 0;
     virtual void UpdateSDLJoysticks() = 0;
 #endif
+
+#if ENABLE_CLOUDXR
+    virtual bool InitializeCloudXR() = 0;
+    virtual bool UpdateCloudXR() = 0;
+    virtual bool BlitCloudXR(const int view_id, XrPosef& xr_eye_pose) = 0;
+    virtual void ReleaseCloudXRFrame() = 0;
+    virtual void ShutdownCloudXR() = 0;
+#endif
 };
 
 struct Swapchain {
