@@ -1607,6 +1607,10 @@ struct OpenXrProgram : IOpenXrProgram
 		const bool init_ok = quad_layer_.init(width, height, format, m_graphicsPlugin, m_session, m_appSpace);
         assert(init_ok);
 #endif
+
+#if ENABLE_CLOUDXR
+        InitializeCloudXR();
+#endif
     }
 
 #if ENABLE_CLOUDXR
@@ -1630,12 +1634,14 @@ struct OpenXrProgram : IOpenXrProgram
             return false;
         }
         
+#if 0
         const bool receiver_ok = ok_session_.ok_client_.create_receiver();
 
         if (!receiver_ok)
         {
             return false;
         }
+#endif
         
         ok_session_.xr_instance_ = m_instance;
         ok_session_.xr_session_ = m_session;

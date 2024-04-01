@@ -267,7 +267,7 @@ void android_main(struct android_app* app)
         program->InitializeSession();
         program->CreateSwapchains();
 
-#if ENABLE_CLOUDXR
+#if (ENABLE_CLOUDXR && 0)
         program->InitializeCloudXR();
 #endif
 
