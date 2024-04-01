@@ -1614,14 +1614,40 @@ struct OpenXrProgram : IOpenXrProgram
     
     bool InitializeCloudXR() override
     {
+        const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
+
+        const XrGraphicsBindingOpenGLESAndroidKHR* gles =
+                reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(binding);
+
+        EGLDisplay egl_display = (void *)gles->display;
+        EGLContext egl_context = (void *)gles->context;
+
+        ok_session_.ok_client_.ok_config_.app_directory_ = "/sdcard/Android/data/com.battleaxevr.ok_cloud_streamer.opengles/files/";
+        const bool init_cxr_ok = ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
+        
+        if (!init_cxr_ok)
+        {
+            return false;
+        }
+        
+        const bool receiver_ok = ok_session_.ok_client_.create_receiver();
+
+        if (!receiver_ok)
+        {
+            return false;
+        }
+        
         ok_session_.xr_instance_ = m_instance;
         ok_session_.xr_session_ = m_session;
 
         ok_session_.base_space_ = m_worldReferenceSpace;
         ok_session_.head_space_ = m_viewReferenceSpace;
 
-        ok_session_.views_[LEFT_EYE] = m_views[LEFT_EYE];
-        ok_session_.views_[RIGHT_EYE] = m_views[RIGHT_EYE];
+        if (!m_views.empty())
+        {
+            ok_session_.views_[LEFT_EYE] = m_views[LEFT_EYE];
+            ok_session_.views_[RIGHT_EYE] = m_views[RIGHT_EYE];
+        }
 
 #if ENABLE_CLOUDXR_CONTROLLERS
         ok_session_.ok_inputs_.actionSet = m_input.actionSet;
@@ -1643,17 +1669,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 #endif        // ENABLE_CLOUDXR_CONTROLLERS
 
-        const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
-
-        const XrGraphicsBindingOpenGLESAndroidKHR* gles =
-                reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(binding);
-
-        EGLDisplay egl_display = (void *)gles->display;
-        EGLContext egl_context = (void *)gles->context;
-
-        ok_session_.ok_client_.ok_config_.app_directory_ = "/sdcard/Android/data/com.battleaxevr.ok_cloud_streamer.opengles/files/";
-        bool init_cxr_ok = ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
-        return init_cxr_ok;
+       return true;
     }
 
     bool UpdateCloudXR() override

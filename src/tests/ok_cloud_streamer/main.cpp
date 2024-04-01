@@ -264,13 +264,12 @@ void android_main(struct android_app* app)
         graphicsPlugin->UpdateOptions(options);
 
         program->InitializeDevice();
-        
+        program->InitializeSession();
+        program->CreateSwapchains();
+
 #if ENABLE_CLOUDXR
         program->InitializeCloudXR();
 #endif
-        
-        program->InitializeSession();
-        program->CreateSwapchains();
 
         while (app->destroyRequested == 0) 
         {
