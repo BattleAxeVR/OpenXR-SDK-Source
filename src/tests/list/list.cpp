@@ -73,7 +73,8 @@ int main() {
     instanceCreateInfo.applicationInfo.applicationVersion = 1;
     strncpy(instanceCreateInfo.applicationInfo.engineName, "List Engine", XR_MAX_ENGINE_NAME_SIZE);
     instanceCreateInfo.applicationInfo.engineVersion = 1;
-    instanceCreateInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+    // Current version is 1.1.x, but this app only requires 1.0.x
+    instanceCreateInfo.applicationInfo.apiVersion = XR_API_VERSION_1_0;
 
     if (xrCreateInstance(&instanceCreateInfo, &program.instance) != XR_SUCCESS) {
         fprintf(stderr, "Failed to create XR instance.\n");

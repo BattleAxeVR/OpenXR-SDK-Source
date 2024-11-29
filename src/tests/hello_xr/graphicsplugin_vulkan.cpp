@@ -1178,7 +1178,8 @@ void Swapchain::Create(VkInstance instance, VkPhysicalDevice physDevice, VkDevic
     CHECK_VKCMD(vkGetPhysicalDeviceSurfaceFormatsKHR(m_vkPhysicalDevice, surface, &surfFmtCount, &surfFmts[0]));
     uint32_t foundFmt;
     for (foundFmt = 0; foundFmt < surfFmtCount; ++foundFmt) {
-        if (surfFmts[foundFmt].format == format) break;
+        if (surfFmts[foundFmt].format == format) 
+            break;
     }
 
     CHECK(foundFmt < surfFmtCount);
@@ -1386,6 +1387,16 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 #endif  // defined(VK_USE_PLATFORM_WIN32_KHR)
 #endif  // defined(USE_MIRROR_WINDOW)
 
+        VkDebugUtilsMessengerCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+        debugInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+#if !defined(NDEBUG)
+        debugInfo.messageSeverity |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+#endif
+        debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugInfo.pfnUserCallback = debugMessageThunk;
+        debugInfo.pUserData = this;
+
         VkApplicationInfo appInfo{VK_STRUCTURE_TYPE_APPLICATION_INFO};
         appInfo.pApplicationName = "hello_xr";
         appInfo.applicationVersion = 1;
@@ -1394,6 +1405,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         appInfo.apiVersion = VK_API_VERSION_1_0;
 
         VkInstanceCreateInfo instInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+        instInfo.pNext = &debugInfo;
         instInfo.pApplicationInfo = &appInfo;
         instInfo.enabledLayerCount = (uint32_t)layers.size();
         instInfo.ppEnabledLayerNames = layers.empty() ? nullptr : layers.data();
@@ -1410,21 +1422,8 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 
         vkCreateDebugUtilsMessengerEXT =
             (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_vkInstance, "vkCreateDebugUtilsMessengerEXT");
-        vkDestroyDebugUtilsMessengerEXT =
-            (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_vkInstance, "vkDestroyDebugUtilsMessengerEXT");
 
-        if (vkCreateDebugUtilsMessengerEXT != nullptr && vkDestroyDebugUtilsMessengerEXT != nullptr) {
-            VkDebugUtilsMessengerCreateInfoEXT debugInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
-            debugInfo.messageSeverity =
-                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-#if !defined(NDEBUG)
-            debugInfo.messageSeverity |=
-                VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
-#endif
-            debugInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-            debugInfo.pfnUserCallback = debugMessageThunk;
-            debugInfo.pUserData = this;
+        if (vkCreateDebugUtilsMessengerEXT != nullptr) {
             CHECK_VKCMD(vkCreateDebugUtilsMessengerEXT(m_vkInstance, &debugInfo, nullptr, &m_vkDebugUtilsMessenger));
         }
 
@@ -1564,8 +1563,13 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 
     int64_t SelectColorSwapchainFormat(const std::vector<int64_t>& runtimeFormats) const override {
         // List of supported color swapchain formats.
+        
+#if ENABLE_HDR_SWAPCHAIN
+        constexpr int64_t SupportedColorSwapchainFormats[] = {VK_FORMAT_R16G16B16A16_SFLOAT};
+#else
         constexpr int64_t SupportedColorSwapchainFormats[] = {VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_SRGB,
                                                               VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM};
+#endif
 
         auto swapchainFormatIt =
             std::find_first_of(runtimeFormats.begin(), runtimeFormats.end(), std::begin(SupportedColorSwapchainFormats),
@@ -1725,66 +1729,69 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 
         vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-        vkCmdBindPipeline(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, swapchainContext->pipe.pipe);
+        if(!cubes.empty())
+        {
+            vkCmdBindPipeline(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, swapchainContext->pipe.pipe);
 
-        // Bind index and vertex buffers
-        vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_drawBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
-        VkDeviceSize offset = 0;
-        vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_drawBuffer.vtxBuf, &offset);
+            // Bind index and vertex buffers
+            vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_drawBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
+            VkDeviceSize offset = 0;
+            vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_drawBuffer.vtxBuf, &offset);
 
-        // Compute the view-projection transform.
-        // Note all matrices (including OpenXR's) are column-major, right-handed.
-        const XrPosef& pose = layerView.pose;
+            // Compute the view-projection transform.
+            // Note all matrixes (including OpenXR's) are column-major, right-handed.
+            const auto& pose = layerView.pose;
 
-        XrMatrix4x4f proj;
-        XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, 0.05f, 100.0f);
-        
-        XrMatrix4x4f toView;
-        XrVector3f scale{1.f, 1.f, 1.f};
+            XrMatrix4x4f proj;
+            XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_VULKAN, layerView.fov, 0.05f, 100.0f);
 
-        XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
+            XrMatrix4x4f toView;
+            XrVector3f scale{ 1.f, 1.f, 1.f };
 
-        XrMatrix4x4f view;
-        XrMatrix4x4f_InvertRigidBody(&view, &toView);
-        
+            XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
+
+            XrMatrix4x4f view;
+            XrMatrix4x4f_InvertRigidBody(&view, &toView);
+
 #if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
-        const XrPosef xr_local_eye_pose = layerView.pose;
-		const BVR::GLMPose local_eye_pose = BVR::convert_to_glm(xr_local_eye_pose);
+            const XrPosef xr_local_eye_pose = layerView.pose;
+            const BVR::GLMPose local_eye_pose = BVR::convert_to_glm(xr_local_eye_pose);
 
-		const glm::vec3 local_hmd_to_eye = local_eye_pose.translation_ - local_hmd_pose.translation_;
-		const glm::vec3 world_hmd_to_eye = player_pose.rotation_ * local_hmd_to_eye;
+            const glm::vec3 local_hmd_to_eye = local_eye_pose.translation_ - local_hmd_pose.translation_;
+            const glm::vec3 world_hmd_to_eye = player_pose.rotation_ * local_hmd_to_eye;
 
-		const glm::vec3 world_hmd_offset = player_pose.rotation_ * local_hmd_pose.translation_;
-		const glm::vec3 world_hmd_position = player_pose.translation_ + world_hmd_offset;
+            const glm::vec3 world_hmd_offset = player_pose.rotation_ * local_hmd_pose.translation_;
+            const glm::vec3 world_hmd_position = player_pose.translation_ + world_hmd_offset;
 
-		const glm::vec3 world_eye_position = world_hmd_position + world_hmd_to_eye;
-		const glm::fquat world_orientation = glm::normalize(player_pose.rotation_ * local_hmd_pose.rotation_);
+            const glm::vec3 world_eye_position = world_hmd_position + world_hmd_to_eye;
+            const glm::fquat world_orientation = glm::normalize(player_pose.rotation_ * local_hmd_pose.rotation_);
 
-        BVR::GLMPose world_eye_pose;
-		world_eye_pose.translation_ = world_eye_position;
-		world_eye_pose.rotation_ = world_orientation;
+            BVR::GLMPose world_eye_pose;
+            world_eye_pose.translation_ = world_eye_position;
+            world_eye_pose.rotation_ = world_orientation;
 
-		const glm::mat4 inverse_view_glm = world_eye_pose.to_matrix();
-		const glm::mat4 view_glm = glm::inverse(inverse_view_glm);
+            const glm::mat4 inverse_view_glm = world_eye_pose.to_matrix();
+            const glm::mat4 view_glm = glm::inverse(inverse_view_glm);
 
-        view = BVR::convert_to_xr(view_glm);
+            view = BVR::convert_to_xr(view_glm);
 #endif
 
-        XrMatrix4x4f vp;
-        XrMatrix4x4f_Multiply(&vp, &proj, &view);
+            XrMatrix4x4f vp;
+            XrMatrix4x4f_Multiply(&vp, &proj, &view);
 
-        // Render each cube
-        for (const Cube& cube : cubes) 
-        {
-            // Compute the model-view-projection transform and push it.
-            XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
-            XrMatrix4x4f mvp;
-            XrMatrix4x4f_Multiply(&mvp, &vp, &model);
-            vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mvp.m), &mvp.m[0]);
+            // Render each cube
+            for(const Cube& cube : cubes)
+            {
+                // Compute the model-view-projection transform and push it.
+                XrMatrix4x4f model;
+                XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
+                XrMatrix4x4f mvp;
+                XrMatrix4x4f_Multiply(&mvp, &vp, &model);
+                vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mvp.m), &mvp.m[0]);
 
-            // Draw the cube.
-            vkCmdDrawIndexed(m_cmdBuffer.buf, m_drawBuffer.count.idx, 1, 0, 0, 0);
+                // Draw the cube.
+                vkCmdDrawIndexed(m_cmdBuffer.buf, m_drawBuffer.count.idx, 1, 0, 0, 0);
+            }
         }
 
         vkCmdEndRenderPass(m_cmdBuffer.buf);
@@ -1796,10 +1803,54 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         // Cycle the window's swapchain on the last view rendered
         if (swapchainContext == &m_swapchainImageContexts.back()) {
             m_swapchain.Acquire();
+            m_swapchain.Wait();
             m_swapchain.Present(m_vkQueue);
         }
 #endif
     }
+
+    void ClearView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage) override
+    {
+        (void)layerView;
+        (void)swapchainImage;
+
+        CHECK(layerView.subImage.imageArrayIndex == 0);  // Texture arrays not supported.
+
+        auto swapchainContext = m_swapchainImageContextMap[swapchainImage];
+        uint32_t imageIndex = swapchainContext->ImageIndex(swapchainImage);
+
+        // XXX Should double-buffer the command buffers, for now just flush
+        m_cmdBuffer.Wait();
+        m_cmdBuffer.Reset();
+        m_cmdBuffer.Begin();
+
+        // Ensure depth is in the right layout
+        swapchainContext->depthBuffer.TransitionLayout(&m_cmdBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+        // Bind and clear eye render target
+        static std::array<VkClearValue, 2> clearValues;
+        clearValues[0].color.float32[0] = m_clearColor[0];
+        clearValues[0].color.float32[1] = m_clearColor[1];
+        clearValues[0].color.float32[2] = m_clearColor[2];
+        clearValues[0].color.float32[3] = m_clearColor[3];
+        clearValues[1].depthStencil.depth = 1.0f;
+        clearValues[1].depthStencil.stencil = 0;
+
+        VkRenderPassBeginInfo renderPassBeginInfo{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+        renderPassBeginInfo.clearValueCount = (uint32_t)clearValues.size();
+        renderPassBeginInfo.pClearValues = clearValues.data();
+
+        swapchainContext->BindRenderTarget(imageIndex, &renderPassBeginInfo);
+
+        vkCmdBeginRenderPass(m_cmdBuffer.buf, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        
+        // Do nothing...
+
+        vkCmdEndRenderPass(m_cmdBuffer.buf);
+
+        m_cmdBuffer.End();
+        m_cmdBuffer.Exec(m_vkQueue);
+    }   
 
     uint32_t GetSupportedSwapchainSampleCount(const XrViewConfigurationView&) override { return VK_SAMPLE_COUNT_1_BIT; }
 
@@ -1836,7 +1887,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
 #endif
 
     PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT{nullptr};
-    PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT{nullptr};
     VkDebugUtilsMessengerEXT m_vkDebugUtilsMessenger{VK_NULL_HANDLE};
 
     static std::string vkObjectTypeToString(VkObjectType objectType) {
@@ -1991,6 +2041,19 @@ struct VulkanGraphicsPluginLegacy : public VulkanGraphicsPlugin {
     virtual XrStructureType GetGraphicsBindingType() const override { return XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR; }
     virtual XrStructureType GetSwapchainImageType() const override { return XR_TYPE_SWAPCHAIN_IMAGE_VULKAN_KHR; }
 
+    static void LogVulkanExtensions(const std::string title, const std::vector<const char*>& extensions, unsigned int start = 0) {
+        const std::string indentStr(1, ' ');
+
+        Log::Write(Log::Level::Verbose, Fmt("%s: (%d)", title.c_str(), extensions.size() - start));
+        for (auto ext : extensions) {
+            if (start) {
+                start--;
+                continue;
+            }
+            Log::Write(Log::Level::Verbose, Fmt("%s  Name=%s", indentStr.c_str(), ext));
+        }
+    }
+
     virtual XrResult CreateVulkanInstanceKHR(XrInstance instance, const XrVulkanInstanceCreateInfoKHR* createInfo,
                                              VkInstance* vulkanInstance, VkResult* vulkanResult) override {
         PFN_xrGetVulkanInstanceExtensionsKHR pfnGetVulkanInstanceExtensionsKHR = nullptr;
@@ -2020,6 +2083,8 @@ struct VulkanGraphicsPluginLegacy : public VulkanGraphicsPlugin {
             for (uint32_t i = 0; i < createInfo->vulkanCreateInfo->enabledExtensionCount; ++i) {
                 extensions.push_back(createInfo->vulkanCreateInfo->ppEnabledExtensionNames[i]);
             }
+            LogVulkanExtensions("Vulkan Instance Extensions, requested by application", extensions,
+                                (uint32_t)extensions.size() - createInfo->vulkanCreateInfo->enabledExtensionCount);
 
             VkInstanceCreateInfo instInfo{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
             memcpy(&instInfo, createInfo->vulkanCreateInfo, sizeof(instInfo));
@@ -2109,6 +2174,8 @@ struct VulkanGraphicsPluginLegacy : public VulkanGraphicsPlugin {
             for (uint32_t i = 0; i < createInfo->vulkanCreateInfo->enabledExtensionCount; ++i) {
                 extensions.push_back(createInfo->vulkanCreateInfo->ppEnabledExtensionNames[i]);
             }
+            LogVulkanExtensions("Vulkan Device Extensions, requested by application", extensions,
+                                (uint32_t)extensions.size() - createInfo->vulkanCreateInfo->enabledExtensionCount);
 
             VkPhysicalDeviceFeatures features{};
             memcpy(&features, createInfo->vulkanCreateInfo->pEnabledFeatures, sizeof(features));

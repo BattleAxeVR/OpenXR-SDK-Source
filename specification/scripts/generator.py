@@ -19,7 +19,7 @@ try:
     from pathlib import Path
 except ImportError:
     # For limited python 2 compat as used by some Vulkan consumers
-    from pathlib2 import Path # type: ignore
+    from pathlib2 import Path  # type: ignore
 
 from spec_tools.util import getElemName, getElemType
 
@@ -66,9 +66,8 @@ def regSortCategoryKey(feature):
             return 0.5
         else:
             return 0
-    if (feature.category == 'ARB'
-        or feature.category == 'KHR'
-            or feature.category == 'OES'):
+
+    if feature.category.upper() in ('ARB', 'KHR', 'OES'):
         return 1
 
     return 2
@@ -119,7 +118,7 @@ class MissingGeneratorOptionsError(RuntimeError):
     def __init__(self, msg=None):
         full_msg = 'Missing generator options object self.genOpts'
         if msg:
-            full_msg += ': ' + msg
+            full_msg += f": {msg}"
         super().__init__(full_msg)
 
 
@@ -129,7 +128,7 @@ class MissingRegistryError(RuntimeError):
     def __init__(self, msg=None):
         full_msg = 'Missing Registry object self.registry'
         if msg:
-            full_msg += ': ' + msg
+            full_msg += f": {msg}"
         super().__init__(full_msg)
 
 
@@ -139,7 +138,7 @@ class MissingGeneratorOptionsConventionsError(RuntimeError):
     def __init__(self, msg=None):
         full_msg = 'Missing Conventions object self.genOpts.conventions'
         if msg:
-            full_msg += ': ' + msg
+            full_msg += f": {msg}"
         super().__init__(full_msg)
 
 
@@ -155,6 +154,7 @@ class GeneratorOptions:
                  directory='.',
                  genpath=None,
                  apiname=None,
+                 mergeApiNames=None,
                  profile=None,
                  versions='.*',
                  emitversions='.*',
@@ -164,11 +164,13 @@ class GeneratorOptions:
                  emitExtensions=None,
                  emitSpirv=None,
                  emitFormats=None,
+                 emitComments=False,
                  emitRecursiveRequirements=True,
                  reparentEnums=True,
                  sortProcedure=regSortFeatures,
                  requireCommandAliases=False,
                  redefineEnumExtends=False,
+                 requireDepends=True,
                 ):
         """Constructor.
 
@@ -180,6 +182,8 @@ class GeneratorOptions:
         - directory - directory in which to generate filename
         - genpath - path to previously generated files, such as apimap.py
         - apiname - string matching `<api>` 'apiname' attribute, e.g. 'gl'.
+        - mergeApiNames - If not None, a comma separated list of API names
+          to merge into the API specified by 'apiname'
         - profile - string specifying API profile , e.g. 'core', or None.
         - versions - regex matching API versions to process interfaces for.
         Normally `'.*'` or `'[0-9][.][0-9]'` to match all defined versions.
@@ -209,6 +213,11 @@ class GeneratorOptions:
         or <extension> being complete. Defaults to True.
         - sortProcedure - takes a list of FeatureInfo objects and sorts
         them in place to a preferred order in the generated output.
+        - requireCommandAliases - if True, treat command aliases
+        as required dependencies.
+        - requireDepends - whether to follow API dependencies when emitting
+        APIs.
+
         Default is
           - core API versions
           - Khronos (ARB/KHR/OES) extensions
@@ -238,6 +247,9 @@ class GeneratorOptions:
 
         self.apiname = apiname
         "string matching `<api>` 'apiname' attribute, e.g. 'gl'."
+
+        self.mergeApiNames = mergeApiNames
+        "comma separated list of API names to merge into the API specified by 'apiname'"
 
         self.profile = profile
         "string specifying API profile , e.g. 'core', or None."
@@ -279,6 +291,10 @@ class GeneratorOptions:
         """regex matching names of formats
         to actually emit interfaces for."""
 
+        self.emitComments = emitComments
+        """boolean specifying whether to include xml <comment>
+        elements and comment="" parameters in the generated code"""
+
         self.emitRecursiveRequirements = emitRecursiveRequirements
         """boolean specifying whether to emit types that are referenced
         by required types or commands (recursively)"""
@@ -310,6 +326,9 @@ class GeneratorOptions:
         as a constant cast to the right type. This only makes sense if you're
         generating a standalone header which won't include the actual enum type
         """
+
+        self.requireDepends = requireDepends
+        """True if dependencies of API tags are transitively required."""
 
     def emptyRegex(self, pat):
         """Substitute a regular expression which matches no version
@@ -346,7 +365,7 @@ class OutputGenerator:
         )
 
         if name in bad and True:
-            print('breakName {}: {}'.format(name, msg))
+            print(f'breakName {name}: {msg}')
             pdb.set_trace()
 
     def __init__(self, errFile=sys.stderr, warnFile=sys.stderr, diagFile=sys.stdout):
@@ -380,6 +399,9 @@ class OutputGenerator:
         # derived generators.
         self.apidict = None
 
+        # File suffix for generated files, set in beginFile below.
+        self.file_suffix = ''
+
     def logMsg(self, level, *args):
         """Write a message of different categories to different
         destinations.
@@ -404,7 +426,7 @@ class OutputGenerator:
                 write('DIAG:', *args, file=self.diagFile)
         else:
             raise UserWarning(
-                '*** FATAL ERROR in Generator.logMsg: unknown level:' + level)
+                f"*** FATAL ERROR in Generator.logMsg: unknown level:{level}")
 
     def enumToValue(self, elem, needsNum, bitwidth = 32,
                     forceSuffix = False, parent_for_alias_dereference=None):
@@ -457,20 +479,20 @@ class OutputGenerator:
             #     value += enuminfo.type
             if forceSuffix:
               if bitwidth == 64:
-                value = value + 'ULL'
+                value = f"{value}ULL"
               else:
-                value = value + 'U'
+                value = f"{value}U"
             self.logMsg('diag', 'Enum', name, '-> value [', numVal, ',', value, ']')
             return [numVal, value]
         if 'bitpos' in elem.keys():
             value = elem.get('bitpos')
             bitpos = int(value, 0)
             numVal = 1 << bitpos
-            value = '0x%08x' % numVal
+            value = f'0x{numVal:08x}'
             if bitwidth == 64 or bitpos >= 32:
-              value = value + 'ULL'
+              value = f"{value}ULL"
             elif forceSuffix:
-              value = value + 'U'
+              value = f"{value}U"
             self.logMsg('diag', 'Enum', name, '-> bitpos [', numVal, ',', value, ']')
             return [numVal, value]
         if 'offset' in elem.keys():
@@ -546,9 +568,8 @@ class OutputGenerator:
                 # still add this enum to the list.
                 (name2, numVal2, strVal2) = valueMap[numVal]
 
-                msg = 'Two enums found with the same value: {} = {} = {}'.format(
-                    name, name2.get('name'), strVal)
-                self.logMsg('error', msg)
+                self.logMsg('error', 'Two enums found with the same value: %s = %s = %s',
+                            name, name2.get('name'), strVal)
 
             # Track this enum to detect followon duplicates
             nameMap[name] = [elem, numVal, strVal]
@@ -588,20 +609,30 @@ class OutputGenerator:
         flagTypeName = groupinfo.flagType.elem.get('name')
 
         # Prefix
-        body = "// Flag bits for " + flagTypeName + "\n"
+        body = f"// Flag bits for {flagTypeName}\n"
+        groupComment = groupElem.get('comment')
+        if groupComment and self.genOpts.emitComments:
+            body += self.makeCComment(groupComment)
 
         # Loop over the nested 'enum' tags.
         for elem in groupElem.findall('enum'):
-            # Convert the value to an integer and use that to track min/max.
-            # Values of form -(number) are accepted but nothing more complex.
-            # Should catch exceptions here for more complex constructs. Not yet.
-            (_, strVal) = self.enumToValue(elem, True, parent_for_alias_dereference=groupElem)
-            alias_of = elem.get('alias')
-            name = elem.get('name')
-            body += "static const {} {} = {};".format(flagTypeName, name, strVal)
-            if alias_of is not None:
-                body += "  // alias of {}".format(alias_of)
-            body += "\n"
+            if elem.tag == "enum":
+                # Convert the value to an integer and use that to track min/max.
+                # Values of form -(number) are accepted but nothing more complex.
+                # Should catch exceptions here for more complex constructs. Not yet.
+                (_, strVal) = self.enumToValue(elem, True, parent_for_alias_dereference=groupElem)
+                alias_of = elem.get('alias')
+                name = elem.get('name')
+                if self.genOpts.emitComments:
+                    comment = elem.get('comment')
+                    if comment:
+                        body += self.makeCComment(comment)
+                body += f"static const {flagTypeName} {name} = {strVal};"
+                if alias_of is not None:
+                    body += f"  // alias of {alias_of}"
+                body += "\n"
+            elif elem.tag == "comment" and self.genOpts.emitComments:
+                body += self.makeCComment(elem.text)
 
         # Postfix
 
@@ -618,12 +649,16 @@ class OutputGenerator:
         expandSuffix = ''
         expandSuffixMatch = re.search(r'[A-Z][A-Z]+$', groupName)
         if expandSuffixMatch:
-            expandSuffix = '_' + expandSuffixMatch.group()
+            expandSuffix = f"_{expandSuffixMatch.group()}"
             # Strip off the suffix from the prefix
             expandPrefix = expandName.rsplit(expandSuffix, 1)[0]
 
         # Prefix
-        body = ["typedef enum %s {" % groupName]
+        body = []
+        comment = groupElem.get('comment')
+        if comment and self.genOpts.emitComments:
+            body.append(self.makeCComment(comment).rstrip())
+        body.append("typedef enum %s {" % groupName)
 
         # @@ Should use the type="bitmask" attribute instead
         isEnum = ('FLAG_BITS' not in expandPrefix)
@@ -654,52 +689,60 @@ class OutputGenerator:
         maxName = None
         minValue = None
         maxValue = None
-        for elem in enums:
-            # Convert the value to an integer and use that to track min/max.
-            # Values of form -(number) are accepted but nothing more complex.
-            # Should catch exceptions here for more complex constructs. Not yet.
-            (numVal, strVal) = self.enumToValue(elem, True)
-            name = elem.get('name')
+        for elem in list(groupElem):
+            if elem.tag == 'enum' and elem in enums:
+                # Convert the value to an integer and use that to track min/max.
+                # Values of form -(number) are accepted but nothing more complex.
+                # Should catch exceptions here for more complex constructs. Not yet.
+                (numVal, strVal) = self.enumToValue(elem, True)
+                name = elem.get('name')
 
-            # Extension enumerants are only included if they are required
-            if self.isEnumRequired(elem):
-                decl = ''
+                # Extension enumerants are only included if they are required
+                if self.isEnumRequired(elem):
+                    decl = ''
 
-                protect = elem.get('protect')
-                if protect is not None:
-                    decl += '#ifdef {}\n'.format(protect)
+                    if self.genOpts.emitComments:
+                        comment = elem.get('comment')
+                        if comment:
+                            decl += self.makeCComment(comment, indents = 1)
 
-                # Indent requirements comment, if there is one
-                requirements = self.genRequirements(name, mustBeFound = False)
-                if requirements != '':
-                    requirements = '  ' + requirements
-                decl += requirements
-                decl += '    {} = {},'.format(name, strVal)
+                    protect = elem.get('protect')
+                    if protect is not None:
+                        decl += f'#ifdef {protect}\n'
 
-                if protect is not None:
-                    decl += '\n#endif'
+                    # Indent requirements comment, if there is one
+                    requirements = self.genRequirements(name, mustBeFound = False)
+                    if requirements != '':
+                        requirements = f"  {requirements}"
+                    decl += requirements
+                    decl += f'    {name} = {strVal},'
 
-                if numVal is not None:
-                    body.append(decl)
-                else:
-                    aliasText.append(decl)
+                    if protect is not None:
+                        decl += '\n#endif'
 
-            # Range check for the enum value
-            if numVal is not None and (numVal > maxValidValue or numVal < minValidValue):
-                self.logMsg('error', 'Allowable range for C enum types is [', minValidValue, ',', maxValidValue, '], but', name, 'has a value outside of this (', strVal, ')\n')
-                exit(1)
+                    if numVal is not None:
+                        body.append(decl)
+                    else:
+                        aliasText.append(decl)
 
-            # Do not track min/max for non-numbers (numVal is None)
-            if isEnum and numVal is not None and elem.get('extends') is None:
-                if minName is None:
-                    minName = maxName = name
-                    minValue = maxValue = numVal
-                elif minValue is None or numVal < minValue:
-                    minName = name
-                    minValue = numVal
-                elif maxValue is None or numVal > maxValue:
-                    maxName = name
-                    maxValue = numVal
+                # Range check for the enum value
+                if numVal is not None and (numVal > maxValidValue or numVal < minValidValue):
+                    self.logMsg('error', 'Allowable range for C enum types is [', minValidValue, ',', maxValidValue, '], but', name, 'has a value outside of this (', strVal, ')\n')
+                    exit(1)
+
+                # Do not track min/max for non-numbers (numVal is None)
+                if isEnum and numVal is not None and elem.get('extends') is None:
+                    if minName is None:
+                        minName = maxName = name
+                        minValue = maxValue = numVal
+                    elif minValue is None or numVal < minValue:
+                        minName = name
+                        minValue = numVal
+                    elif maxValue is None or numVal > maxValue:
+                        maxName = name
+                        maxValue = numVal
+            elif elem.tag == 'comment' and self.genOpts.emitComments:
+                body.append(self.makeCComment(elem.text, indents = 1).rstrip())
 
         # Now append the non-numeric enumerant values
         body.extend(aliasText)
@@ -734,6 +777,13 @@ class OutputGenerator:
         <enum> tags may specify their values in several ways, but are
         usually just integers or floating-point numbers."""
 
+        prefix = ''
+        if self.genOpts.emitComments:
+            comment = enuminfo.elem.get('comment')
+            if comment:
+                prefix  += self.makeCComment(comment)
+
+
         (_, strVal) = self.enumToValue(enuminfo.elem, False)
 
         if self.misracppstyle() and enuminfo.elem.get('type') and not alias:
@@ -745,8 +795,8 @@ class OutputGenerator:
             if typeStr != "float":
                 number += 'U'
             strVal = "~" if invert else ""
-            strVal += "static_cast<" + typeStr + ">(" + number + ")"
-            body = 'static constexpr ' + typeStr.ljust(9) + name.ljust(33) + ' {' + strVal + '};'
+            strVal += f"static_cast<{typeStr}>({number})"
+            body = f"static constexpr {typeStr.ljust(9)}{name.ljust(33)} {{{strVal}}};"
         elif enuminfo.elem.get('type') and not alias:
             # Generate e.g.: #define x (~0ULL)
             typeStr = enuminfo.elem.get('type');
@@ -761,8 +811,8 @@ class OutputGenerator:
             strVal = "~" if invert else ""
             strVal += number
             if paren:
-                strVal = "(" + strVal + ")";
-            body = '#define ' + name.ljust(33) + ' ' + strVal;
+                strVal = f"({strVal})";
+            body = f"#define {name.ljust(33)} {strVal}";
         elif self.genOpts.redefineEnumExtends and enuminfo.elem.get('extends'):
             # <enum> tags with an extends field is usually
             # absorbed into the actual enum definition
@@ -778,19 +828,19 @@ class OutputGenerator:
             strVal = "~" if invert else ""
             strVal += number
             if paren:
-                strVal = "(" + strVal + ")"
-            strVal = "((" + typeStr + ") "+ strVal + ")"
-            body = '#define ' + name.ljust(33) + ' ' + strVal
+                strVal = f"({strVal})"
+            strVal = f"(({typeStr}) {strVal})"
+            body = f"#define {name.ljust(33)} {strVal}"
         else:
-            body = '#define ' + name.ljust(33) + ' ' + strVal
+            body = f"#define {name.ljust(33)} {strVal}"
 
-        return body
+        return prefix + body
 
     def makeDir(self, path: Path):
         """Create a directory, if not already done.
 
         Generally called from derived generators creating hierarchies."""
-        self.logMsg('diag', 'OutputGenerator::makeDir(' + str(path) + ')')
+        self.logMsg('diag', f"OutputGenerator::makeDir({str(path)})")
         if path not in self.madeDirs:
             # This can get race conditions with multiple writers, see
             # https://stackoverflow.com/questions/273192/
@@ -810,6 +860,7 @@ class OutputGenerator:
             raise MissingGeneratorOptionsConventionsError()
         self.should_insert_may_alias_macro = \
             self.genOpts.conventions.should_insert_may_alias_macro(self.genOpts)
+        self.file_suffix = self.genOpts.conventions.file_suffix
 
         # Try to import the API dictionary, apimap.py, if it exists. Nothing
         # in apimap.py cannot be extracted directly from the XML, and in the
@@ -958,6 +1009,30 @@ class OutputGenerator:
         Extend to generate as desired in your derived class."""
         return
 
+    def genSyncStage(self, stageinfo):
+        """Generate interface for a sync stage element.
+
+        - stageinfo - SyncStageInfo
+
+        Extend to generate as desired in your derived class."""
+        return
+
+    def genSyncAccess(self, accessinfo):
+        """Generate interface for a sync stage element.
+
+        - accessinfo - AccessInfo
+
+        Extend to generate as desired in your derived class."""
+        return
+
+    def genSyncPipeline(self, pipelineinfo):
+        """Generate interface for a sync stage element.
+
+        - pipelineinfo - SyncPipelineInfo
+
+        Extend to generate as desired in your derived class."""
+        return
+
     def makeProtoName(self, name, tail):
         """Turn a `<proto>` `<name>` into C-language prototype
         and typedef declarations for that name.
@@ -972,7 +1047,7 @@ class OutputGenerator:
         """Make the function-pointer typedef name for a command."""
         if self.genOpts is None:
             raise MissingGeneratorOptionsError()
-        return '(' + self.genOpts.apientryp + 'PFN_' + name + tail + ')'
+        return f"({self.genOpts.apientryp}PFN_{name}{tail})"
 
     def makeCParamDecl(self, param, aligncol):
         """Return a string which is an indented, formatted
@@ -1005,14 +1080,14 @@ class OutputGenerator:
                 # This works around a problem where very long type names -
                 # longer than the alignment column - would run into the tail
                 # text.
-                paramdecl = paramdecl.ljust(aligncol - 1) + ' '
+                paramdecl = f"{paramdecl.ljust(aligncol - 1)} "
                 newLen = len(paramdecl)
                 self.logMsg('diag', 'Adjust length of parameter decl from', oldLen, 'to', newLen, ':', paramdecl)
 
             if (self.misracppstyle() and prefix.find('const ') != -1):
                 # Change pointer type order from e.g. "const void *" to "void const *".
                 # If the string starts with 'const', reorder it to be after the first type.
-                paramdecl += prefix.replace('const ', '') + text + ' const' + tail
+                paramdecl += f"{prefix.replace('const ', '') + text} const{tail}"
             else:
                 paramdecl += prefix + text + tail
 
@@ -1039,7 +1114,7 @@ class OutputGenerator:
 
         # Allow for missing <name> tag
         newLen = 0
-        paramdecl = '    ' + noneStr(param.text)
+        paramdecl = f"    {noneStr(param.text)}"
         for elem in param:
             text = noneStr(elem.text)
             tail = noneStr(elem.tail)
@@ -1198,6 +1273,13 @@ class OutputGenerator:
 
         return required
 
+    def makeCComment(self, comment, indents = 0):
+        commentString = ''
+        for line in comment.split('\n'):
+            commentString += indents * '    ' + '// ' + line.strip() + '\n'
+
+        return commentString
+
     def makeCDecls(self, cmd):
         """Return C prototype and function pointer typedef for a
         `<command>` Element, as a two-element list of strings.
@@ -1207,6 +1289,15 @@ class OutputGenerator:
             raise MissingGeneratorOptionsError()
         proto = cmd.find('proto')
         params = cmd.findall('param')
+        comments = cmd.findall('comment')
+
+        # Optionally add <comment> elements
+        # as a C style comment above func definition
+        funcComment = ''
+        if self.genOpts.emitComments:
+            for c in comments:
+                funcComment  += self.makeCComment(c.text)
+
         # Begin accumulating prototype and typedef strings
         pdecl = self.genOpts.apicall
         tdecl = 'typedef '
@@ -1270,7 +1361,7 @@ class OutputGenerator:
                             # Change pointer type order from e.g. "const void *" to "void const *".
                             # If the string starts with 'const', reorder it to be after the first type.
                             if (prefix.find('const ') != -1):
-                                param += prefix.replace('const ', '') + t + ' const '
+                                param += f"{prefix.replace('const ', '') + t} const "
                             else:
                                 param += prefix + t
                             # Clear prefix for subsequent iterations
@@ -1283,7 +1374,7 @@ class OutputGenerator:
         else:
             paramdecl += 'void'
         paramdecl += ");"
-        return [pdecl + indentdecl, tdecl + paramdecl]
+        return [funcComment + pdecl + indentdecl, tdecl + paramdecl]
 
     def newline(self):
         """Print a newline to the output file (utility function)"""

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "openxr/openxr.h"
 #include "pch.h"
 #include "common.h"
 #include "options.h"
@@ -15,15 +16,8 @@
 #include <set>
 
 #if ENABLE_STREAMLINE
-#include <sl.h>
-#include <sl_dlss.h>
-#include <sl_consts.h>
-#include <sl_hooks.h>
 
-#include <sl_helpers.h>
-#include <sl_helpers_vk.h>
-#include <sl_nrd.h>
-#include <sl_security.h>
+#include "streamline_wrapper.hpp"
 
 static constexpr int STREAMLINE_APP_ID = 231313132;
 static constexpr uint64_t SDK_VERSION = sl::kSDKVersion;
@@ -37,6 +31,25 @@ void StreamLineCallback(sl::LogType type, const char* msg)
     Log::Write(Log::Level::Info, message);
 }
 
+//void SetDLSSOptions(const sl::DLSSOptions consts);
+//void QueryDLSSOptimalSettings(DLSSSettings& settings);
+//void EvaluateDLSS(nvrhi::ICommandList* commandList);
+//void CleanupDLSS();
+
+//void set_dlss_textures(VkCommandBuffer command_buffer, const int eye);
+//void set_dlss_options(const int eye);
+//void shutdown_dlss();
+
+#if ENABLE_STREAMLINE_WRAPPER
+
+static const sl::Feature SL_FEATURES[] = {
+	sl::kFeatureReflex,  // Reflex is required for DLSS Frame Generation
+	sl::kFeatureDLSS,    // DLSS Super Resolution
+	sl::kFeatureDLSS_G,  // DLSS Frame Generation
+};
+
+#else
+
 const std::wstring s_interposer_dll_filename_ = L"sl.interposer.dll";
 HMODULE s_interposer_ = {};
 const bool check_signature_ = false;
@@ -48,19 +61,33 @@ bool is_dlss_supported_ = false;
 sl::DLSSOptimalSettings dlss_settings_{};
 sl::DLSSOptions dlss_options_{};
 
-//void SetDLSSOptions(const sl::DLSSOptions consts);
-//void QueryDLSSOptimalSettings(DLSSSettings& settings);
-//void EvaluateDLSS(nvrhi::ICommandList* commandList);
-//void CleanupDLSS();
-
-//void set_dlss_textures(VkCommandBuffer command_buffer, const int eye);
-//void set_dlss_options(const int eye);
-//void shutdown_dlss();
-
 bool streamline_initialized_ = false;
+#endif
 
 bool InitStreamLine()
 {
+#if ENABLE_STREAMLINE_WRAPPER
+	// Initialize Streamline (this must happen before any Vulkan calls are made)
+	sl::Preferences pref;
+	pref.showConsole = true;
+	pref.logLevel = sl::LogLevel::eVerbose;
+#if SL_MANUAL_HOOKING
+	pref.flags |= sl::PreferenceFlags::eUseManualHooking;
+#endif
+	pref.featuresToLoad = SL_FEATURES;
+	pref.numFeaturesToLoad = static_cast<uint32_t>(std::size(SL_FEATURES));
+	pref.applicationId = 231313132;
+	pref.engine = sl::EngineType::eCustom;
+	pref.engineVersion = 0;
+	pref.renderAPI = sl::RenderAPI::eVulkan;
+
+	const sl::Result init_result = slInit(pref, SDK_VERSION);
+
+	if(init_result != sl::Result::eOk)
+	{
+		return false;
+	}
+#else
 	if(streamline_initialized_)
 	{
 		return true;
@@ -119,10 +146,10 @@ bool InitStreamLine()
 	}
 
 	streamline_initialized_ = true;
+#endif
 	return true;
 }
 
-#pragma comment(lib, "sl.interposer.lib")
 #elif XR_USE_PLATFORM_WIN32
 #pragma comment(lib, "vulkan-1.lib")
 #endif
@@ -210,12 +237,12 @@ void update_sdl_joysticks()
 #endif
 
 #if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
-const glm::vec3 left_direction(-1.0f, 0.0f, 0.0f);
-const glm::vec3 right_direction(1.0f, 1.0f, 0.0f);
-const glm::vec3 up_direction(0.0f, 1.0f, 0.0f);
-const glm::vec3 down_direction(0.0f, -1.0f, 0.0f);
 const glm::vec3 forward_direction(0.0f, 0.0f, -1.0f);
-const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
+//const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
+//const glm::vec3 left_direction(-1.0f, 0.0f, 0.0f);
+//const glm::vec3 right_direction(1.0f, 1.0f, 0.0f);
+//const glm::vec3 up_direction(0.0f, 1.0f, 0.0f);
+//const glm::vec3 down_direction(0.0f, -1.0f, 0.0f);
 #endif
 
 #ifndef XR_LOAD
@@ -261,11 +288,24 @@ bool supports_face_tracking_ = false;
 #endif
 
 #if ENABLE_OPENXR_FB_BODY_TRACKING
-bool supports_body_tracking_ = false;
+bool supports_fb_body_tracking_ = false;
 #endif
 
-#if ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS
+#if ENABLE_OPENXR_META_BODY_TRACKING_FIDELITY
+bool supports_meta_body_tracking_fidelity_ = false;
+#endif
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+bool supports_meta_full_body_tracking_ = false;
+#endif
+
+#if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
 bool supports_simultaneous_hands_and_controllers_ = false;
+#endif
+
+#if ENABLE_VIVE_TRACKERS
+bool supports_HTCX_vive_tracker_interaction_ = false;
+BVR::GLMPose local_waist_pose_from_HTCX;
 #endif
 
 int current_eye = 0;
@@ -274,9 +314,27 @@ float IPD = 0.0063f;
 #if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
 BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
-const float movement_speed = 0.02f;
-const float rotation_speed = 1.0f;
-const float deadzone = 0.2f;
+
+const float movement_speed = WALKING_SPEED;
+const float rotation_speed = SMOOTH_TURNING_ROTATION_SPEED;
+
+const float left_deadzone_x = CONTROLLER_THUMBSTICK_DEADZONE_X;
+const float left_deadzone_y = CONTROLLER_THUMBSTICK_DEADZONE_Y;
+
+const float right_deadzone_x = ROTATION_DEADZONE;
+//const float right_deadzone_y = CONTROLLER_THUMBSTICK_DEADZONE_Y;
+
+bool snap_turn_enabled = PREFER_SNAP_TURNING;
+
+#if SUPPORT_RUNNING_WITH_LEFT_GRIP
+bool currently_running = false;
+float current_left_grip_value = 0.0f;
+#endif
+
+#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
+bool currently_spinning = false;
+float current_right_grip_value = 0.0f;
+#endif
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 BVR::GLMPose local_waist_pose;
@@ -293,6 +351,28 @@ BVR::GLMPose get_waist_pose_2D(const bool world_space)
 	glm::vec3 waist_direction = glm::rotate(waist_orientation, forward_direction);
 	waist_direction.y = 0.0f;
 	waist_direction = glm::normalize(waist_direction);
+
+#if SUPPORT_BACKWARDS_WAIST_ORIENTATION
+    if (local_hmd_pose.is_valid_)
+    {
+		glm::vec3 local_waist_direction = glm::rotate(local_waist_pose.rotation_, forward_direction);
+        local_waist_direction.y = 0.0f;
+        local_waist_direction = glm::normalize(local_waist_direction);
+
+        glm::vec3 local_hmd_direction = glm::rotate(local_hmd_pose.rotation_, forward_direction);
+        local_hmd_direction.y = 0.0f;
+        local_hmd_direction = glm::normalize(local_hmd_direction);
+
+        const float dot_product = glm::dot(local_hmd_direction, local_waist_direction);
+        const bool is_waist_tracker_backwards_facing = (dot_product < BACKWARDS_DOT_PRODUCT_THRESHOLD);
+
+        if (is_waist_tracker_backwards_facing)
+        {
+            waist_direction.x = -waist_direction.x;
+            waist_direction.z = -waist_direction.z;
+        }
+    }
+#endif
 
 	// Waist pose as returned from Meta can point upward sometimes, but smooth locomotion should only ever be in 2D, X-Z plane
 	const glm::fquat waist_rotation_world_2D = glm::rotation(forward_direction, waist_direction);
@@ -315,26 +395,35 @@ BVR::GLMPose get_waist_pose_2D(const bool world_space)
 
 void move_player(const glm::vec2& left_thumbstick_values)
 {
-	if ((fabs(left_thumbstick_values.x) < deadzone) && (fabs(left_thumbstick_values.y) < deadzone))
+	if ((fabs(left_thumbstick_values.x) < left_deadzone_x) && (fabs(left_thumbstick_values.y) < left_deadzone_y))
 	{
 		return;
 	}
 
     // Move player in the direction they are facing currently
     const glm::vec3 position_increment_local{ left_thumbstick_values.x, 0.0f, -left_thumbstick_values.y };
+    
+    float current_movement_speed = movement_speed;
+
+#if SUPPORT_RUNNING_WITH_LEFT_GRIP
+    if (currently_running)
+    {
+        current_movement_speed += current_left_grip_value * movement_speed;
+    }
+#endif
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 	if (local_waist_pose.is_valid_)
 	{
         const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(true);
         const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
-        player_pose.translation_ += position_increment_world * movement_speed;
+        player_pose.translation_ += position_increment_world * current_movement_speed;
 	}
     else
 #endif
     {
         const glm::vec3 position_increment_world = player_pose.rotation_ * position_increment_local;
-        player_pose.translation_ += position_increment_world * movement_speed;
+        player_pose.translation_ += position_increment_world * current_movement_speed;
     }
 }
 
@@ -342,23 +431,38 @@ void rotate_player(const float right_thumbstick_x_value)
 {
     static bool was_last_x_value_0 = true;
 
-    if (fabs(right_thumbstick_x_value) < deadzone)
+    if (fabs(right_thumbstick_x_value) < right_deadzone_x)
     {
         was_last_x_value_0 = true;
         return;
     }
 
-#if PREFER_SNAP_TURNING
-    if (!was_last_x_value_0)
+    float rotation_degrees = 0.0f;
+            
+    if (snap_turn_enabled)
     {
-        return;
-    }
+        if (!was_last_x_value_0)
+        {
+            return;
+        }
 
-    const float rotation_degrees = (right_thumbstick_x_value > 0.0f) ? -SNAP_TURN_DEGREES : SNAP_TURN_DEGREES; 
-#else
-    // Rotate player about +Y (UP) axis
-    const float rotation_degrees = -right_thumbstick_x_value * rotation_speed;
+        const float snap_turn_degrees = -SNAP_TURN_DEGREES_DEFAULT;
+        rotation_degrees = BVR::sign(right_thumbstick_x_value) * snap_turn_degrees;
+    }
+    else
+    {
+        // Rotate player about +Y (UP) axis
+        float current_turning_speed = rotation_speed;
+
+#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
+        if (currently_spinning)
+        {
+            current_turning_speed += current_right_grip_value * rotation_speed;
+        }
 #endif
+        
+        rotation_degrees = -right_thumbstick_x_value * current_turning_speed;
+    }
     
     //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
     player_pose.euler_angles_degrees_.y += rotation_degrees;
@@ -469,7 +573,7 @@ struct OpenXrProgram : IOpenXrProgram
         ShutdownSDLJoySticks();
 #endif
 
-#if ENABLE_OPENXR_FB_BODY_TRACKING
+#if ENABLE_BODY_TRACKING
 		DestroyBodyTracker();
 #endif
 
@@ -631,15 +735,39 @@ struct OpenXrProgram : IOpenXrProgram
 				if(!strcmp(extension.extensionName, XR_FB_BODY_TRACKING_EXTENSION_NAME))
 				{
 					Log::Write(Log::Level::Info, "FB OPENXR XR_FB_body_tracking - DETECTED");
-					supports_body_tracking_ = true;
+					supports_fb_body_tracking_ = true;
 				}
 #endif
 
-#if ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS
-				if(!strcmp(extension.extensionName, XR_METAX1_SIMULTANEOUS_HANDS_CONTROLLERS_MANAGEMENT_EXTENSION_NAME))
+#if ENABLE_OPENXR_META_BODY_TRACKING_FIDELITY
+				if(!strcmp(extension.extensionName, XR_META_BODY_TRACKING_FIDELITY_EXTENSION_NAME))
 				{
-					Log::Write(Log::Level::Info, "FB OPENXR XR_METAX1_simultaneous_hands_controllers_management - DETECTED");
+					Log::Write(Log::Level::Info, "FB OPENXR XR_META_body_tracking_fidelity - DETECTED");
+					supports_meta_body_tracking_fidelity_ = true;
+				}
+#endif
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+				if(!strcmp(extension.extensionName, XR_META_BODY_TRACKING_FULL_BODY_EXTENSION_NAME))
+				{
+					Log::Write(Log::Level::Info, "FB OPENXR XR_META_body_tracking_full_body - DETECTED");
+                    supports_meta_full_body_tracking_ = true;
+				}
+#endif
+
+#if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
+				if(!strcmp(extension.extensionName, XR_META_SIMULTANEOUS_HANDS_AND_CONTROLLERS_EXTENSION_NAME))
+				{
+					Log::Write(Log::Level::Info, "FB OPENXR XR_META_SIMULTANEOUS_HANDS_AND_CONTROLLERS_EXTENSION_NAME - DETECTED");
 					supports_simultaneous_hands_and_controllers_ = true;
+				}
+#endif
+
+#if ENABLE_VIVE_TRACKERS
+				if(!strcmp(extension.extensionName, XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME))
+				{
+					Log::Write(Log::Level::Info, "XR_HTCX_vive_tracker_interaction - DETECTED");
+                    supports_HTCX_vive_tracker_interaction_ = true;
 				}
 #endif
             }
@@ -793,7 +921,7 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if ENABLE_OPENXR_FB_BODY_TRACKING
-		if (supports_body_tracking_)
+		if (supports_fb_body_tracking_)
 		{
 			Log::Write(Log::Level::Info, "FB Meta Body Tracking is supported");
 			extensions.push_back(XR_FB_BODY_TRACKING_EXTENSION_NAME);
@@ -804,15 +932,51 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
-#if ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS
+#if ENABLE_OPENXR_META_BODY_TRACKING_FIDELITY
+		if(supports_meta_body_tracking_fidelity_)
+		{
+			Log::Write(Log::Level::Info, "XR_META_body_tracking_fidelity is supported");
+			extensions.push_back(XR_META_BODY_TRACKING_FIDELITY_EXTENSION_NAME);
+		}
+		else
+		{
+			Log::Write(Log::Level::Info, "XR_META_body_tracking_fidelity is NOT supported");
+		}
+#endif
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+		if(supports_meta_full_body_tracking_)
+		{
+			Log::Write(Log::Level::Info, "XR_META_body_tracking_full_body is supported");
+			extensions.push_back(XR_META_BODY_TRACKING_FULL_BODY_EXTENSION_NAME);
+		}
+		else
+		{
+			Log::Write(Log::Level::Info, "XR_META_body_tracking_full_body is NOT supported");
+		}
+#endif
+
+#if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
 		if(supports_simultaneous_hands_and_controllers_)
 		{
 			Log::Write(Log::Level::Info, "Simultaneous hands and controllers are supported");
-			extensions.push_back(XR_METAX1_SIMULTANEOUS_HANDS_CONTROLLERS_MANAGEMENT_EXTENSION_NAME);
+			extensions.push_back(XR_META_SIMULTANEOUS_HANDS_AND_CONTROLLERS_EXTENSION_NAME);
 		}
 		else
 		{
 			Log::Write(Log::Level::Info, "Simultaneous hands and controllers are NOT supported");
+		}
+#endif
+
+#if ENABLE_VIVE_TRACKERS
+		if(supports_HTCX_vive_tracker_interaction_)
+		{
+			Log::Write(Log::Level::Info, "Vive trackers are supported");
+			extensions.push_back(XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME);
+		}
+		else
+		{
+			Log::Write(Log::Level::Info, "Vive trackers are NOT supported");
 		}
 #endif
 
@@ -822,7 +986,9 @@ struct OpenXrProgram : IOpenXrProgram
         createInfo.enabledExtensionNames = extensions.data();
 
         strcpy(createInfo.applicationInfo.applicationName, "HelloXR");
-        createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+
+        // Current version is 1.1.x, but hello_xr only requires 1.0.x
+        createInfo.applicationInfo.apiVersion = XR_API_VERSION_1_0;
 
         CHECK_XRCMD(xrCreateInstance(&createInfo, &m_instance));
     }
@@ -873,11 +1039,11 @@ struct OpenXrProgram : IOpenXrProgram
                 {
                     const XrViewConfigurationView& view = views[i];
 
-                    Log::Write(Log::Level::Verbose, Fmt("    View [%d]: Recommended Width=%d Height=%d SampleCount=%d", i,
+                    Log::Write(Log::Level::Info, Fmt("    View [%d]: Recommended Width=%d Height=%d SampleCount=%d", i,
                                                         view.recommendedImageRectWidth, view.recommendedImageRectHeight,
                                                         view.recommendedSwapchainSampleCount));
 
-                    Log::Write(Log::Level::Verbose, Fmt("    View [%d]:     Maximum Width=%d Height=%d SampleCount=%d", i, view.maxImageRectWidth,
+                    Log::Write(Log::Level::Info, Fmt("    View [%d]:     Maximum Width=%d Height=%d SampleCount=%d", i, view.maxImageRectWidth,
                                    view.maxImageRectHeight, view.maxSwapchainSampleCount));
                 }
             } 
@@ -972,6 +1138,18 @@ struct OpenXrProgram : IOpenXrProgram
         }
     }
 
+	struct TrackerInfo
+	{
+		std::string subaction;
+		std::string actionName;
+		std::string localizedActionName;
+		std::string bindingPath;
+
+		XrPath tracker_role_path;
+		XrSpace tracker_pose_space{ XR_NULL_HANDLE };
+		XrAction tracker_pose_action{ XR_NULL_HANDLE };
+	};
+
     struct InputState 
     {
         XrActionSet actionSet{XR_NULL_HANDLE};
@@ -999,6 +1177,10 @@ struct OpenXrProgram : IOpenXrProgram
 		XrAction gazeAction{ XR_NULL_HANDLE };
 		XrSpace gazeActionSpace;
 		XrBool32 gazeActive;
+#endif
+
+#if ENABLE_VIVE_TRACKERS
+        std::vector<TrackerInfo> tracker_infos_;
 #endif
     };
 
@@ -1092,6 +1274,7 @@ struct OpenXrProgram : IOpenXrProgram
 		std::array<XrPath, Side::COUNT> stickXPath;
         std::array<XrPath, Side::COUNT> stickYPath;
 #endif
+
         std::array<XrPath, Side::COUNT> hapticPath;
         std::array<XrPath, Side::COUNT> menuClickPath;
         std::array<XrPath, Side::COUNT> bClickPath;
@@ -1125,6 +1308,7 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/b/click", &bClickPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/trigger/value", &triggerValuePath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/trigger/value", &triggerValuePath[Side::RIGHT]));
+
         // Suggest bindings for KHR Simple.
         {
             XrPath khrSimpleInteractionProfilePath;
@@ -1241,6 +1425,283 @@ struct OpenXrProgram : IOpenXrProgram
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
+
+#if ENABLE_VIVE_TRACKERS
+		if(supports_HTCX_vive_tracker_interaction_)
+		{
+            // From https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#XR_HTCX_vive_tracker_interaction
+			XrPath viveTrackerInteractionProfilePath;
+
+			CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/htc/vive_tracker_htcx",
+				&viveTrackerInteractionProfilePath));
+
+            // NB Can use xrEnumerateViveTrackerPathsHTCX instead of these hardcoded paths. This'll do for now...
+
+#if ENABLE_VIVE_HANDHELD_OBJECTS
+            // TODO: Need sub path per hand
+            // 
+			// Left Handheld Object
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/handheld_object";
+				tracker_info.actionName = "left_handheld_object_pose";
+				tracker_info.localizedActionName = "Left Handheld Object Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/left_foot/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+
+			// Right Handheld Object
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/handheld_object";
+				tracker_info.actionName = "right_handheld_object_pose";
+				tracker_info.localizedActionName = "Right Handheld Object Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/handheld_object/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+#if ENABLE_VIVE_FEET
+            // Left Foot
+            {
+                TrackerInfo tracker_info;
+                tracker_info.subaction = "/user/vive_tracker_htcx/role/left_foot";
+                tracker_info.actionName = "left_foot_pose";
+                tracker_info.localizedActionName = "Left Foot Pose";
+                tracker_info.bindingPath = "/user/vive_tracker_htcx/role/left_foot/input/grip/pose";
+
+                m_input.tracker_infos_.push_back(tracker_info);
+            }
+
+            // Right Foot
+            {
+                TrackerInfo tracker_info;
+                tracker_info.subaction = "/user/vive_tracker_htcx/role/right_foot";
+                tracker_info.actionName = "right_foot_pose";
+                tracker_info.localizedActionName = "Right Foot Pose";
+                tracker_info.bindingPath = "/user/vive_tracker_htcx/role/right_foot/input/grip/pose";
+
+                m_input.tracker_infos_.push_back(tracker_info);
+            }
+#endif
+
+#if ENABLE_VIVE_SHOULDERS
+			// Left Shoulder
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/left_shoulder";
+				tracker_info.actionName = "left_shoulder_pose";
+				tracker_info.localizedActionName = "Left Shoulder Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/left_shoulder/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+
+			// Right Shoulder
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/right_shoulder";
+				tracker_info.actionName = "right_shoulder_pose";
+				tracker_info.localizedActionName = "Right Shoulder Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/right_shoulder/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+#if ENABLE_VIVE_ELBOWS
+			// Left Elbow
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/left_elbow";
+				tracker_info.actionName = "left_elbow_pose";
+				tracker_info.localizedActionName = "Left Elbow Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/left_elbow/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+
+			// Right Elbow
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/right_elbow";
+				tracker_info.actionName = "right_elbow_pose";
+				tracker_info.localizedActionName = "Right Elbow Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/right_elbow/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+#if ENABLE_VIVE_KNEES
+			// Left Knee
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/left_knee";
+				tracker_info.actionName = "left_knee_pose";
+				tracker_info.localizedActionName = "Left Knee Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/left_knee/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+
+			// Right Knee
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/right_knee";
+				tracker_info.actionName = "right_knee_pose";
+				tracker_info.localizedActionName = "Right Knee Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/right_knee/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+#if ENABLE_VIVE_WRISTS
+			// Left Wrist
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/left_wrist";
+				tracker_info.actionName = "left_wrist_pose";
+				tracker_info.localizedActionName = "Left Wrist Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/left_wrist/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+
+			// Right Wrist
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/right_wrist";
+				tracker_info.actionName = "right_wrist_pose";
+				tracker_info.localizedActionName = "Right Wrist Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/right_wrist/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+#if ENABLE_VIVE_ANKLES
+			// Left Ankle
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/left_ankle";
+				tracker_info.actionName = "left_ankle_pose";
+				tracker_info.localizedActionName = "Left Ankle Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/left_ankle/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+
+			// Right Ankle
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/right_ankle";
+				tracker_info.actionName = "right_ankle_pose";
+				tracker_info.localizedActionName = "Right Ankle Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/right_ankle/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+#if ENABLE_VIVE_WAIST
+            // Waist
+            {
+                TrackerInfo tracker_info;
+                tracker_info.subaction = "/user/vive_tracker_htcx/role/waist";
+                tracker_info.actionName = "waist_pose";
+                tracker_info.localizedActionName = "Waist Pose";
+                tracker_info.bindingPath = "/user/vive_tracker_htcx/role/waist/input/grip/pose";
+
+                m_input.tracker_infos_.push_back(tracker_info);
+            }
+#endif
+
+#if ENABLE_VIVE_CHEST
+            // Chest
+            {
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/chest";
+				tracker_info.actionName = "chest_pose";
+				tracker_info.localizedActionName = "Chest Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/chest/input/grip/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+            }
+#endif
+
+#if ENABLE_VIVE_CAMERA
+			// Camera
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/camera";
+				tracker_info.actionName = "camera_pose";
+				tracker_info.localizedActionName = "Camera Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/chest/input/camera/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+#if ENABLE_VIVE_KEYBOARD
+			// Keyboard
+			{
+				TrackerInfo tracker_info;
+				tracker_info.subaction = "/user/vive_tracker_htcx/role/keyboard";
+				tracker_info.actionName = "keyboard_pose";
+				tracker_info.localizedActionName = "Keyboard Pose";
+				tracker_info.bindingPath = "/user/vive_tracker_htcx/role/chest/input/keyboard/pose";
+
+				m_input.tracker_infos_.push_back(tracker_info);
+			}
+#endif
+
+			std::vector<XrActionSuggestedBinding> actionSuggBindings;
+
+            const int num_trackers = (int)m_input.tracker_infos_.size();
+
+            for(int tracker_index = 0; tracker_index < num_trackers; tracker_index++)
+            {
+                TrackerInfo& tracker_info = m_input.tracker_infos_[tracker_index];
+				CHECK_XRCMD(xrStringToPath(m_instance, tracker_info.subaction.c_str(), &tracker_info.tracker_role_path));
+
+			    XrActionCreateInfo actionInfo{ XR_TYPE_ACTION_CREATE_INFO };
+			    actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
+			    strcpy_s(actionInfo.actionName, tracker_info.actionName.c_str());
+			    strcpy_s(actionInfo.localizedActionName, tracker_info.localizedActionName.c_str());
+			    actionInfo.countSubactionPaths = 1;
+			    actionInfo.subactionPaths = &tracker_info.tracker_role_path;
+                CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &tracker_info.tracker_pose_action));
+
+			    // Describe a suggested binding for that action and subaction path.
+			    XrPath suggestedBindingPath;
+                CHECK_XRCMD(xrStringToPath(m_instance, tracker_info.bindingPath.c_str(), &suggestedBindingPath));
+
+			    XrActionSuggestedBinding actionSuggBinding;
+			    actionSuggBinding.action = tracker_info.tracker_pose_action;
+			    actionSuggBinding.binding = suggestedBindingPath;
+			    actionSuggBindings.push_back(actionSuggBinding);
+
+				// Create action space for locating tracker
+				XrActionSpaceCreateInfo actionSpaceInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
+				actionSpaceInfo.action = tracker_info.tracker_pose_action;
+				actionSpaceInfo.subactionPath = tracker_info.tracker_role_path;
+				CHECK_XRCMD(xrCreateActionSpace(m_session, &actionSpaceInfo, &tracker_info.tracker_pose_space));
+			}
+
+			XrInteractionProfileSuggestedBinding profileSuggBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
+
+			profileSuggBindings.interactionProfile = viveTrackerInteractionProfilePath;
+			profileSuggBindings.suggestedBindings = actionSuggBindings.data();
+			profileSuggBindings.countSuggestedBindings = (uint32_t)actionSuggBindings.size();
+
+			CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &profileSuggBindings));
+		}
+#endif
+
         XrActionSpaceCreateInfo actionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
         actionSpaceInfo.action = m_input.poseAction;
         actionSpaceInfo.poseInActionSpace.orientation.w = 1.f;
@@ -1268,7 +1729,7 @@ struct OpenXrProgram : IOpenXrProgram
     void CreateVisualizedSpaces() {
         CHECK(m_session != XR_NULL_HANDLE);
 
-        std::string visualizedSpaces[] = {"ViewFront",        "Local", "Stage", "StageLeft", "StageRight", "StageLeftRotated",
+        std::string visualizedSpaces[] = {"ViewFront", "Local", "Stage", "StageLeft", "StageRight", "StageLeftRotated",
                                           "StageRightRotated"};
 
         for (const auto& visualizedSpace : visualizedSpaces) {
@@ -1296,6 +1757,11 @@ struct OpenXrProgram : IOpenXrProgram
             createInfo.next = m_graphicsPlugin->GetGraphicsBinding();
             createInfo.systemId = m_systemId;
             CHECK_XRCMD(xrCreateSession(m_instance, &createInfo, &m_session));
+
+#if ENABLE_OPENXR_FB_REFRESH_RATE
+            GetMaxRefreshRate();
+            SetRefreshRate(DESIRED_REFRESH_RATE);
+#endif
         }
 
         LogReferenceSpaces();
@@ -1307,10 +1773,8 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_appSpace));
         }
 
-#if ENABLE_OPENXR_FB_REFRESH_RATE
-        GetMaxRefreshRate();
-		SetRefreshRate(DESIRED_REFRESH_RATE);
-#endif
+        GetSystemProperties();
+
 
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
 		CreateSocialEyeTracker();
@@ -1324,7 +1788,7 @@ struct OpenXrProgram : IOpenXrProgram
 		CreateBodyTracker();
 #endif
 
-#if ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS
+#if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
         if(AreSimultaneousHandsAndControllersSupported())
         {
             SetSimultaneousHandsAndControllersEnabled(true);
@@ -1332,49 +1796,76 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
     }
 
+	XrSystemProperties xr_system_properties_{ XR_TYPE_SYSTEM_PROPERTIES };
+	bool system_properties_initialized_ = false;
+
+    void GetSystemProperties()
+    {
+        CHECK(m_session != XR_NULL_HANDLE);
+
+        if (system_properties_initialized_)
+        {
+            return;
+        }
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+		XrSystemPropertiesBodyTrackingFullBodyMETA meta_full_body_tracking_properties{ XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_FULL_BODY_META };
+
+		if(supports_meta_full_body_tracking_)
+		{
+			meta_full_body_tracking_properties.next = xr_system_properties_.next;
+            xr_system_properties_.next = &meta_full_body_tracking_properties;
+		}
+#endif
+
+#if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
+        XrSystemSimultaneousHandsAndControllersPropertiesMETA simultaneous_properties = { XR_TYPE_SYSTEM_SIMULTANEOUS_HANDS_AND_CONTROLLERS_PROPERTIES_META };
+
+		if(supports_simultaneous_hands_and_controllers_)
+		{
+			simultaneous_properties.next = xr_system_properties_.next;
+            xr_system_properties_.next = &simultaneous_properties;
+		}
+#endif
+
+		CHECK_XRCMD(xrGetSystemProperties(m_instance, m_systemId, &xr_system_properties_));
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+		supports_meta_full_body_tracking_ = meta_full_body_tracking_properties.supportsFullBodyTracking;
+#endif
+
+#if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
+		supports_simultaneous_hands_and_controllers_ = simultaneous_properties.supportsSimultaneousHandsAndControllers;
+#endif
+
+		// Log system properties.
+		Log::Write(Log::Level::Info,
+			Fmt("System Properties: Name=%s VendorId=%d", xr_system_properties_.systemName, xr_system_properties_.vendorId));
+
+		Log::Write(Log::Level::Info, Fmt("System Graphics Properties: MaxWidth=%d MaxHeight=%d MaxLayers=%d",
+            xr_system_properties_.graphicsProperties.maxSwapchainImageWidth,
+            xr_system_properties_.graphicsProperties.maxSwapchainImageHeight,
+            xr_system_properties_.graphicsProperties.maxLayerCount));
+
+		Log::Write(Log::Level::Info, Fmt("System Tracking Properties: OrientationTracking=%s PositionTracking=%s",
+            xr_system_properties_.trackingProperties.orientationTracking == XR_TRUE ? "True" : "False",
+            xr_system_properties_.trackingProperties.positionTracking == XR_TRUE ? "True" : "False"));
+
+		// Note: No other view configurations exist at the time this code was written. If this
+		// condition is not met, the project will need to be audited to see how support should be
+		// added.
+		CHECK_MSG(m_options->Parsed.ViewConfigType == XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
+			"Unsupported view configuration type");
+
+        system_properties_initialized_ = true;
+    }
+
     void CreateSwapchains() override 
     {
         CHECK(m_session != XR_NULL_HANDLE);
         CHECK(m_swapchains.empty());
         CHECK(m_configViews.empty());
-
-        // Read graphics properties for preferred swapchain length and logging.
-        XrSystemProperties systemProperties{XR_TYPE_SYSTEM_PROPERTIES};
-
-#if ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS
-		XrSystemSimultaneousHandsControllersPropertiesMETAX1 simultaneous_properties = { XR_TYPE_SYSTEM_SIMULTANEOUS_HANDS_CONTROLLERS_PROPERTIES_METAX1 };
-
-		if(supports_simultaneous_hands_and_controllers_)
-		{
-			simultaneous_properties.next = systemProperties.next; // for when I add eye tracking ext to this sample, it's chained to pnext here
-			systemProperties.next = &simultaneous_properties;
-		}
-#endif
-
-        CHECK_XRCMD(xrGetSystemProperties(m_instance, m_systemId, &systemProperties));
-
-#if ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS
-        supports_simultaneous_hands_and_controllers_ = simultaneous_properties.supportsSimultaneousHandsAndControllers;
-#endif
-
-        // Log system properties.
-        Log::Write(Log::Level::Info,
-                   Fmt("System Properties: Name=%s VendorId=%d", systemProperties.systemName, systemProperties.vendorId));
-
-        Log::Write(Log::Level::Info, Fmt("System Graphics Properties: MaxWidth=%d MaxHeight=%d MaxLayers=%d",
-                                         systemProperties.graphicsProperties.maxSwapchainImageWidth,
-                                         systemProperties.graphicsProperties.maxSwapchainImageHeight,
-                                         systemProperties.graphicsProperties.maxLayerCount));
-
-        Log::Write(Log::Level::Info, Fmt("System Tracking Properties: OrientationTracking=%s PositionTracking=%s",
-                                         systemProperties.trackingProperties.orientationTracking == XR_TRUE ? "True" : "False",
-                                         systemProperties.trackingProperties.positionTracking == XR_TRUE ? "True" : "False"));
-
-        // Note: No other view configurations exist at the time this code was written. If this
-        // condition is not met, the project will need to be audited to see how support should be
-        // added.
-        CHECK_MSG(m_options->Parsed.ViewConfigType == XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO,
-                  "Unsupported view configuration type");
+        CHECK(system_properties_initialized_);
 
         // Query and cache view configuration views.
         uint32_t viewCount = 0;
@@ -2001,7 +2492,7 @@ struct OpenXrProgram : IOpenXrProgram
 	PFN_xrDestroyBodyTrackerFB xrDestroyBodyTrackerFB = nullptr;
 	PFN_xrLocateBodyJointsFB xrLocateBodyJointsFB = nullptr;
     
-    bool body_tracking_enabled_ = false;
+    bool fb_body_tracking_enabled_ = false;
     XrBodyTrackerFB body_tracker_ = {};
     XrBodyJointLocationFB body_joints_[XR_BODY_JOINT_COUNT_FB] = {};
     XrBodyJointLocationsFB body_joint_locations_{ XR_TYPE_BODY_JOINT_LOCATIONS_FB, nullptr };
@@ -2013,9 +2504,9 @@ struct OpenXrProgram : IOpenXrProgram
     uint32_t skeleton_change_count_ = 0;
 #endif
 
-    void CreateBodyTracker()
+    void CreateFBBodyTracker()
     {
-        if (!supports_body_tracking_ || !m_instance || !m_session || body_tracker_)
+        if (!supports_fb_body_tracking_ || !m_instance || !m_session || body_tracker_)
         {
             return;
         }
@@ -2031,20 +2522,25 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 
 		XrBodyTrackerCreateInfoFB create_info{ XR_TYPE_BODY_TRACKER_CREATE_INFO_FB };
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+        create_info.bodyJointSet = supports_meta_full_body_tracking_ ? XR_BODY_JOINT_SET_FULL_BODY_META : XR_BODY_JOINT_SET_DEFAULT_FB;
+#else
         create_info.bodyJointSet = XR_BODY_JOINT_SET_DEFAULT_FB;
+#endif
 
 		XrResult result = xrCreateBodyTrackerFB(m_session, &create_info, &body_tracker_);
 
 		if (result == XR_SUCCESS)
 		{
 			Log::Write(Log::Level::Info, "OPENXR - Body tracking enabled and running...");
-            body_tracking_enabled_ = true;
+            fb_body_tracking_enabled_ = true;
 		}
     }
 
-	void DestroyBodyTracker()
+	void DestroyFBBodyTracker()
 	{
-		if (!supports_body_tracking_ || !body_tracker_)
+		if (!supports_fb_body_tracking_ || !body_tracker_)
 		{
 			return;
 		}
@@ -2061,14 +2557,14 @@ struct OpenXrProgram : IOpenXrProgram
 
 		xrDestroyBodyTrackerFB(body_tracker_);
 		body_tracker_ = {};
-		body_tracking_enabled_ = false;
+		fb_body_tracking_enabled_ = false;
 
 		Log::Write(Log::Level::Info, "OPENXR - Body tracker destroyed...");
 	}
 
-	void UpdateBodyTrackerLocations(const XrTime& predicted_display_time)
+	void UpdateFBBodyTrackerLocations(const XrTime& predicted_display_time)
 	{
-        if (body_tracker_ && body_tracking_enabled_)
+        if (body_tracker_ && fb_body_tracking_enabled_)
         {
             if (xrLocateBodyJointsFB == nullptr)
             {
@@ -2097,8 +2593,14 @@ struct OpenXrProgram : IOpenXrProgram
             locate_info.time = predicted_display_time;
 
             body_joint_locations_.next = nullptr;
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+			body_joint_locations_.jointCount = supports_meta_full_body_tracking_ ? XR_FULL_BODY_JOINT_COUNT_META : XR_BODY_JOINT_COUNT_FB;
+            body_joint_locations_.jointLocations = supports_meta_full_body_tracking_ ? full_body_joints_ : body_joints_;
+#else
             body_joint_locations_.jointCount = XR_BODY_JOINT_COUNT_FB;
             body_joint_locations_.jointLocations = body_joints_;
+#endif
 
 #if LOG_BODY_TRACKING_DATA
             XrResult result = xrLocateBodyJointsFB(body_tracker_, &locate_info, &body_joint_locations_);
@@ -2115,6 +2617,71 @@ struct OpenXrProgram : IOpenXrProgram
             xrLocateBodyJointsFB(body_tracker_, &locate_info, &body_joint_locations_);
 #endif
 		}
+	}
+#endif
+
+#if ENABLE_OPENXR_META_BODY_TRACKING_FIDELITY
+    PFN_xrRequestBodyTrackingFidelityMETA xrRequestBodyTrackingFidelityMETA = nullptr;
+
+    XrBodyTrackingFidelityMETA current_fidelity_ = XR_BODY_TRACKING_FIDELITY_LOW_META;
+
+    XrBodyTrackingFidelityStatusMETA body_tracker_fidelity_status_{ XR_TYPE_BODY_TRACKING_FIDELITY_STATUS_META };
+    XrSystemPropertiesBodyTrackingFidelityMETA body_tracker_fidelity_properties_{ XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_FIDELITY_META };
+
+    void RequestMetaFidelityBodyTracker(bool high_fidelity)
+    {
+        XrBodyTrackingFidelityMETA new_fidelity = high_fidelity ? XR_BODY_TRACKING_FIDELITY_HIGH_META : XR_BODY_TRACKING_FIDELITY_LOW_META;
+
+        if(!supports_meta_body_tracking_fidelity_ || !body_tracker_ || (current_fidelity_ == new_fidelity))
+        {
+            return;
+        }
+
+        if(xrRequestBodyTrackingFidelityMETA == nullptr)
+        {
+            XR_LOAD(m_instance, xrRequestBodyTrackingFidelityMETA);
+        }
+
+        if(xrRequestBodyTrackingFidelityMETA == nullptr)
+        {
+            return;
+        }
+
+		XrResult result = xrRequestBodyTrackingFidelityMETA(body_tracker_, new_fidelity);
+
+		if(result == XR_SUCCESS)
+		{
+			Log::Write(Log::Level::Info, Fmt("OPENXR - Meta Body tracking FIDELITY changed to %s", high_fidelity ? "XR_BODY_TRACKING_FIDELITY_HIGH_META": "XR_BODY_TRACKING_FIDELITY_LOW_META"));
+            current_fidelity_ = new_fidelity;
+		}
+    }
+#endif
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+	XrBodyJointLocationFB full_body_joints_[XR_FULL_BODY_JOINT_COUNT_META] = {};
+#endif
+
+#if ENABLE_BODY_TRACKING
+    void CreateBodyTracker()
+    {
+#if ENABLE_OPENXR_FB_BODY_TRACKING
+        CreateFBBodyTracker();
+#endif
+
+#if ENABLE_OPENXR_META_BODY_TRACKING_FIDELITY
+        RequestMetaFidelityBodyTracker(true);
+#endif
+    }
+
+	void DestroyBodyTracker()
+	{
+#if ENABLE_OPENXR_META_BODY_TRACKING_FIDELITY
+		RequestMetaFidelityBodyTracker(false);
+#endif
+
+#if ENABLE_OPENXR_FB_BODY_TRACKING
+		DestroyFBBodyTracker();
+#endif
 	}
 #endif
 
@@ -2135,9 +2702,9 @@ struct OpenXrProgram : IOpenXrProgram
     }
 #endif
 
-#if ENABLE_OPENXR_FB_SIMULTEANEOUS_HANDS_AND_CONTROLLERS
-	PFN_xrResumeSimultaneousHandsControllersTrackingMETAX1 xrResumeSimultaneousHandsControllersTrackingMETAX1 = nullptr;
-	PFN_xrPauseSimultaneousHandsControllersTrackingMETAX1 xrPauseSimultaneousHandsControllersTrackingMETAX1 = nullptr;
+#if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
+    PFN_xrResumeSimultaneousHandsAndControllersTrackingMETA xrResumeSimultaneousHandsAndControllersTrackingMETA = nullptr;
+    PFN_xrPauseSimultaneousHandsAndControllersTrackingMETA xrPauseSimultaneousHandsAndControllersTrackingMETA = nullptr;
 
     bool simultaneous_hands_and_controllers_enabled_ = false;
 
@@ -2157,18 +2724,18 @@ struct OpenXrProgram : IOpenXrProgram
 		{
 			if(enabled)
 			{
-				if(xrResumeSimultaneousHandsControllersTrackingMETAX1 == nullptr)
+				if(xrResumeSimultaneousHandsAndControllersTrackingMETA == nullptr)
 				{
-					XR_LOAD(m_instance, xrResumeSimultaneousHandsControllersTrackingMETAX1);
+					XR_LOAD(m_instance, xrResumeSimultaneousHandsAndControllersTrackingMETA);
 
-					if(xrResumeSimultaneousHandsControllersTrackingMETAX1 == nullptr)
+					if(xrResumeSimultaneousHandsAndControllersTrackingMETA == nullptr)
 					{
 						return;
 					}
 				}
 
-				XrSimultaneousHandsControllersTrackingResumeInfoMETAX1 simultaneous_hands_controllers_resume_info = { XR_TYPE_SIMULTANEOUS_HANDS_CONTROLLERS_TRACKING_RESUME_INFO_METAX1 };
-				XrResult res = xrResumeSimultaneousHandsControllersTrackingMETAX1(m_session, &simultaneous_hands_controllers_resume_info);
+                XrSimultaneousHandsAndControllersTrackingResumeInfoMETA simultaneous_hands_controllers_resume_info = { XR_TYPE_SIMULTANEOUS_HANDS_AND_CONTROLLERS_TRACKING_RESUME_INFO_META };
+				XrResult res = xrResumeSimultaneousHandsAndControllersTrackingMETA(m_session, &simultaneous_hands_controllers_resume_info);
 
 				if(XR_UNQUALIFIED_SUCCESS(res))
 				{
@@ -2178,18 +2745,18 @@ struct OpenXrProgram : IOpenXrProgram
 			}
 			else
 			{
-				if(xrPauseSimultaneousHandsControllersTrackingMETAX1 == nullptr)
+				if(xrPauseSimultaneousHandsAndControllersTrackingMETA == nullptr)
 				{
-					XR_LOAD(m_instance, xrPauseSimultaneousHandsControllersTrackingMETAX1);
+					XR_LOAD(m_instance, xrPauseSimultaneousHandsAndControllersTrackingMETA);
 
-					if(xrPauseSimultaneousHandsControllersTrackingMETAX1 == nullptr)
+					if(xrPauseSimultaneousHandsAndControllersTrackingMETA == nullptr)
 					{
 						return;
 					}
 				}
 
-				XrSimultaneousHandsControllersTrackingPauseInfoMETAX1 simultaneous_hands_controllers_pause_info = { XR_TYPE_SIMULTANEOUS_HANDS_CONTROLLERS_TRACKING_PAUSE_INFO_METAX1 };
-				XrResult res = xrPauseSimultaneousHandsControllersTrackingMETAX1(m_session, &simultaneous_hands_controllers_pause_info);
+                XrSimultaneousHandsAndControllersTrackingPauseInfoMETA simultaneous_hands_controllers_pause_info = { XR_TYPE_SIMULTANEOUS_HANDS_AND_CONTROLLERS_TRACKING_PAUSE_INFO_META };
+				XrResult res = xrPauseSimultaneousHandsAndControllersTrackingMETA(m_session, &simultaneous_hands_controllers_pause_info);
 
 				if(XR_UNQUALIFIED_SUCCESS(res))
 				{
@@ -2383,11 +2950,41 @@ struct OpenXrProgram : IOpenXrProgram
             {
                 // Scale the rendered hand by 1.0f (open) to 0.5f (fully squeezed).
                 m_input.handScale[hand] = 1.0f - 0.5f * grabValue.currentState;
+                
+                const float& grip_val = grabValue.currentState;
+                bool should_vibrate = (grip_val >= VIBRATION_GRIP_THRESHOLD);
 
-                if (grabValue.currentState > 0.9f) 
+#if SUPPORT_RUNNING_WITH_LEFT_GRIP
+                if (hand == Side::LEFT)
+                {
+                    currently_running = (grip_val >= RUNNING_GRIP_THRESHOLD);
+                    current_left_grip_value = grip_val;
+                    
+                    if (currently_running) 
+                    {
+                        should_vibrate = true;
+                    }
+                }
+#endif
+
+#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
+                if (hand == Side::RIGHT)
+                {
+                    currently_spinning = (grip_val >= SPINNING_GRIP_THRESHOLD);
+                    current_right_grip_value = grip_val;
+                    
+                    if (currently_spinning) 
+                    {
+                        should_vibrate = true;
+                    }
+                    
+                }
+#endif
+
+                if (should_vibrate) 
                 {
                     XrHapticVibration vibration{XR_TYPE_HAPTIC_VIBRATION};
-                    vibration.amplitude = 0.5;
+                    vibration.amplitude = 0.5f * grip_val;
                     vibration.duration = XR_MIN_HAPTIC_DURATION;
                     vibration.frequency = XR_FREQUENCY_UNSPECIFIED;
 
@@ -2441,18 +3038,31 @@ struct OpenXrProgram : IOpenXrProgram
 
                 if (hand == Side::LEFT)
                 {
+#if USE_THUMBSTICKS_FOR_MOVEMENT
                     // Left thumbstick X/Y = Movement (X,0,Z in 3D GLM coords)
                     glm::vec2 left_thumbstick_values = {};
 
+#if USE_THUMBSTICKS_FOR_MOVEMENT_X
 					if (axis_state_x.isActive)
 					{
-                        left_thumbstick_values.x = axis_state_x.currentState;
+                        const float& x_val = axis_state_x.currentState;
+                        
+#if USE_THUMBSTICKS_STRAFING_SPEED_POWER
+                        const float sign_val = BVR::sign(x_val);
+                        left_thumbstick_values.x = sign_val * powf(fabs(x_val), THUMBSTICK_STRAFING_SPEED_POWER);
+#else
+                        left_thumbstick_values.x = x_val;
+#endif
 					}
+#endif
 
+#if USE_THUMBSTICKS_FOR_MOVEMENT_Y
 					if (axis_state_y.isActive)
 					{
-						left_thumbstick_values.y = axis_state_y.currentState;
+                        const float& y_val = axis_state_y.currentState;
+						left_thumbstick_values.y = y_val;
 					}
+#endif
 
 					const bool has_moved = (axis_state_x.isActive || axis_state_y.isActive);
 
@@ -2460,15 +3070,28 @@ struct OpenXrProgram : IOpenXrProgram
                     {
                         move_player(left_thumbstick_values);
                     }
+#endif
                 }
                 else
                 {
+#if USE_THUMBSTICKS_FOR_TURNING
                     // Right thumbstick X value = Rotation
 					if (axis_state_x.isActive)
 					{
-						const float right_thumbstick_x_value = axis_state_x.currentState;
-						rotate_player(right_thumbstick_x_value);
+                        glm::vec2 right_thumbstick_values = {};
+                        
+						const float x_val = axis_state_x.currentState;
+
+#if USE_THUMBSTICKS_TURNING_SPEED_POWER
+                        const float sign_val = BVR::sign(x_val);
+                        right_thumbstick_values.x = sign_val * powf(fabs(x_val), THUMBSTICK_TURNING_SPEED_POWER);
+#else
+                        right_thumbstick_values.x = x_val;
+#endif
+                        
+						rotate_player(right_thumbstick_values.x);
 					}
+#endif
                 }
 #endif
             }
@@ -2634,7 +3257,7 @@ struct OpenXrProgram : IOpenXrProgram
         }
 #endif
 
-#if 0
+#if DRAW_VISUALIZED_SPACES
         for (XrSpace visualizedSpace : m_visualizedSpaces) 
         {
             XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
@@ -2659,16 +3282,31 @@ struct OpenXrProgram : IOpenXrProgram
         for (int hand : {Side::LEFT, Side::RIGHT}) 
         {
 #if DRAW_GRIP_POSE
-            XrSpaceLocation spaceLocation{XR_TYPE_SPACE_LOCATION};
-            res = xrLocateSpace(m_input.handSpace[hand], m_appSpace, predictedDisplayTime, &spaceLocation);
+            XrSpaceLocation gripSpaceLocation{XR_TYPE_SPACE_LOCATION};
+            res = xrLocateSpace(m_input.handSpace[hand], m_appSpace, predictedDisplayTime, &gripSpaceLocation);
             CHECK_XRRESULT(res, "xrLocateSpace");
             
             if (XR_UNQUALIFIED_SUCCESS(res)) 
             {
-                if ((spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
-                    (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+                if ((gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+                    (gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+
                     float scale = 0.1f * m_input.handScale[hand];
-                    cubes.push_back(Cube{spaceLocation.pose, {scale, scale, scale}});
+                    cubes.push_back(Cube{ gripSpaceLocation.pose, {scale, scale, scale}});
+
+#if DRAW_WORLD_POSES
+					{
+						const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
+						const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
+						const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
+
+						XrPosef world_xr_pose;
+						world_xr_pose.position = BVR::convert_to_xr(world_position);
+						world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+						cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
+		            }
+#endif
                 }
             } 
             else 
@@ -2683,7 +3321,7 @@ struct OpenXrProgram : IOpenXrProgram
             }
 #endif
 
-#if DRAW_AIM_POSE
+#if (DRAW_AIM_POSE && 0)
             {
                 XrSpaceLocation aimSpaceLocation{XR_TYPE_SPACE_LOCATION};
                 res = xrLocateSpace(m_input.aimSpace[hand], m_appSpace, predictedDisplayTime, &aimSpaceLocation);
@@ -2696,18 +3334,108 @@ struct OpenXrProgram : IOpenXrProgram
                     {
                         float scale = 0.1f * m_input.handScale[hand];
                         cubes.push_back(Cube{aimSpaceLocation.pose, {scale, scale, scale}});
+
+#if DRAW_WORLD_POSES
+                        {
+							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
+							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
+							const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
+
+							XrPosef world_xr_pose;
+                            world_xr_pose.position = BVR::convert_to_xr(world_position);
+                            world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+                            cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
+                        }
+#endif
                     }
                 } 
             }
-#endif
+#endif // DRAW_AIM_POSE
+
         }
+#endif // (DRAW_GRIP_POSE || DRAW_AIM_POSE)
+
+#if ENABLE_VIVE_TRACKERS
+        if (supports_HTCX_vive_tracker_interaction_)
+		{
+#if DRAW_ALL_VIVE_TRACKERS
+			const float scale = 0.05f;
+			const float scale_x = 1.5f * scale;
+			const float scale_y = 1.0f * scale;
+			const float scale_z = 0.5f * scale;
 #endif
+
+#if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
+            local_waist_pose_from_HTCX.is_valid_ = false;
+#endif
+
+            const int num_trackers = (int)m_input.tracker_infos_.size();
+
+            for (int tracker_index = 0; tracker_index < num_trackers; tracker_index++)
+            {
+                const TrackerInfo& tracker_info = m_input.tracker_infos_[tracker_index];
+				const bool is_waist = (tracker_info.actionName == "waist_pose");
+
+				XrSpaceLocation tracker_space_location{ XR_TYPE_SPACE_LOCATION };
+				res = xrLocateSpace(tracker_info.tracker_pose_space, m_appSpace, predictedDisplayTime, &tracker_space_location);
+				CHECK_XRRESULT(res, "xrLocateSpace");
+
+				if(XR_UNQUALIFIED_SUCCESS(res))
+				{
+					if((tracker_space_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+						(tracker_space_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0)
+					{
+#if ADAPT_VIVE_TRACKER_POSES
+						{
+							glm::vec3 euler_angle_offset_degrees = glm::vec3(0.0f, 0.0f, 0.0f);
+
+							glm::vec3 euler_angles_offset_radians(deg2rad(euler_angle_offset_degrees.x), deg2rad(euler_angle_offset_degrees.y), deg2rad(euler_angle_offset_degrees.z));
+							const glm::fquat offset_rotation = glm::fquat(euler_angles_offset_radians);
+
+							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
+							const glm::fquat adapted_rotation = glm::normalize(glm_local_pose.rotation_ * offset_rotation);
+                            tracker_space_location.pose.orientation = BVR::convert_to_xr(adapted_rotation);
+						}
+#endif // ADAPT_VIVE_TRACKER_POSES
+
+#if DRAW_ALL_VIVE_TRACKERS
+						cubes.push_back(Cube{ tracker_space_location.pose, {scale_x, scale_y, scale_z} });
+
+#if DRAW_WORLD_POSES
+						{
+							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
+							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
+							const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
+
+							XrPosef world_xr_pose;
+							world_xr_pose.position = BVR::convert_to_xr(world_position);
+							world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+							cubes.push_back(Cube{ world_xr_pose, {scale_x, scale_y, scale_z} });
+						}
+#endif // DRAW_WORLD_POSES
+
+#endif // DRAW_ALL_VIVE_TRACKERS
+
+#if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
+                        if(is_waist)
+                        {
+                            local_waist_pose_from_HTCX = BVR::convert_to_glm(tracker_space_location.pose);
+                            local_waist_pose_from_HTCX.is_valid_ = true;
+                        }
+#endif // USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
+					}
+				}
+            }
+		}
+#endif //  (ENABLE_VIVE_TRACKERS && 0)
         
 #if ADD_GROUND
         // Long, flat cube = ground
         XrPosef xr_ground_pose = {};
         xr_ground_pose.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
-        xr_ground_pose.position.y = -1.0f; // relative to head, todo : make it y = 0.0 and HMD pose is relative to ground instead, requires different tracking space
+        xr_ground_pose.position.y = -1.4f; // relative to head, todo : make it y = 0.0 and HMD pose is relative to ground instead, requires different tracking space
         cubes.push_back(Cube{ xr_ground_pose, {100.0f, 0.0001f, 100.0f} });
 #endif
 
@@ -2900,60 +3628,139 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if ENABLE_OPENXR_FB_BODY_TRACKING
-        if (body_tracking_enabled_)
+        if (fb_body_tracking_enabled_)
         {
-            UpdateBodyTrackerLocations(predictedDisplayTime);
+            UpdateFBBodyTrackerLocations(predictedDisplayTime);
 
 			if (body_joint_locations_.isActive) 
             {
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
-                bool found_waist = false;
+                local_waist_pose.is_valid_ = false;
 #endif
 
-				for (int i = 0; i < XR_BODY_JOINT_COUNT_FB; ++i) 
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+                const int num_joints = supports_meta_full_body_tracking_ ? XR_FULL_BODY_JOINT_COUNT_META : XR_BODY_JOINT_COUNT_FB;
+#else
+                const int num_joints = XR_BODY_JOINT_COUNT_FB;
+#endif
+
+				for (int joint_id = 0; joint_id < num_joints; ++joint_id)
                 {
-					if ((body_joints_[i].locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT))) 
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+                    const bool is_joint_valid = supports_meta_full_body_tracking_ ? 
+                    (full_body_joints_[joint_id].locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT)) :
+                    (body_joints_[joint_id].locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT));
+#else
+                    const bool is_joint_valid = (body_joints_[joint_id].locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT));
+#endif
+					if (is_joint_valid)
                     {
 						XrVector3f body_joint_scale{ BODY_CUBE_SIZE, BODY_CUBE_SIZE, BODY_CUBE_SIZE };
-                        const XrPosef& local_body_joint_pose = body_joints_[i].pose;
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+                        const XrPosef& local_body_joint_pose = supports_meta_full_body_tracking_ ? full_body_joints_[joint_id].pose : body_joints_[joint_id].pose;
+#else
+                        const XrPosef& local_body_joint_pose = body_joints_[joint_id].pose;
+#endif
+                        
 
 #if DRAW_LOCAL_BODY_JOINTS
 						cubes.push_back(Cube{ local_body_joint_pose, body_joint_scale });
 #endif
 
-#if DRAW_WORLD_BODY_JOINTS
+#if DRAW_WORLD_POSES
                         const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
                         const glm::vec3 world_joint_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_joint_pose.translation_);
                         const glm::fquat world_joint_rotation = glm::normalize(player_pose.rotation_ * glm_local_joint_pose.rotation_);
+                        
+                        //const BVR::GLMPose glm_world_joint_pose(world_joint_position, world_joint_rotation);
 
                         XrPosef world_body_joint_pose;
                         world_body_joint_pose.position = BVR::convert_to_xr(world_joint_position);
                         world_body_joint_pose.orientation = BVR::convert_to_xr(world_joint_rotation);
-
+                        //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
                         cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });
 #endif
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
-                        if (i == XR_BODY_JOINT_HIPS_FB)
+
+#if ENABLE_OPENXR_META_FULL_BODY_TRACKING
+                        const int hips_joint_id = supports_meta_full_body_tracking_ ? XR_FULL_BODY_JOINT_HIPS_META : XR_BODY_JOINT_HIPS_FB;
+#else
+                        const int hips_joint_id = XR_BODY_JOINT_HIPS_FB;
+#endif
+
+                        if (joint_id == hips_joint_id) 
                         {
                             local_waist_pose = BVR::convert_to_glm(local_body_joint_pose);
-
+                            
                             // Change coordinate system to GLM
-							const glm::vec3 euler_angles_radians(deg2rad(90.0f), deg2rad(-90.0f), deg2rad(0.0f));
-							const glm::fquat rotation = glm::fquat(euler_angles_radians);
-                            local_waist_pose.rotation_ = glm::normalize(local_waist_pose.rotation_ * rotation);
+                            const glm::vec3 euler_angles_radians(deg2rad(90.0f), deg2rad(-90.0f),deg2rad(0.0f));
 
-                            found_waist = true;
+                            const glm::fquat rotation = glm::fquat(euler_angles_radians);
+                            local_waist_pose.rotation_ = glm::normalize(local_waist_pose.rotation_ * rotation);
+                            local_waist_pose.is_valid_ = true;
+                            
+#if DRAW_LOCAL_WAIST_DIRECTION
+                            const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
+                            const glm::vec3 local_waist_offset = forward_direction * waist_arrow_length;
+
+                            BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(false);
+                            glm_local_waist_pose_with_offset.translation_ += (glm_local_waist_pose_with_offset.rotation_ * local_waist_offset);
+                            glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+                            XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
+                            cubes.push_back(Cube{local_waist_offset_xr_pose, body_joint_scale});
+#if DRAW_WORLD_POSES
+                            BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+                            glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+                            glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+                            
+                            XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+                            cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});
+#endif // DRAW_WORLD_POSES
+                            
+#endif // DRAW_LOCAL_WAIST_DIRECTION
+                            
                         }
 #endif
 					}
 				}
-
-#if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
-                local_waist_pose.is_valid_ = found_waist;
-#endif
 			}
         }
+#endif
+
+#if (ENABLE_VIVE_TRACKERS && USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION)
+		if(supports_HTCX_vive_tracker_interaction_ && local_waist_pose_from_HTCX.is_valid_)
+		{
+            // Override IOBT / FBE waist pose with VUT-based waist pose, which should be more accurate & responsive
+            local_waist_pose = local_waist_pose_from_HTCX;
+
+#if DRAW_LOCAL_WAIST_DIRECTION
+            XrVector3f body_joint_scale{ BODY_CUBE_SIZE, BODY_CUBE_SIZE, BODY_CUBE_SIZE };
+
+			const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
+			const glm::vec3 local_waist_offset = forward_direction * waist_arrow_length;
+
+			BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(false);
+			glm_local_waist_pose_with_offset.translation_ += (glm_local_waist_pose_with_offset.rotation_ * local_waist_offset);
+			glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+			XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
+			cubes.push_back(Cube{ local_waist_offset_xr_pose, body_joint_scale });
+#if DRAW_WORLD_POSES
+			BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+			glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+			glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+			XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+			cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
+#endif // DRAW_WORLD_POSES
+
+#endif // DRAW_LOCAL_WAIST_DIRECTION
+
+		}
 #endif
 
 #if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
@@ -2962,6 +3769,30 @@ struct OpenXrProgram : IOpenXrProgram
 
 		local_hmd_pose.rotation_ = local_left_eye_pose.rotation_;
 		local_hmd_pose.translation_ = (local_left_eye_pose.translation_ + local_right_eye_pose.translation_) * 0.5f; // Average
+#endif
+
+#if (ENABLE_BFI || ENABLE_ALTERNATE_EYE_RENDERING)
+        static int frame_index = 0;
+        frame_index++;
+#endif
+
+#if ENABLE_BFI
+        const bool skip_frame = ((frame_index % 2) == 1);
+#elif ENABLE_ALTERNATE_EYE_RENDERING
+        int eye_to_skip = (frame_index % 2);
+        
+#if DEBUG_ALTERNATE_EYE_RENDERING
+        const int num_frames = 120 * 10;
+        if ((frame_index % num_frames) >= (num_frames / 2 )) 
+        {
+            eye_to_skip = -1;
+        }
+#endif
+        
+#if DEBUG_ALTERNATE_EYE_RENDERING_ALT
+        eye_to_skip = ((frame_index % 2) == 0) ?  1 : -1;
+#endif
+        
 #endif
 
         // Render view to the appropriate part of the swapchain image.
@@ -3019,7 +3850,29 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
             const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
-            m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+
+#if ENABLE_BFI
+            if (skip_frame) {
+                m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, {});
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));    
+            }
+            else
+#elif ENABLE_ALTERNATE_EYE_RENDERING
+            if (current_eye == eye_to_skip)
+            {
+#if 1
+                m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, {});
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+#else
+                m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+                m_graphicsPlugin->ClearView(projectionLayerViews[i], swapchainImage);
+#endif
+            }
+            else
+#endif
+            {
+                m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+            }
 
 #if SUPPORT_SCREENSHOTS
             if (i == Side::LEFT) 

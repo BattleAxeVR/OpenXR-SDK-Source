@@ -41,3 +41,15 @@ https://github.com/BattleAxeVR/OpenXR-SDK-Source/blob/main/hello_xr-Vulkan-relea
 PC VR TEST BUILD with SNAP TURN ENABLED:
 https://github.com/BattleAxeVR/OpenXR-SDK-Source/blob/main/hello_xr.exe
 
+
+-----
+UPDATE: Support for HTC Vive Ultimate trackers (and presumably older HTC Trackers) has been added, for the waist to use for waist-oriented locomotion. It works VERY well, very 
+responsive to body movements.
+
+Video is here:
+
+https://twitter.com/BattleAxeVR/status/1757592442923032595
+
+Another video of 5 VUTs all running at the same time is here:
+
+https://twitter.com/BattleAxeVR/status/1757593341586259986

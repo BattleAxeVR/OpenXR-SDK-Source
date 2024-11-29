@@ -52,6 +52,24 @@ extern BVR::GLMPose local_hmd_pose;
 
 namespace {
 
+#if ENABLE_HDR_SWAPCHAIN
+bool has_GL_extension(const char *extension) 
+{
+    GLint numExtensions = 0;
+    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+    
+    for (int i = 0; i < numExtensions; i++) 
+    {
+        const GLubyte *string = glGetStringi(GL_EXTENSIONS, i);
+        
+        if (strcmp((const char *)string, extension) == 0) 
+        {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
 
 bool check_gl_errors()
 {
@@ -144,6 +162,10 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         Log::Write(Log::Level::Info, "GLES Debug: " + std::string(message, 0, length));
     }
 
+#if ENABLE_HDR_SWAPCHAIN
+        bool supports_hdr_ = false;
+#endif
+
     void InitializeDevice(XrInstance instance, XrSystemId systemId) override {
         // Extension function must be loaded by name
         PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = nullptr;
@@ -179,6 +201,18 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         m_graphicsBinding.display = window.display;
         m_graphicsBinding.config = (EGLConfig)0;
         m_graphicsBinding.context = window.context.context;
+
+#if ENABLE_HDR_SWAPCHAIN
+        // https://developer.qualcomm.com/sites/default/files/docs/adreno-gpu/snapdragon-game-toolkit/gdg/tutorials/android/hdr10.html
+        
+        // Check extensions for HDR
+        const bool supports_dci_p3_gamut = has_GL_extension("EGL_EXT_gl_colorspace_display_p3");
+        const bool supports_bt2020_gamut = has_GL_extension("EGL_EXT_gl_colorspace_bt2020_pq");
+        const bool supports_smpte_2086 = has_GL_extension("EGL_EXT_surface_SMPTE2086_metadata");
+
+        supports_hdr_ = supports_dci_p3_gamut && supports_bt2020_gamut && supports_smpte_2086;
+#endif
+        
 #endif
 
         glEnable(GL_DEBUG_OUTPUT);
@@ -262,7 +296,12 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
     int64_t SelectColorSwapchainFormat(const std::vector<int64_t>& runtimeFormats) const override {
         // List of supported color swapchain formats.
+        
+#if ENABLE_HDR_SWAPCHAIN
+        std::vector<int64_t> supportedColorSwapchainFormats{GL_RGBA16F};
+#else
         std::vector<int64_t> supportedColorSwapchainFormats{GL_RGBA8, GL_RGBA8_SNORM};
+#endif
 
         // In OpenGLES 3.0+, the R, G, and B values after blending are converted into the non-linear
         // sRGB automatically.
@@ -366,11 +405,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
                    static_cast<GLsizei>(layerView.subImage.imageRect.extent.width),
                    static_cast<GLsizei>(layerView.subImage.imageRect.extent.height));
 
-        glFrontFace(GL_CW);
-        glCullFace(GL_BACK);
-        glEnable(GL_CULL_FACE);
-        glEnable(GL_DEPTH_TEST);
-
         const uint32_t depthTexture = GetDepthTexture(colorTexture);
 
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
@@ -380,9 +414,17 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glClearColor(m_clearColor[0], m_clearColor[1], m_clearColor[2], m_clearColor[3]);
         glClearDepthf(1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        
+        if (!cubes.empty())
+        {
+            glFrontFace(GL_CW);
+            glCullFace(GL_BACK);
+            glEnable(GL_CULL_FACE);
+            glEnable(GL_DEPTH_TEST);
 
-        // Set shaders and uniform variables.
-        glUseProgram(m_program);
+            // Set shaders and uniform variables.
+            glUseProgram(m_program);
+
 
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
@@ -390,16 +432,16 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
 #if HARDCODE_PROJECTION_MATRIX
 #endif
-        
-        XrMatrix4x4f toView;
-        XrVector3f scale{1.f, 1.f, 1.f};
-        XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
-        
-        XrMatrix4x4f view;
-        XrMatrix4x4f_InvertRigidBody(&view, &toView);
+
+		XrMatrix4x4f toView;
+		XrVector3f scale{1.f, 1.f, 1.f};
+		XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
+
+		XrMatrix4x4f view;
+		XrMatrix4x4f_InvertRigidBody(&view, &toView);
 
 #if HARDCODE_VIEW_MATRIX
-        {
+		{
             static int eye = 1;
             const float ipd = 0.0680999979f;
             const float half_ipd = ipd / 2.0f;
@@ -442,27 +484,52 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 		view = BVR::convert_to_xr(view_glm);
 #endif
 
-        XrMatrix4x4f vp;
-        XrMatrix4x4f_Multiply(&vp, &proj, &view);
+		XrMatrix4x4f vp;
+		XrMatrix4x4f_Multiply(&vp, &proj, &view);
 
-        // Set cube primitive data.
-        glBindVertexArray(m_vao);
+		// Set cube primitive data.
+		glBindVertexArray(m_vao);
 
-        // Render each cube
-        for (const Cube& cube : cubes) {
-            // Compute the model-view-projection transform and set it..
-            XrMatrix4x4f model;
-            XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
-            XrMatrix4x4f mvp;
-            XrMatrix4x4f_Multiply(&mvp, &vp, &model);
-            glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
+		// Render each cube
+		for (const Cube& cube : cubes) {
+			// Compute the model-view-projection transform and set it..
+			XrMatrix4x4f model;
+			XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
+			XrMatrix4x4f mvp;
+			XrMatrix4x4f_Multiply(&mvp, &vp, &model);
+			glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
 
-            // Draw the cube.
-            glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(ArraySize(Geometry::c_cubeIndices)), GL_UNSIGNED_SHORT, nullptr);
+			// Draw the cube.
+			glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(ArraySize(Geometry::c_cubeIndices)), GL_UNSIGNED_SHORT, nullptr);
+		}
+
+		glBindVertexArray(0);
+		glUseProgram(0);
         }
+        
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 
-        glBindVertexArray(0);
-        glUseProgram(0);
+    void ClearView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage) override
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_swapchainFramebuffer);
+
+        const uint32_t colorTexture = reinterpret_cast<const XrSwapchainImageOpenGLESKHR*>(swapchainImage)->image;
+
+        glViewport(static_cast<GLint>(layerView.subImage.imageRect.offset.x),
+                   static_cast<GLint>(layerView.subImage.imageRect.offset.y),
+                   static_cast<GLsizei>(layerView.subImage.imageRect.extent.width),
+                   static_cast<GLsizei>(layerView.subImage.imageRect.extent.height));
+
+        const uint32_t depthTexture = GetDepthTexture(colorTexture);
+
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
+
+        glClearColor(m_clearColor[0], m_clearColor[1], m_clearColor[2], m_clearColor[3]);
+        glClearDepthf(1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 

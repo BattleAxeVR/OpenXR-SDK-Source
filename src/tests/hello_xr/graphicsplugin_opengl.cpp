@@ -440,9 +440,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL, layerView.fov, 0.05f, 100.0f);
 
         XrMatrix4x4f toView;
-        XrVector3f scale{1.f, 1.f, 1.f};
-        XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
-
+        XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
         XrMatrix4x4f view;
         XrMatrix4x4f_InvertRigidBody(&view, &toView);
 
@@ -511,6 +509,12 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         glBindVertexArray(0);
         glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+    
+    void ClearView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage) override
+    {
+        (void)layerView;
+        (void)swapchainImage;
     }
 
     uint32_t GetSupportedSwapchainSampleCount(const XrViewConfigurationView&) override { return 1; }

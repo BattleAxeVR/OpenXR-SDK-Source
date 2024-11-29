@@ -21,6 +21,7 @@ generated-includes
 cmake_install.cmake
 cmake_uninstall.cmake
 cmake-build-*
+specification/vendor/bundle/
 
 # Marker file for a snapshot build
 SNAPSHOT
@@ -40,6 +41,7 @@ specification/scripts/.cache
 
 # VS 2019 CMake artifacts
 out/build/
+out/install/
 
 # VS misc
 *.sln
@@ -85,3 +87,11 @@ clang-format-patches/
 
 # Key stores
 *.jks
+src/tests/hello_xr/OpenGLES/release/hello_xr-OpenGLES-release.apk
+src/tests/hello_xr/OpenGLES/release/output-metadata.json
+src/tests/hello_xr/Vulkan/release/hello_xr-Vulkan-release.apk
+src/tests/hello_xr/Vulkan/release/output-metadata.json
+src/tests/hello_xr/OpenGLES/debug/hello_xr-OpenGLES-debug.apk
+src/tests/hello_xr/OpenGLES/debug/output-metadata.json
+src/tests/hello_xr/Vulkan/debug/hello_xr-Vulkan-debug.apk
+src/tests/hello_xr/Vulkan/debug/output-metadata.json

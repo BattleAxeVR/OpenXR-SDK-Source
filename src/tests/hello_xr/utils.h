@@ -8,6 +8,8 @@
 #pragma warning(disable : 4201)
 #endif
 
+#define GLM_ENABLE_EXPERIMENTAL
+
 #include "glm/glm.hpp"
 #include "glm/common.hpp"
 #include "glm/gtc/quaternion.hpp"
@@ -15,8 +17,6 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/transform.hpp"
-
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 
 const float PI = 3.1415927f;
@@ -37,8 +37,18 @@ const float ROOT_OF_HALF = 0.7071067690849304f;
 
 namespace BVR
 {
+
+template<typename T> static inline T clamp(T v, T mn, T mx)
+{
+	return (v < mn) ? mn : (v > mx) ? mx : v;
+}
+
+inline float sign(float val)
+{
+	return (val < 0.0f) ? -1.0f : 1.0f;
+}
     
-const glm::fquat no_rotation(1.0f, 0.0f, 0.0f, 0.0f);
+const glm::fquat default_rotation(1.0f, 0.0f, 0.0f, 0.0f);
 const glm::fquat rotate_90_CCW_by_x(0.7071067690849304f, 0.7071067690849304f, 0.0f, 0.0f);
 const glm::fquat rotate_180_CCW_about_y(0.0f, 1.0f, 0.0f, 0.0f);
 const glm::fquat rotate_CW_45_rotation_about_x(0.9238795f, -0.3826834f, 0.0f, 0.0f);
@@ -62,7 +72,7 @@ const glm::fquat CCW_30deg_rotation_about_x = glm::fquat(0.258819f, 0, 0, 0.9659
 const glm::fquat CW_30deg_rotation_about_Y = glm::fquat(0.0f, 0.258819f, 0.0f, 0.9659258f);
 const glm::fquat CCW_30deg_rotation_about_Y = glm::fquat(0.0f, -0.258819f, 0.0f, 0.9659258f);
 
-const glm::fquat front_rotation = no_rotation;
+const glm::fquat front_rotation = default_rotation;
 const glm::fquat back_rotation = CCW_180_rotation_about_y;
 
 const glm::fquat left_rotation = CCW_90_rotation_about_y;
@@ -74,11 +84,6 @@ const glm::fquat ceiling_rotation = CCW_90_rotation_about_x;
 const glm::fquat down_rotation = CW_90_rotation_about_x;
 const glm::fquat up_rotation = CCW_90_rotation_about_x;
 
-
-    template<typename T> static inline T clamp(T v, T mn, T mx)
-{
-    return (v < mn) ? mn : (v > mx) ? mx : v;
-}
 
 XrMatrix4x4f convert_to_xr(const glm::mat4& input);
 glm::mat4 convert_to_glm(const XrMatrix4x4f& input);
@@ -95,9 +100,13 @@ struct GLMPose
     GLMPose()
     {
     }
+
+    GLMPose(const glm::vec3& translation, const glm::fquat& rotation) : translation_(translation), rotation_(rotation)
+    {
+    }
     
     glm::vec3 translation_ = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::fquat rotation_ = no_rotation;
+    glm::fquat rotation_ = default_rotation;
     glm::vec3 scale_ = glm::vec3(1.0f, 1.0f, 1.0f);
     glm::vec3 euler_angles_degrees_ = glm::vec3(0.0f, 0.0f, 0.0f);
     bool is_valid_  = true;
