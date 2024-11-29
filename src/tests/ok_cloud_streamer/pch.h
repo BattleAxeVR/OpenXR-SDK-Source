@@ -108,6 +108,10 @@
 #include <vulkan/vulkan.h>
 #endif
 
+#ifndef ENABLE_CLOUDXR
+#define ENABLE_CLOUDXR 0
+#endif
+
 //
 // OpenXR Headers
 //
