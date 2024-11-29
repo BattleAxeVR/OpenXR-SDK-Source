@@ -334,7 +334,7 @@ public:
 }
 
 #else
-#error "CXR NOT OK"
+//#error "CXR NOT OK"
 #endif
 
 #ifndef XR_LOAD
