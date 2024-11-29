@@ -140,7 +140,7 @@ endif()
 target_include_directories(ok_cloud_streamer PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
 target_include_directories(ok_cloud_streamer PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
 
-option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" OFF)
+option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" ON)
 
 if(ENABLE_CLOUDXR_SDK)
     add_library(CloudXRClient SHARED IMPORTED)

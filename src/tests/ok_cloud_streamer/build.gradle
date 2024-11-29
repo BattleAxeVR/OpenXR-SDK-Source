@@ -9,7 +9,7 @@ plugins {
     id 'com.android.application' version '7.4.2'
 }
 
-def CLOUDXR_AAR_PATH = file("${project.rootDir}/libs/CloudXR.aar")
+def CLOUDXR_AAR_PATH = file("${System.env.CLOUDXR_SDK}/Lib/Android/CloudXR.aar")
 def CLOUDXR_ROOT = file("${project.buildDir}/tmp/CloudXR")
 
 def OBOE_AAR_PATH = file("${project.rootDir}/libs/oboe.aar")
