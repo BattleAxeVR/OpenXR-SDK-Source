@@ -236,7 +236,7 @@ void update_sdl_joysticks()
 }
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 const glm::vec3 forward_direction(0.0f, 0.0f, -1.0f);
 //const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 //const glm::vec3 left_direction(-1.0f, 0.0f, 0.0f);
@@ -311,7 +311,7 @@ BVR::GLMPose local_waist_pose_from_HTCX;
 int current_eye = 0;
 float IPD = 0.0063f;
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
 
@@ -1178,7 +1178,7 @@ struct OpenXrProgram : IOpenXrProgram
         std::array<XrSpace, Side::COUNT> aimSpace;
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 		XrAction thumbstickXAction{ XR_NULL_HANDLE };
 		XrAction thumbstickYAction{ XR_NULL_HANDLE };
 #endif
@@ -1237,7 +1237,7 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.aimPoseAction));
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
             actionInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
 			strcpy_s(actionInfo.actionName, "thumbstick_x");
 			strcpy_s(actionInfo.localizedActionName, "Thumbstick X");
@@ -1280,7 +1280,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ADD_AIM_POSE
         std::array<XrPath, Side::COUNT> aimPath;
 #endif
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 		std::array<XrPath, Side::COUNT> stickXPath;
         std::array<XrPath, Side::COUNT> stickYPath;
 #endif
@@ -1303,7 +1303,7 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/aim/pose", &aimPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/aim/pose", &aimPath[Side::RIGHT]));
 #endif
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/x", &stickXPath[Side::LEFT]));
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/x", &stickXPath[Side::RIGHT]));
 
@@ -1357,7 +1357,7 @@ struct OpenXrProgram : IOpenXrProgram
                                                             {m_input.aimPoseAction, aimPath[Side::LEFT]},
                                                             {m_input.aimPoseAction, aimPath[Side::RIGHT]},
 #endif
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 															{m_input.thumbstickXAction, stickXPath[Side::LEFT]},
 															{m_input.thumbstickXAction, stickXPath[Side::RIGHT]},
 															{m_input.thumbstickYAction, stickYPath[Side::LEFT]},
@@ -3033,7 +3033,7 @@ struct OpenXrProgram : IOpenXrProgram
                 }
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
                 XrActionStateFloat axis_state_x = { XR_TYPE_ACTION_STATE_FLOAT };
                 XrActionStateFloat axis_state_y = { XR_TYPE_ACTION_STATE_FLOAT };
 
@@ -3103,7 +3103,7 @@ struct OpenXrProgram : IOpenXrProgram
 					}
 #endif // USE_THUMBSTICKS_FOR_TURNING
                 }
-#endif
+#endif // USE_THUMBSTICKS
             }
 
             getInfo.action = m_input.poseAction;
@@ -3773,7 +3773,7 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 		const BVR::GLMPose local_left_eye_pose = BVR::convert_to_glm(m_views[Side::LEFT].pose);
 		const BVR::GLMPose local_right_eye_pose = BVR::convert_to_glm(m_views[Side::RIGHT].pose);
 
