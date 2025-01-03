@@ -315,6 +315,11 @@ float IPD = 0.0063f;
 BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
 
+#if SUPPORT_THIRD_PERSON_LOCO
+bool is_third_person_loco_enabled = true;
+BVR::GLMPose third_person_player_pose;
+#endif
+
 const float movement_speed = WALKING_SPEED;
 const float rotation_speed = SMOOTH_TURNING_ROTATION_SPEED;
 
@@ -3302,7 +3307,10 @@ struct OpenXrProgram : IOpenXrProgram
                     (gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
 
                     float scale = 0.1f * m_input.handScale[hand];
+
+#if DRAW_LOCAL_POSES
                     cubes.push_back(Cube{ gripSpaceLocation.pose, {scale, scale, scale}});
+#endif // DRAW_LOCAL_POSES
 
 #if DRAW_WORLD_POSES
 					{
@@ -3316,7 +3324,21 @@ struct OpenXrProgram : IOpenXrProgram
 
 						cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
 		            }
-#endif
+#endif // DRAW_WORLD_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+                    {
+                        const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
+                        const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
+                        const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
+
+                        XrPosef world_xr_pose;
+                        world_xr_pose.position = BVR::convert_to_xr(world_position);
+                        world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+                        cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
+                    }
+#endif // DRAW_THIRD_PERSON_POSES
                 }
             } 
             else 
@@ -3343,7 +3365,10 @@ struct OpenXrProgram : IOpenXrProgram
                         (aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) 
                     {
                         float scale = 0.1f * m_input.handScale[hand];
+                        
+#if DRAW_LOCAL_POSES
                         cubes.push_back(Cube{aimSpaceLocation.pose, {scale, scale, scale}});
+#endif // DRAW_LOCAL_POSES
 
 #if DRAW_WORLD_POSES
                         {
@@ -3357,7 +3382,21 @@ struct OpenXrProgram : IOpenXrProgram
 
                             cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
                         }
-#endif
+#endif // DRAW_WORLD_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+                        {
+							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
+							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
+							const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
+
+							XrPosef world_xr_pose;
+                            world_xr_pose.position = BVR::convert_to_xr(world_position);
+                            world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+                            cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} })
+                        }
+#endif // DRAW_THIRD_PERSON_POSES
                     }
                 } 
             }
@@ -3410,7 +3449,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // ADAPT_VIVE_TRACKER_POSES
 
 #if DRAW_ALL_VIVE_TRACKERS
-						cubes.push_back(Cube{ tracker_space_location.pose, {scale_x, scale_y, scale_z} });
+
+#if DRAW_LOCAL_POSES
+                        cubes.push_back(Cube{ tracker_space_location.pose, {scale_x, scale_y, scale_z} });
+#endif // DRAW_LOCAL_POSES
 
 #if DRAW_WORLD_POSES
 						{
@@ -3425,6 +3467,20 @@ struct OpenXrProgram : IOpenXrProgram
 							cubes.push_back(Cube{ world_xr_pose, {scale_x, scale_y, scale_z} });
 						}
 #endif // DRAW_WORLD_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+						{
+							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
+							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
+							const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
+
+							XrPosef world_xr_pose;
+							world_xr_pose.position = BVR::convert_to_xr(world_position);
+							world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+							cubes.push_back(Cube{ world_xr_pose, {scale_x, scale_y, scale_z} });
+						}
+#endif // DRAW_THIRD_PERSON_POSES
 
 #endif // DRAW_ALL_VIVE_TRACKERS
 
@@ -3675,23 +3731,45 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
                         
 
-#if DRAW_LOCAL_BODY_JOINTS
+#if DRAW_BODY_JOINTS
+                        
+#if DRAW_LOCAL_POSES
 						cubes.push_back(Cube{ local_body_joint_pose, body_joint_scale });
-#endif
+#endif // DRAW_LOCAL_POSES
 
 #if DRAW_WORLD_POSES
-                        const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
-                        const glm::vec3 world_joint_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_joint_pose.translation_);
-                        const glm::fquat world_joint_rotation = glm::normalize(player_pose.rotation_ * glm_local_joint_pose.rotation_);
-                        
-                        //const BVR::GLMPose glm_world_joint_pose(world_joint_position, world_joint_rotation);
+                        {
+                            const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
+                            const glm::vec3 world_joint_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_joint_pose.translation_);
+                            const glm::fquat world_joint_rotation = glm::normalize(player_pose.rotation_ * glm_local_joint_pose.rotation_);
 
-                        XrPosef world_body_joint_pose;
-                        world_body_joint_pose.position = BVR::convert_to_xr(world_joint_position);
-                        world_body_joint_pose.orientation = BVR::convert_to_xr(world_joint_rotation);
-                        //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
-                        cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });
-#endif
+                            //const BVR::GLMPose glm_world_joint_pose(world_joint_position, world_joint_rotation);
+
+                            XrPosef world_body_joint_pose;
+                            world_body_joint_pose.position = BVR::convert_to_xr(world_joint_position);
+                            world_body_joint_pose.orientation = BVR::convert_to_xr(world_joint_rotation);
+                            //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
+                            cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });    
+                        }
+#endif // DRAW_WORLD_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+                        {
+                            const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
+                            const glm::vec3 world_joint_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_joint_pose.translation_);
+                            const glm::fquat world_joint_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_joint_pose.rotation_);
+
+                            //const BVR::GLMPose glm_world_joint_pose(world_joint_position, world_joint_rotation);
+
+                            XrPosef world_body_joint_pose;
+                            world_body_joint_pose.position = BVR::convert_to_xr(world_joint_position);
+                            world_body_joint_pose.orientation = BVR::convert_to_xr(world_joint_rotation);
+                            //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
+                            cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });
+                        }
+#endif // DRAW_THIRD_PERSON_POSES
+
+#endif // DRAW_BODY_JOINTS
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 
@@ -3712,7 +3790,7 @@ struct OpenXrProgram : IOpenXrProgram
                             local_waist_pose.rotation_ = glm::normalize(local_waist_pose.rotation_ * rotation);
                             local_waist_pose.is_valid_ = true;
                             
-#if DRAW_LOCAL_WAIST_DIRECTION
+#if DRAW_WAIST_DIRECTION
                             const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
                             const glm::vec3 local_waist_offset = forward_direction * waist_arrow_length;
 
@@ -3721,17 +3799,35 @@ struct OpenXrProgram : IOpenXrProgram
                             glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
                             XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
+                            
+#if DRAW_LOCAL_POSES
                             cubes.push_back(Cube{local_waist_offset_xr_pose, body_joint_scale});
+#endif // DRAW_LOCAL_POSES
+                            
 #if DRAW_WORLD_POSES
-                            BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
-                            glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
-                            glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
-                            
-                            XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
-                            cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});
+                            {
+                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+                                glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+                                glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+                                XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+                                cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});    
+                            }
 #endif // DRAW_WORLD_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+                            {
+                                // TODO: Incorrect
+                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+                                glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+                                glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+                                XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+                                cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});
+                            }
+#endif // DRAW_THIRD_PERSON_POSES
                             
-#endif // DRAW_LOCAL_WAIST_DIRECTION
+#endif // DRAW_WAIST_DIRECTION
                             
                         }
 #endif
@@ -3747,7 +3843,7 @@ struct OpenXrProgram : IOpenXrProgram
             // Override IOBT / FBE waist pose with VUT-based waist pose, which should be more accurate & responsive
             local_waist_pose = local_waist_pose_from_HTCX;
 
-#if DRAW_LOCAL_WAIST_DIRECTION
+#if DRAW_WAIST_DIRECTION
             XrVector3f body_joint_scale{ BODY_CUBE_SIZE, BODY_CUBE_SIZE, BODY_CUBE_SIZE };
 
 			const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
@@ -3758,18 +3854,36 @@ struct OpenXrProgram : IOpenXrProgram
 			glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
 			XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
+            
+#if DRAW_LOCAL_POSES
 			cubes.push_back(Cube{ local_waist_offset_xr_pose, body_joint_scale });
+#endif
+            
 #if DRAW_WORLD_POSES
-			BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
-			glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
-			glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+            {
+                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+			    glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
-			XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
-			cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
+			    XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+			    cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
+            }
 #endif // DRAW_WORLD_POSES
 
-#endif // DRAW_LOCAL_WAIST_DIRECTION
+#if DRAW_THIRD_PERSON_POSES
+            {
+                // TODO: Incorrect
+                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+			    glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
+			    XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+			    cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
+            }
+#endif // DRAW_THIRD_PERSON_POSES
+      
+#endif // DRAW_WAIST_DIRECTION
+      
 		}
 #endif
 
