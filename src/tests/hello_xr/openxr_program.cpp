@@ -324,7 +324,9 @@ const float left_deadzone_y = CONTROLLER_THUMBSTICK_DEADZONE_Y;
 const float right_deadzone_x = ROTATION_DEADZONE;
 //const float right_deadzone_y = CONTROLLER_THUMBSTICK_DEADZONE_Y;
 
+#if SUPPORT_SNAP_TURNING
 bool snap_turn_enabled = PREFER_SNAP_TURNING;
+#endif
 
 #if SUPPORT_RUNNING_WITH_LEFT_GRIP
 bool currently_running = false;
@@ -391,8 +393,9 @@ BVR::GLMPose get_waist_pose_2D(const bool world_space)
 
 	return waist_pose_2D;
 }
-#endif
+#endif // USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 
+#if USE_THUMBSTICKS_FOR_MOVEMENT
 void move_player(const glm::vec2& left_thumbstick_values)
 {
 	if ((fabs(left_thumbstick_values.x) < left_deadzone_x) && (fabs(left_thumbstick_values.y) < left_deadzone_y))
@@ -426,7 +429,9 @@ void move_player(const glm::vec2& left_thumbstick_values)
         player_pose.translation_ += position_increment_world * current_movement_speed;
     }
 }
+#endif // USE_THUMBSTICKS_FOR_MOVEMENT
 
+#if USE_THUMBSTICKS_FOR_TURNING
 void rotate_player(const float right_thumbstick_x_value)
 {
     static bool was_last_x_value_0 = true;
@@ -439,6 +444,7 @@ void rotate_player(const float right_thumbstick_x_value)
 
     float rotation_degrees = 0.0f;
             
+#if SUPPORT_SNAP_TURNING
     if (snap_turn_enabled)
     {
         if (!was_last_x_value_0)
@@ -450,6 +456,7 @@ void rotate_player(const float right_thumbstick_x_value)
         rotation_degrees = BVR::sign(right_thumbstick_x_value) * snap_turn_degrees;
     }
     else
+#elif SUPPORT_SMOOTH_TURNING
     {
         // Rotate player about +Y (UP) axis
         float current_turning_speed = rotation_speed;
@@ -463,6 +470,7 @@ void rotate_player(const float right_thumbstick_x_value)
         
         rotation_degrees = -right_thumbstick_x_value * current_turning_speed;
     }
+#endif
     
     //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
     player_pose.euler_angles_degrees_.y += rotation_degrees;
@@ -480,6 +488,8 @@ void rotate_player(const float right_thumbstick_x_value)
     player_pose.update_rotation_from_euler();
     was_last_x_value_0 = false;
 }
+#endif // USE_THUMBSTICKS_FOR_TURNING
+
 #endif
 
 
@@ -3052,9 +3062,9 @@ struct OpenXrProgram : IOpenXrProgram
                         left_thumbstick_values.x = sign_val * powf(fabs(x_val), THUMBSTICK_STRAFING_SPEED_POWER);
 #else
                         left_thumbstick_values.x = x_val;
-#endif
+#endif // USE_THUMBSTICKS_STRAFING_SPEED_POWER
 					}
-#endif
+#endif // USE_THUMBSTICKS_FOR_MOVEMENT_X
 
 #if USE_THUMBSTICKS_FOR_MOVEMENT_Y
 					if (axis_state_y.isActive)
@@ -3062,7 +3072,7 @@ struct OpenXrProgram : IOpenXrProgram
                         const float& y_val = axis_state_y.currentState;
 						left_thumbstick_values.y = y_val;
 					}
-#endif
+#endif // USE_THUMBSTICKS_FOR_MOVEMENT_Y
 
 					const bool has_moved = (axis_state_x.isActive || axis_state_y.isActive);
 
@@ -3070,7 +3080,7 @@ struct OpenXrProgram : IOpenXrProgram
                     {
                         move_player(left_thumbstick_values);
                     }
-#endif
+#endif //USE_THUMBSTICKS_FOR_MOVEMENT
                 }
                 else
                 {
@@ -3087,11 +3097,11 @@ struct OpenXrProgram : IOpenXrProgram
                         right_thumbstick_values.x = sign_val * powf(fabs(x_val), THUMBSTICK_TURNING_SPEED_POWER);
 #else
                         right_thumbstick_values.x = x_val;
-#endif
+#endif // USE_THUMBSTICKS_TURNING_SPEED_POWER
                         
 						rotate_player(right_thumbstick_values.x);
 					}
-#endif
+#endif // USE_THUMBSTICKS_FOR_TURNING
                 }
 #endif
             }
