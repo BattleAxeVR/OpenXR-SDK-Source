@@ -326,8 +326,35 @@ BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
 
 #if SUPPORT_THIRD_PERSON
-bool third_person_enabled = true;
+bool s_third_person_enabled = false;
 BVR::GLMPose third_person_player_pose;
+
+bool is_third_person_view_enabled()
+{
+    return s_third_person_enabled;
+}
+
+void set_third_person_view_enabled(const bool enabled)
+{
+    if (s_third_person_enabled == enabled)
+    {
+        return;
+    }
+    
+    if (enabled)
+    {
+        third_person_player_pose = player_pose;    
+    }
+    else
+    {
+        player_pose = third_person_player_pose;    
+    }
+
+    s_third_person_enabled = enabled;
+}
+
+#else
+const bool third_person_enabled = false;
 #endif
 
 const float movement_speed = WALKING_SPEED;
@@ -451,13 +478,17 @@ void move_player(const glm::vec2& left_thumbstick_values)
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 	if (local_waist_pose.is_valid_)
 	{
+        const bool third_person_enabled = is_third_person_view_enabled();
+        
+        if (!third_person_enabled)
         {
             const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
             const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
             player_pose.translation_ += position_increment_world * current_movement_speed;    
         }
-
+        
 #if SUPPORT_THIRD_PERSON
+        if (third_person_enabled)
         {
             const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
             const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
@@ -524,26 +555,9 @@ void rotate_player(const float right_thumbstick_x_value)
     }
 #endif // SUPPORT_SMOOTH_TURNING
 
-#if SUPPORT_THIRD_PERSON
-    if (third_person_enabled)
-    {
-        //third_person_player_pose.euler_angles_degrees_.y = fmodf(third_person_player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
-        third_person_player_pose.euler_angles_degrees_.y += rotation_degrees;
-
-        if (third_person_player_pose.euler_angles_degrees_.y >= 360.0f)
-        {
-            third_person_player_pose.euler_angles_degrees_.y -= 360.0f;
-        }
-
-        if (third_person_player_pose.euler_angles_degrees_.y <= -360.0f)
-        {
-            third_person_player_pose.euler_angles_degrees_.y += 360.0f;
-        }
-
-        third_person_player_pose.update_rotation_from_euler();    
-    }
-    else
-#endif // SUPPORT_THIRD_PERSON
+    const bool third_person_enabled = is_third_person_view_enabled();
+    
+    if (!third_person_enabled)
     {
         //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
         player_pose.euler_angles_degrees_.y += rotation_degrees;
@@ -560,7 +574,27 @@ void rotate_player(const float right_thumbstick_x_value)
 
         player_pose.update_rotation_from_euler();    
     }
-    
+
+#if SUPPORT_THIRD_PERSON
+    if (third_person_enabled)
+    {
+        //third_person_player_pose.euler_angles_degrees_.y = fmodf(third_person_player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
+        third_person_player_pose.euler_angles_degrees_.y += rotation_degrees;
+
+        if (third_person_player_pose.euler_angles_degrees_.y >= 360.0f)
+        {
+            third_person_player_pose.euler_angles_degrees_.y -= 360.0f;
+        }
+
+        if (third_person_player_pose.euler_angles_degrees_.y <= -360.0f)
+        {
+            third_person_player_pose.euler_angles_degrees_.y += 360.0f;
+        }
+
+        third_person_player_pose.update_rotation_from_euler();
+    }
+#endif // SUPPORT_THIRD_PERSON
+
     was_last_x_value_0 = false;
 }
 #endif // USE_THUMBSTICKS_FOR_TURNING
@@ -3021,6 +3055,10 @@ struct OpenXrProgram : IOpenXrProgram
         syncInfo.activeActionSets = &activeActionSet;
         CHECK_XRCMD(xrSyncActions(m_session, &syncInfo));
 
+#if SUPPORT_THIRD_PERSON
+        bool should_third_person_be_enabled = false;
+#endif
+
         // Get pose and grab action state and start haptic vibrate when hand is 90% squeezed.
         for (auto hand : {Side::LEFT, Side::RIGHT}) 
         {
@@ -3120,7 +3158,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 				action_get_info.action = m_input.thumbstickYAction;
 				CHECK_XRCMD(xrGetActionStateFloat(m_session, &action_get_info, &axis_state_y));
-
+                
                 if (hand == Side::LEFT)
                 {
 #if USE_THUMBSTICKS_FOR_MOVEMENT
@@ -3131,6 +3169,13 @@ struct OpenXrProgram : IOpenXrProgram
 					if (axis_state_x.isActive)
 					{
                         const float& x_val = axis_state_x.currentState;
+
+#if SUPPORT_THIRD_PERSON
+                        if (fabs(x_val) > left_deadzone_x) 
+                        {
+                            should_third_person_be_enabled = true;
+                        }
+#endif
                         
 #if USE_THUMBSTICKS_STRAFING_SPEED_POWER
                         const float sign_val = BVR::sign(x_val);
@@ -3145,6 +3190,14 @@ struct OpenXrProgram : IOpenXrProgram
 					if (axis_state_y.isActive)
 					{
                         const float& y_val = axis_state_y.currentState;
+
+#if SUPPORT_THIRD_PERSON
+                        if (fabs(y_val) > left_deadzone_y)
+                        {
+                            should_third_person_be_enabled = true;
+                        }
+#endif
+
 						left_thumbstick_values.y = y_val;
 					}
 #endif // USE_THUMBSTICKS_FOR_MOVEMENT_Y
@@ -3167,6 +3220,14 @@ struct OpenXrProgram : IOpenXrProgram
                         
 						const float x_val = axis_state_x.currentState;
 
+#if SUPPORT_THIRD_PERSON
+                        if (fabs(x_val) > right_deadzone_x)
+                        {
+                            should_third_person_be_enabled = true;
+                        }
+#endif
+
+
 #if USE_THUMBSTICKS_TURNING_SPEED_POWER
                         const float sign_val = BVR::sign(x_val);
                         right_thumbstick_values.x = sign_val * powf(fabs(x_val), THUMBSTICK_TURNING_SPEED_POWER);
@@ -3178,6 +3239,7 @@ struct OpenXrProgram : IOpenXrProgram
 					}
 #endif // USE_THUMBSTICKS_FOR_TURNING
                 }
+
 #endif // USE_THUMBSTICKS
             }
 
@@ -3187,6 +3249,9 @@ struct OpenXrProgram : IOpenXrProgram
             m_input.handActive[hand] = poseState.isActive;
         }
 
+#if SUPPORT_THIRD_PERSON
+        set_third_person_view_enabled(should_third_person_be_enabled);
+#endif
         // There were no subaction paths specified for the quit action, because we don't care which hand did it.
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, m_input.quitAction, XR_NULL_PATH};
         XrActionStateBoolean quitValue{XR_TYPE_ACTION_STATE_BOOLEAN};
