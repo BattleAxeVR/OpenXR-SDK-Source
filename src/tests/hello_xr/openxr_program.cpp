@@ -311,12 +311,22 @@ BVR::GLMPose local_waist_pose_from_HTCX;
 int current_eye = 0;
 float IPD = 0.0063f;
 
+
+enum PERSPECTIVE
+{
+    LOCAL_SPACE_,
+    FIRST_PERSON_,
+#if SUPPORT_THIRD_PERSON
+    THIRD_PERSON_
+#endif
+};
+
 #if USE_THUMBSTICKS
 BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
 
-#if SUPPORT_THIRD_PERSON_LOCO
-bool is_third_person_loco_enabled = true;
+#if SUPPORT_THIRD_PERSON
+bool third_person_enabled = true;
 BVR::GLMPose third_person_player_pose;
 #endif
 
@@ -346,14 +356,26 @@ float current_right_grip_value = 0.0f;
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 BVR::GLMPose local_waist_pose;
 
-BVR::GLMPose get_waist_pose_2D(const bool world_space)
+BVR::GLMPose get_waist_pose_2D(const PERSPECTIVE perspective)
 {
 	glm::fquat waist_orientation = local_waist_pose.rotation_;
+    
+    const bool is_first_person = (perspective == PERSPECTIVE::FIRST_PERSON_);
 
-	if (world_space)
+#if SUPPORT_THIRD_PERSON
+    const bool is_third_person = (perspective == PERSPECTIVE::THIRD_PERSON_);
+#endif // SUPPORT_THIRD_PERSON
+
+	if (is_first_person)
 	{
 		waist_orientation = glm::normalize(waist_orientation * player_pose.rotation_);
 	}
+#if SUPPORT_THIRD_PERSON
+    else if (is_third_person)
+    {
+        waist_orientation = glm::normalize(waist_orientation * third_person_player_pose.rotation_);
+    }
+#endif // SUPPORT_THIRD_PERSON
 
 	glm::vec3 waist_direction = glm::rotate(waist_orientation, forward_direction);
 	waist_direction.y = 0.0f;
@@ -387,10 +409,16 @@ BVR::GLMPose get_waist_pose_2D(const bool world_space)
 	BVR::GLMPose waist_pose_2D;
 	waist_pose_2D.rotation_ = waist_rotation_world_2D;
 
-	if (world_space)
+	if (is_first_person)
 	{
 		waist_pose_2D.translation_ = player_pose.translation_ + glm::rotate(player_pose.rotation_, local_waist_pose.translation_);
 	}
+#if SUPPORT_THIRD_PERSON
+    else if (is_third_person)
+    {
+        waist_pose_2D.translation_ = third_person_player_pose.translation_ + glm::rotate(third_person_player_pose.rotation_, local_waist_pose.translation_);
+    }
+#endif // SUPPORT_THIRD_PERSON
 	else
 	{
 		waist_pose_2D.translation_ = local_waist_pose.translation_;
@@ -423,9 +451,20 @@ void move_player(const glm::vec2& left_thumbstick_values)
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 	if (local_waist_pose.is_valid_)
 	{
-        const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(true);
-        const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
-        player_pose.translation_ += position_increment_world * current_movement_speed;
+        {
+            const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
+            const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
+            player_pose.translation_ += position_increment_world * current_movement_speed;    
+        }
+
+#if SUPPORT_THIRD_PERSON
+        {
+            const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
+            const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
+            third_person_player_pose.translation_ += position_increment_world * current_movement_speed;    
+        }
+#endif // SUPPORT_THIRD_PERSON
+        
 	}
     else
 #endif
@@ -467,30 +506,53 @@ void rotate_player(const float right_thumbstick_x_value)
         float current_turning_speed = rotation_speed;
 
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-        if (currently_spinning)
+        if (currently_spinning && (ROTATION_SPEED_EXTRA > 0.0f))
         {
-            current_turning_speed += current_right_grip_value * rotation_speed;
+            current_turning_speed += current_right_grip_value * ROTATION_SPEED_EXTRA;
         }
 #endif
         
         rotation_degrees = -right_thumbstick_x_value * current_turning_speed;
     }
-#endif
-    
-    //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
-    player_pose.euler_angles_degrees_.y += rotation_degrees;
+#endif // SUPPORT_SMOOTH_TURNING
 
-    if (player_pose.euler_angles_degrees_.y >= 360.0f)
+#if SUPPORT_THIRD_PERSON
+    if (third_person_enabled)
     {
-        player_pose.euler_angles_degrees_.y -= 360.0f;
+        //third_person_player_pose.euler_angles_degrees_.y = fmodf(third_person_player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
+        third_person_player_pose.euler_angles_degrees_.y += rotation_degrees;
+
+        if (third_person_player_pose.euler_angles_degrees_.y >= 360.0f)
+        {
+            third_person_player_pose.euler_angles_degrees_.y -= 360.0f;
+        }
+
+        if (third_person_player_pose.euler_angles_degrees_.y <= -360.0f)
+        {
+            third_person_player_pose.euler_angles_degrees_.y += 360.0f;
+        }
+
+        third_person_player_pose.update_rotation_from_euler();    
     }
+    else
+#endif // SUPPORT_THIRD_PERSON
+    {
+        //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
+        player_pose.euler_angles_degrees_.y += rotation_degrees;
 
-	if (player_pose.euler_angles_degrees_.y <= -360.0f)
-	{
-		player_pose.euler_angles_degrees_.y += 360.0f;
-	}
+        if (player_pose.euler_angles_degrees_.y >= 360.0f)
+        {
+            player_pose.euler_angles_degrees_.y -= 360.0f;
+        }
 
-    player_pose.update_rotation_from_euler();
+        if (player_pose.euler_angles_degrees_.y <= -360.0f)
+        {
+            player_pose.euler_angles_degrees_.y += 360.0f;
+        }
+
+        player_pose.update_rotation_from_euler();    
+    }
+    
     was_last_x_value_0 = false;
 }
 #endif // USE_THUMBSTICKS_FOR_TURNING
@@ -3312,9 +3374,10 @@ struct OpenXrProgram : IOpenXrProgram
                     cubes.push_back(Cube{ gripSpaceLocation.pose, {scale, scale, scale}});
 #endif // DRAW_LOCAL_POSES
 
+                    const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
+                    
 #if DRAW_FIRST_PERSON_POSES
 					{
-						const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
 						const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
 						const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
 
@@ -3328,7 +3391,6 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if DRAW_THIRD_PERSON_POSES
                     {
-                        const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
                         const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
                         const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
 
@@ -3370,9 +3432,10 @@ struct OpenXrProgram : IOpenXrProgram
                         cubes.push_back(Cube{aimSpaceLocation.pose, {scale, scale, scale}});
 #endif // DRAW_LOCAL_POSES
 
+                        const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
+                        
 #if DRAW_FIRST_PERSON_POSES
                         {
-							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
 							const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
 
@@ -3386,7 +3449,6 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if DRAW_THIRD_PERSON_POSES
                         {
-							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
 							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
 							const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
 
@@ -3794,7 +3856,7 @@ struct OpenXrProgram : IOpenXrProgram
                             const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
                             const glm::vec3 local_waist_offset = forward_direction * waist_arrow_length;
 
-                            BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(false);
+                            BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::LOCAL_SPACE_);
                             glm_local_waist_pose_with_offset.translation_ += (glm_local_waist_pose_with_offset.rotation_ * local_waist_offset);
                             glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
@@ -3806,7 +3868,7 @@ struct OpenXrProgram : IOpenXrProgram
                             
 #if DRAW_FIRST_PERSON_POSES
                             {
-                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
                                 glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
                                 glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
@@ -3817,8 +3879,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if DRAW_THIRD_PERSON_POSES
                             {
-                                // TODO: Incorrect
-                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
                                 glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
                                 glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
@@ -3849,7 +3910,7 @@ struct OpenXrProgram : IOpenXrProgram
 			const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
 			const glm::vec3 local_waist_offset = forward_direction * waist_arrow_length;
 
-			BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(false);
+			BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::LOCAL_SPACE_);
 			glm_local_waist_pose_with_offset.translation_ += (glm_local_waist_pose_with_offset.rotation_ * local_waist_offset);
 			glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
@@ -3861,7 +3922,7 @@ struct OpenXrProgram : IOpenXrProgram
             
 #if DRAW_FIRST_PERSON_POSES
             {
-                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
 			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
 			    glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
@@ -3872,8 +3933,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if DRAW_THIRD_PERSON_POSES
             {
-                // TODO: Incorrect
-                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
+                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
 			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
 			    glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
