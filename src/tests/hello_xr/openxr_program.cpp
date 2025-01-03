@@ -3312,7 +3312,7 @@ struct OpenXrProgram : IOpenXrProgram
                     cubes.push_back(Cube{ gripSpaceLocation.pose, {scale, scale, scale}});
 #endif // DRAW_LOCAL_POSES
 
-#if DRAW_WORLD_POSES
+#if DRAW_FIRST_PERSON_POSES
 					{
 						const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
 						const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
@@ -3324,7 +3324,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 						cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
 		            }
-#endif // DRAW_WORLD_POSES
+#endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
                     {
@@ -3370,7 +3370,7 @@ struct OpenXrProgram : IOpenXrProgram
                         cubes.push_back(Cube{aimSpaceLocation.pose, {scale, scale, scale}});
 #endif // DRAW_LOCAL_POSES
 
-#if DRAW_WORLD_POSES
+#if DRAW_FIRST_PERSON_POSES
                         {
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
@@ -3382,7 +3382,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                             cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
                         }
-#endif // DRAW_WORLD_POSES
+#endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
                         {
@@ -3454,7 +3454,7 @@ struct OpenXrProgram : IOpenXrProgram
                         cubes.push_back(Cube{ tracker_space_location.pose, {scale_x, scale_y, scale_z} });
 #endif // DRAW_LOCAL_POSES
 
-#if DRAW_WORLD_POSES
+#if DRAW_FIRST_PERSON_POSES
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
@@ -3466,7 +3466,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 							cubes.push_back(Cube{ world_xr_pose, {scale_x, scale_y, scale_z} });
 						}
-#endif // DRAW_WORLD_POSES
+#endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
 						{
@@ -3737,7 +3737,7 @@ struct OpenXrProgram : IOpenXrProgram
 						cubes.push_back(Cube{ local_body_joint_pose, body_joint_scale });
 #endif // DRAW_LOCAL_POSES
 
-#if DRAW_WORLD_POSES
+#if DRAW_FIRST_PERSON_POSES
                         {
                             const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
                             const glm::vec3 world_joint_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_joint_pose.translation_);
@@ -3751,7 +3751,7 @@ struct OpenXrProgram : IOpenXrProgram
                             //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
                             cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });    
                         }
-#endif // DRAW_WORLD_POSES
+#endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
                         {
@@ -3804,7 +3804,7 @@ struct OpenXrProgram : IOpenXrProgram
                             cubes.push_back(Cube{local_waist_offset_xr_pose, body_joint_scale});
 #endif // DRAW_LOCAL_POSES
                             
-#if DRAW_WORLD_POSES
+#if DRAW_FIRST_PERSON_POSES
                             {
                                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
                                 glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
@@ -3813,7 +3813,7 @@ struct OpenXrProgram : IOpenXrProgram
                                 XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
                                 cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});    
                             }
-#endif // DRAW_WORLD_POSES
+#endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
                             {
@@ -3859,7 +3859,7 @@ struct OpenXrProgram : IOpenXrProgram
 			cubes.push_back(Cube{ local_waist_offset_xr_pose, body_joint_scale });
 #endif
             
-#if DRAW_WORLD_POSES
+#if DRAW_FIRST_PERSON_POSES
             {
                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
 			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
@@ -3868,7 +3868,7 @@ struct OpenXrProgram : IOpenXrProgram
 			    XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
 			    cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
             }
-#endif // DRAW_WORLD_POSES
+#endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
             {
