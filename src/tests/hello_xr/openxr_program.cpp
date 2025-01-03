@@ -444,7 +444,7 @@ void move_player(const glm::vec2& left_thumbstick_values)
 #if SUPPORT_RUNNING_WITH_LEFT_GRIP
     if (currently_running)
     {
-        current_movement_speed += current_left_grip_value * movement_speed;
+        current_movement_speed += current_left_grip_value * RUNNING_SPEED_BOOST;
     }
 #endif
 
@@ -496,7 +496,15 @@ void rotate_player(const float right_thumbstick_x_value)
             return;
         }
 
-        const float snap_turn_degrees = -SNAP_TURN_DEGREES_DEFAULT;
+        float snap_turn_degrees = -SNAP_TURN_DEGREES_DEFAULT;
+
+#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
+        if (currently_spinning)
+        {
+            snap_turn_degrees = SNAP_TURN_EXTRA_FAST;
+        }
+#endif
+
         rotation_degrees = BVR::sign(right_thumbstick_x_value) * snap_turn_degrees;
     }
     else
