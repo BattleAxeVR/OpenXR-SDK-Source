@@ -3367,13 +3367,12 @@ struct OpenXrProgram : IOpenXrProgram
         std::vector<Cube> cubes;
 
 #if ADD_EXTRA_CUBES
-        const int num_cubes_x = 5;
-        const int num_cubes_y = 5;
+        const int num_cubes_x = 20;
+        const int num_cubes_y = 1;
         const int num_cubes_z = 20;
 
-        const float offset_x = (float)(num_cubes_x - 1) * 0.5f;
-        const float offset_y = (float)(num_cubes_y - 1) * 0.5f;
-        const float offset_z = 1.0f;
+        const float offset_x = (float)(num_cubes_x / 2 - 1) * 0.5f;
+        const float offset_z = (float)(num_cubes_z / 2 - 1) * 0.5f;
 
 #if defined(WIN32)
         const int hand_for_cube_scale = Side::LEFT;
@@ -3384,25 +3383,27 @@ struct OpenXrProgram : IOpenXrProgram
         XrPosef cube_pose;
         cube_pose.orientation = {0.0f, 0.0f, 0.0f, 1.0f};
 
-        float hand_scale = 0.1f * m_input.handScale[hand_for_cube_scale];
-        XrVector3f scale_vec{hand_scale, hand_scale, hand_scale};
+        float base_scale = 0.5f;
+        XrVector3f scale_vec{base_scale, 0.01f, base_scale};
 
         for (int cube_z_index = 0; cube_z_index < num_cubes_z; cube_z_index++) 
         {
-            for (int cube_y_index = 0; cube_y_index < num_cubes_y; cube_y_index++) 
+            for (int cube_x_index = 0; cube_x_index < num_cubes_x; cube_x_index++) 
             {
-                for (int cube_x_index = 0; cube_x_index < num_cubes_x; cube_x_index++) 
+                cube_pose.position =
                 {
-                    cube_pose.position =
-                    {
-                        (float)cube_x_index - offset_x, 
-                        (float)cube_y_index - offset_y, 
-                        -(float)cube_z_index - offset_z
-                    };
+                    (float)cube_x_index - offset_x,
+                    0.0f, 
+                    -(float)cube_z_index - offset_z
+                };
 
-                    Cube cube{cube_pose, scale_vec};
-                    cubes.push_back(cube);
-                }
+                Cube floor_cube{cube_pose, scale_vec};
+                cubes.push_back(floor_cube);
+
+                cube_pose.position.y = CEILING_HEIGHT_METERS;
+                
+                Cube ceiling_cube{cube_pose, scale_vec};
+                cubes.push_back(ceiling_cube);
             }
         }
 #endif
