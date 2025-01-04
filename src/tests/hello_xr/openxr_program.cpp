@@ -1288,8 +1288,17 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if USE_THUMBSTICKS
+        XrAction thumbstickTouchAction{ XR_NULL_HANDLE };
+        XrAction thumbstickClickAction{ XR_NULL_HANDLE };
 		XrAction thumbstickXAction{ XR_NULL_HANDLE };
 		XrAction thumbstickYAction{ XR_NULL_HANDLE };
+#endif
+
+#if USE_BUTTONS_TRIGGERS
+        XrAction triggerValueAction{ XR_NULL_HANDLE };
+        XrAction triggerClickAction{ XR_NULL_HANDLE };
+        XrAction buttonAXClickAction{ XR_NULL_HANDLE };
+        XrAction buttonBYClickAction{ XR_NULL_HANDLE };
 #endif
 
 #if ENABLE_EXT_EYE_TRACKING
@@ -1347,6 +1356,16 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if USE_THUMBSTICKS
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "thumbstick_touch");
+            strcpy(actionInfo.localizedActionName, "Thumbstick Touch");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.thumbstickTouchAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "thumbstick_click");
+            strcpy(actionInfo.localizedActionName, "Thumbstick Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.thumbstickClickAction));
+            
             actionInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
 			strcpy_s(actionInfo.actionName, "thumbstick_x");
 			strcpy_s(actionInfo.localizedActionName, "Thumbstick X");
@@ -1356,6 +1375,28 @@ struct OpenXrProgram : IOpenXrProgram
 			strcpy_s(actionInfo.actionName, "thumbstick_y");
 			strcpy_s(actionInfo.localizedActionName, "Thumbstick Y");
 			CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.thumbstickYAction));
+#endif
+
+#if USE_BUTTONS_TRIGGERS
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "trigger_click");
+            strcpy(actionInfo.localizedActionName, "Trigger Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.triggerClickAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
+            strcpy(actionInfo.actionName, "trigger_value");
+            strcpy(actionInfo.localizedActionName, "Trigger Value");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.triggerValueAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "button_a_click");
+            strcpy(actionInfo.localizedActionName, "Button A Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.buttonAXClickAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "button_b_click");
+            strcpy(actionInfo.localizedActionName, "Button B Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.buttonBYClickAction));
 #endif
 
             // Create output actions for vibrating the left and right controller.
@@ -1397,7 +1438,6 @@ struct OpenXrProgram : IOpenXrProgram
         std::array<XrPath, Side::COUNT> hapticPath;
         std::array<XrPath, Side::COUNT> menuClickPath;
         std::array<XrPath, Side::COUNT> bClickPath;
-        std::array<XrPath, Side::COUNT> triggerValuePath;
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/select/click", &selectPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/select/click", &selectPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/squeeze/value", &squeezeValuePath[Side::LEFT]));
@@ -1413,11 +1453,47 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/aim/pose", &aimPath[Side::RIGHT]));
 #endif
 #if USE_THUMBSTICKS
+        std::array<XrPath, Side::COUNT> stickClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/click", &stickClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/click", &stickClickPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> stickTouchPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/touch", &stickTouchPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/touch", &stickTouchPath[Side::RIGHT]);
+        
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/x", &stickXPath[Side::LEFT]));
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/x", &stickXPath[Side::RIGHT]));
 
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/y", &stickYPath[Side::LEFT]));
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/y", &stickYPath[Side::RIGHT]));
+#endif
+#if USE_BUTTONS_TRIGGERS
+        std::array<XrPath, Side::COUNT> triggerClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/trigger/click", &triggerClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/trigger/click", &triggerClickPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> triggerTouchPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/trigger/touch", &triggerTouchPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/trigger/touch", &triggerTouchPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> triggerValuePath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/trigger/value", &triggerValuePath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/trigger/value", &triggerValuePath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> XA_ClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/x/click", &XA_ClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/a/click", &XA_ClickPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> YB_ClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/y/click", &YB_ClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/b/click", &YB_ClickPath[Side::RIGHT]);
 #endif
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/output/haptic", &hapticPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/output/haptic", &hapticPath[Side::RIGHT]));
@@ -1425,9 +1501,7 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/menu/click", &menuClickPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/b/click", &bClickPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/b/click", &bClickPath[Side::RIGHT]));
-        CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/trigger/value", &triggerValuePath[Side::LEFT]));
-        CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/trigger/value", &triggerValuePath[Side::RIGHT]));
-
+        
         // Suggest bindings for KHR Simple.
         {
             XrPath khrSimpleInteractionProfilePath;
@@ -1471,7 +1545,20 @@ struct OpenXrProgram : IOpenXrProgram
 															{m_input.thumbstickXAction, stickXPath[Side::RIGHT]},
 															{m_input.thumbstickYAction, stickYPath[Side::LEFT]},
 															{m_input.thumbstickYAction, stickYPath[Side::RIGHT]},
-
+                                                            {m_input.thumbstickClickAction, stickClickPath[Side::LEFT]},
+                                                            {m_input.thumbstickClickAction, stickClickPath[Side::RIGHT]},
+                                                            {m_input.thumbstickTouchAction, stickTouchPath[Side::LEFT]},
+                                                            {m_input.thumbstickTouchAction, stickTouchPath[Side::RIGHT]},
+#endif
+#if USE_BUTTONS_TRIGGERS
+                                                            {m_input.triggerClickAction, triggerValuePath[Side::LEFT]},
+                                                            {m_input.triggerClickAction, triggerValuePath[Side::RIGHT]},
+                                                            {m_input.triggerValueAction, triggerValuePath[Side::LEFT]},
+                                                            {m_input.triggerValueAction, triggerValuePath[Side::RIGHT]},
+                                                            {m_input.buttonAXClickAction, XA_ClickPath[Side::LEFT]},
+                                                            {m_input.buttonAXClickAction, XA_ClickPath[Side::RIGHT]},
+                                                            {m_input.buttonBYClickAction, YB_ClickPath[Side::LEFT]},
+                                                            {m_input.buttonBYClickAction, YB_ClickPath[Side::RIGHT]},
 #endif
                                                             {m_input.quitAction, menuClickPath[Side::LEFT]},
                                                             {m_input.vibrateAction, hapticPath[Side::LEFT]},
@@ -3366,24 +3453,17 @@ struct OpenXrProgram : IOpenXrProgram
         // For each locatable space that we want to visualize, render a 25cm cube.
         std::vector<Cube> cubes;
 
-#if ADD_EXTRA_CUBES
+#if DRAW_FLOOR_AND_CEILING
         const int num_cubes_x = 20;
-        const int num_cubes_y = 1;
         const int num_cubes_z = 20;
 
         const float offset_x = (float)(num_cubes_x / 2 - 1) * 0.5f;
         const float offset_z = (float)(num_cubes_z / 2 - 1) * 0.5f;
 
-#if defined(WIN32)
-        const int hand_for_cube_scale = Side::LEFT;
-#else
-        const int hand_for_cube_scale = Side::RIGHT;
-#endif
-
         XrPosef cube_pose;
         cube_pose.orientation = {0.0f, 0.0f, 0.0f, 1.0f};
 
-        float base_scale = 0.5f;
+        float base_scale = 0.4f;
         XrVector3f scale_vec{base_scale, 0.01f, base_scale};
 
         for (int cube_z_index = 0; cube_z_index < num_cubes_z; cube_z_index++) 
@@ -3696,6 +3776,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                 if (GetGazePoseSocial(eye, gaze_pose))
                 {
+#if DRAW_EYE_LASERS
                     XrVector4f social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
 					const XrPosef& eye_pose = m_views[eye].pose;
 
@@ -3731,27 +3812,50 @@ struct OpenXrProgram : IOpenXrProgram
                     // Make a slender laser pointer-like box for gazes
                     XrVector3f gaze_cube_scale{ 0.001f, 0.001f, laser_length };
 
-#if DRAW_LOCAL_EYE_LASERS
+#if DRAW_LOCAL_POSES
                     cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, social_laser_colour });
-#endif
+#endif // DRAW_LOCAL_POSES
 
-#if DRAW_WORLD_EYE_LASERS
-					const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
-					const glm::vec3 world_eye_laser_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
-					const glm::fquat world_eye_laser_rotation = glm::normalize(player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
-
-					XrPosef world_eye_laser_pose;
-                    world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
-                    world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
-
-#if ENABLE_EXT_EYE_TRACKING
-                    if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
-#endif
+                    const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
+                    
+#if DRAW_FIRST_PERSON_EYE_LASERS
                     {
-                        cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+                        const glm::vec3 world_eye_laser_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
+                        const glm::fquat world_eye_laser_rotation = glm::normalize(player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
+    
+                        XrPosef world_eye_laser_pose;
+                        world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
+                        world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
+    
+    #if ENABLE_EXT_EYE_TRACKING
+                        if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
+    #endif
+                        {
+                            cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+                        }    
                     }
-					
-#endif
+#endif // DRAW_FIRST_PERSON_EYE_LASERS
+
+#if DRAW_THIRD_PERSON_EYE_LASERS
+                    {
+                        const glm::vec3 world_eye_laser_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
+                        const glm::fquat world_eye_laser_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
+    
+                        XrPosef world_eye_laser_pose;
+                        world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
+                        world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
+    
+    #if ENABLE_EXT_EYE_TRACKING
+                        if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
+    #endif
+                        {
+                            cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+                        }    
+                    }
+#endif // DRAW_THIRD_PERSON_EYE_LASERS
+
+#endif // DRAW_EYE_LASERS
+
                 }
             }
         }
@@ -3933,10 +4037,9 @@ struct OpenXrProgram : IOpenXrProgram
                             BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::LOCAL_SPACE_);
                             glm_local_waist_pose_with_offset.translation_ += (glm_local_waist_pose_with_offset.rotation_ * local_waist_offset);
                             glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
-
-                            XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
                             
 #if DRAW_LOCAL_POSES
+                            XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
                             cubes.push_back(Cube{local_waist_offset_xr_pose, body_joint_scale});
 #endif // DRAW_LOCAL_POSES
                             
