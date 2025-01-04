@@ -3587,6 +3587,10 @@ struct OpenXrProgram : IOpenXrProgram
                     const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
                     
 #if DRAW_FIRST_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                    if (!is_third_person_view_auto_enabled())
+#endif
 					{
 						const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
 						const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
@@ -3600,6 +3604,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                    if (is_third_person_view_auto_enabled())
+#endif
                     {
                         const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
                         const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
@@ -3645,6 +3653,10 @@ struct OpenXrProgram : IOpenXrProgram
                         const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
                         
 #if DRAW_FIRST_PERSON_POSES
+                        
+#if AUTO_HIDE_OTHER_BODY
+                        if (!is_third_person_view_auto_enabled())
+#endif
                         {
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
 							const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
@@ -3658,6 +3670,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_third_person_view_auto_enabled())
+#endif
                         {
 							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
 							const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
@@ -3727,6 +3743,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_LOCAL_POSES
 
 #if DRAW_FIRST_PERSON_POSES
+                        
+#if AUTO_HIDE_OTHER_BODY
+                        if (!is_third_person_view_auto_enabled())
+#endif
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
@@ -3741,6 +3761,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_third_person_view_auto_enabled())
+#endif
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
 							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
@@ -4034,6 +4058,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_LOCAL_POSES
 
 #if DRAW_FIRST_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (!is_third_person_view_auto_enabled())
+#endif
                         {
                             const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
                             const glm::vec3 world_joint_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_joint_pose.translation_);
@@ -4050,6 +4078,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_third_person_view_auto_enabled())
+#endif
                         {
                             const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
                             const glm::vec3 world_joint_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_joint_pose.translation_);
@@ -4100,6 +4132,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_LOCAL_POSES
                             
 #if DRAW_FIRST_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                            if (!is_third_person_view_auto_enabled())
+#endif
                             {
                                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
                                 glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
@@ -4111,6 +4147,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                            if (is_third_person_view_auto_enabled())
+#endif
                             {
                                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
                                 glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
@@ -4154,6 +4194,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
             
 #if DRAW_FIRST_PERSON_POSES
+            
+#if AUTO_HIDE_OTHER_BODY
+            if (!is_third_person_view_auto_enabled())
+#endif                        
             {
                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
 			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
@@ -4165,6 +4209,10 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // DRAW_FIRST_PERSON_POSES
 
 #if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+            if (is_third_person_view_auto_enabled())
+#endif
             {
                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
 			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
