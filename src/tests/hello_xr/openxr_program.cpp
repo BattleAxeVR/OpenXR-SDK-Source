@@ -327,6 +327,7 @@ BVR::GLMPose local_hmd_pose;
 
 #if SUPPORT_THIRD_PERSON
 bool s_third_person_enabled = false;
+bool s_third_person_automatic = PREFER_THIRD_PERSON_AUTO;
 
 BVR::GLMPose third_person_player_pose;
 
@@ -354,8 +355,6 @@ void set_third_person_view_enabled(const bool enabled)
     s_third_person_enabled = enabled;
 }
 
-bool s_third_person_automatic = false;
-
 bool is_third_person_view_auto_enabled()
 {
     return s_third_person_automatic;
@@ -369,11 +368,7 @@ void toggle_3rd_person_view_auto()
     }
     s_third_person_automatic = !s_third_person_automatic;
 }
-
-
-#else
-const bool third_person_enabled = false;
-#endif
+#endif // SUPPORT_THIRD_PERSON
 
 const float movement_speed = WALKING_SPEED;
 const float rotation_speed = SMOOTH_TURNING_ROTATION_SPEED;
@@ -394,7 +389,11 @@ void toggle_snap_turning()
 
 bool is_snap_turn_enabled()
 {
+#if SUPPORT_THIRD_PERSON
+    return s_snap_turn_enabled && !is_third_person_view_auto_enabled();
+#else
     return s_snap_turn_enabled;
+#endif
 }
 #endif
 
@@ -506,9 +505,11 @@ void move_player(const glm::vec2& left_thumbstick_values)
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 	if (local_waist_pose.is_valid_)
 	{
+#if SUPPORT_THIRD_PERSON
         const bool third_person_enabled = is_third_person_view_enabled();
         
         if (!third_person_enabled)
+#endif
         {
             const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
             const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
@@ -547,8 +548,8 @@ void rotate_player(const float right_thumbstick_x_value)
 
     float rotation_degrees = 0.0f;
             
-#if SUPPORT_SNAP_TURNING
-    if (snap_turn_enabled)
+//#if SUPPORT_SNAP_TURNING
+    if (is_snap_turn_enabled())
     {
         if (!was_last_x_value_0)
         {
@@ -567,7 +568,7 @@ void rotate_player(const float right_thumbstick_x_value)
         rotation_degrees = BVR::sign(right_thumbstick_x_value) * snap_turn_degrees;
     }
     else
-#elif SUPPORT_SMOOTH_TURNING
+//#elif SUPPORT_SMOOTH_TURNING
     {
         // Rotate player about +Y (UP) axis
         float current_turning_speed = rotation_speed;
@@ -581,11 +582,13 @@ void rotate_player(const float right_thumbstick_x_value)
         
         rotation_degrees = -right_thumbstick_x_value * current_turning_speed;
     }
-#endif // SUPPORT_SMOOTH_TURNING
+//#endif // SUPPORT_SMOOTH_TURNING
 
+#if SUPPORT_THIRD_PERSON
     const bool third_person_enabled = is_third_person_view_enabled();
     
     if (!third_person_enabled)
+#endif
     {
         //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
         player_pose.euler_angles_degrees_.y += rotation_degrees;
@@ -3316,7 +3319,6 @@ struct OpenXrProgram : IOpenXrProgram
 						left_thumbstick_values.y = y_val;
 					}
 #endif // USE_THUMBSTICKS_FOR_MOVEMENT_Y
-
 					const bool has_moved = (axis_state_x.isActive || axis_state_y.isActive);
 
                     if (has_moved)
