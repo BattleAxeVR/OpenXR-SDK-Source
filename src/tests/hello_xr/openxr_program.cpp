@@ -327,6 +327,7 @@ BVR::GLMPose local_hmd_pose;
 
 #if SUPPORT_THIRD_PERSON
 bool s_third_person_enabled = false;
+
 BVR::GLMPose third_person_player_pose;
 
 bool is_third_person_view_enabled()
@@ -353,6 +354,23 @@ void set_third_person_view_enabled(const bool enabled)
     s_third_person_enabled = enabled;
 }
 
+bool s_third_person_automatic = false;
+
+bool is_third_person_view_auto_enabled()
+{
+    return s_third_person_automatic;
+}
+
+void toggle_3rd_person_view_auto()
+{
+    if (s_third_person_enabled && s_third_person_automatic)
+    {
+        set_third_person_view_enabled(false);
+    }
+    s_third_person_automatic = !s_third_person_automatic;
+}
+
+
 #else
 const bool third_person_enabled = false;
 #endif
@@ -367,7 +385,17 @@ const float right_deadzone_x = ROTATION_DEADZONE;
 //const float right_deadzone_y = CONTROLLER_THUMBSTICK_DEADZONE_Y;
 
 #if SUPPORT_SNAP_TURNING
-bool snap_turn_enabled = PREFER_SNAP_TURNING;
+bool s_snap_turn_enabled = PREFER_SNAP_TURNING;
+
+void toggle_snap_turning()
+{
+    s_snap_turn_enabled = !s_snap_turn_enabled;
+}
+
+bool is_snap_turn_enabled()
+{
+    return s_snap_turn_enabled;
+}
 #endif
 
 #if SUPPORT_RUNNING_WITH_LEFT_GRIP
@@ -3327,6 +3355,28 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // USE_THUMBSTICKS_FOR_TURNING
                 }
 
+                // Buttons
+                action_get_info.action = m_input.thumbstickClickAction;
+                XrActionStateBoolean thumbstick_click_value{XR_TYPE_ACTION_STATE_BOOLEAN};
+
+                XrResult action_result = xrGetActionStateBoolean(m_session, &action_get_info, &thumbstick_click_value);
+
+                if ((action_result == XR_SUCCESS) && thumbstick_click_value.isActive && thumbstick_click_value.changedSinceLastSync && (thumbstick_click_value.currentState == XR_TRUE))
+                {
+                    if (hand == Side::LEFT)
+                    {
+#if TOGGLE_3RD_PERSON_AUTO_LEFT_STICK_CLICK
+                        toggle_3rd_person_view_auto();
+#endif
+                    }
+                    else
+                    {
+#if TOGGLE_SNAP_TURNING_RIGHT_STICK_CLICK
+                        toggle_snap_turning();
+#endif
+                    }
+                }
+
 #endif // USE_THUMBSTICKS
             }
 
@@ -3337,7 +3387,10 @@ struct OpenXrProgram : IOpenXrProgram
         }
 
 #if SUPPORT_THIRD_PERSON
-        set_third_person_view_enabled(should_third_person_be_enabled);
+        if (is_third_person_view_auto_enabled())
+        {
+            set_third_person_view_enabled(should_third_person_be_enabled);
+        }
 #endif
         // There were no subaction paths specified for the quit action, because we don't care which hand did it.
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, m_input.quitAction, XR_NULL_PATH};
@@ -3348,6 +3401,7 @@ struct OpenXrProgram : IOpenXrProgram
         {
             CHECK_XRCMD(xrRequestExitSession(m_session));
         }
+
     }
 
     void RenderFrame() override 
