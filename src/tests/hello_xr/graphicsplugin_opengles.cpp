@@ -88,6 +88,54 @@ bool check_gl_errors()
     return no_error_occurred;
 }
 
+#if ENABLE_TINT
+    typedef uint IndexType;
+    
+    typedef glm::vec2 Vector2;
+    typedef glm::vec3 Vector3;
+    typedef glm::vec4 Vector4;
+
+    typedef Vector3 Position;
+    typedef Vector3 Normal;
+    typedef Vector4 Colour;
+    typedef Vector2 TexCoord;
+
+    const Colour white(1.0f, 1.0f, 1.0f, 1.0f);
+    const Colour black(0.0f, 0.0f, 0.0f, 1.0f);
+    const Colour transparent_white(1.0f, 1.0f, 1.0f, 0.0f);
+    const Colour transparent_black(0.0f, 0.0f, 0.0f, 0.0f);
+
+    const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
+    const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
+    const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
+    
+    static const char* VertexShaderGlsl = R"_(#version 320 es
+
+    in vec3 VertexPos;
+    in vec3 VertexColor;
+
+    out vec3 PSVertexColor;
+
+    uniform mat4 ModelViewProjection;
+
+    void main() {
+       gl_Position = ModelViewProjection * vec4(VertexPos, 1.0);
+       PSVertexColor = VertexColor;
+    }
+    )_";
+
+    static const char* FragmentShaderGlsl = R"_(#version 320 es
+
+    in lowp vec3 PSVertexColor;
+    out lowp vec4 FragColor;
+
+    uniform lowp vec4 Tint;
+
+    void main() {
+       FragColor = vec4(PSVertexColor, 1) * Tint;
+    }
+    )_";
+#else
 // The version statement has come on first line.
 static const char* VertexShaderGlsl = R"_(#version 320 es
 
@@ -114,6 +162,7 @@ static const char* FragmentShaderGlsl = R"_(#version 320 es
        FragColor = vec4(PSVertexColor, 1);
     }
     )_";
+#endif // ENABLE_TINT
 
 struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
     OpenGLESGraphicsPlugin(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin> /*unused*/&)
@@ -123,6 +172,11 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
     OpenGLESGraphicsPlugin& operator=(const OpenGLESGraphicsPlugin&) = delete;
     OpenGLESGraphicsPlugin(OpenGLESGraphicsPlugin&&) = delete;
     OpenGLESGraphicsPlugin& operator=(OpenGLESGraphicsPlugin&&) = delete;
+
+#if ENABLE_TINT
+    GLint tint_location_ = 0;
+    Colour tint_colour_ = red;
+#endif
 
     ~OpenGLESGraphicsPlugin() override {
         if (m_swapchainFramebuffer != 0) {
@@ -244,6 +298,10 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glAttachShader(m_program, fragmentShader);
         glLinkProgram(m_program);
         CheckProgram(m_program);
+        
+#if ENABLE_TINT
+        tint_location_ = glGetUniformLocation(m_program, "Tint");
+#endif
 
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
@@ -489,6 +547,10 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
 		// Set cube primitive data.
 		glBindVertexArray(m_vao);
+        
+#if ENABLE_TINT
+        glUniform4fv(tint_location_, 1, &tint_colour_.x);
+#endif
 
 		// Render each cube
 		for (const Cube& cube : cubes) {
