@@ -3579,9 +3579,17 @@ struct OpenXrProgram : IOpenXrProgram
                     (gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
 
                     float scale = 0.1f * m_input.handScale[hand];
+                    
+#if ENABLE_TINT
+                    Colour tint_colour = red;
+                    const bool enable_blend = ENABLE_BLENDING;
+#else
+                    Colour tint_colour = white;
+                    const bool enable_blend = false;
+#endif
 
 #if DRAW_LOCAL_POSES
-                    cubes.push_back(Cube{ gripSpaceLocation.pose, {scale, scale, scale}});
+                    cubes.push_back(Cube{ gripSpaceLocation.pose, {scale, scale, scale}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
 #endif // DRAW_LOCAL_POSES
 
                     const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
@@ -3599,7 +3607,7 @@ struct OpenXrProgram : IOpenXrProgram
 						world_xr_pose.position = BVR::convert_to_xr(world_position);
 						world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-						cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
+						cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
 		            }
 #endif // DRAW_FIRST_PERSON_POSES
 
@@ -3616,7 +3624,7 @@ struct OpenXrProgram : IOpenXrProgram
                         world_xr_pose.position = BVR::convert_to_xr(world_position);
                         world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-                        cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
+                        cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
                     }
 #endif // DRAW_THIRD_PERSON_POSES
                 }
@@ -3647,7 +3655,7 @@ struct OpenXrProgram : IOpenXrProgram
                         float scale = 0.1f * m_input.handScale[hand];
                         
 #if DRAW_LOCAL_POSES
-                        cubes.push_back(Cube{aimSpaceLocation.pose, {scale, scale, scale}});
+                        cubes.push_back(Cube{aimSpaceLocation.pose, {scale, scale, scale}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
 #endif // DRAW_LOCAL_POSES
 
                         const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
@@ -3665,7 +3673,7 @@ struct OpenXrProgram : IOpenXrProgram
                             world_xr_pose.position = BVR::convert_to_xr(world_position);
                             world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-                            cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
+                            cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend });
                         }
 #endif // DRAW_FIRST_PERSON_POSES
 
@@ -3682,7 +3690,7 @@ struct OpenXrProgram : IOpenXrProgram
                             world_xr_pose.position = BVR::convert_to_xr(world_position);
                             world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-                            cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} })
+                            cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend })
                         }
 #endif // DRAW_THIRD_PERSON_POSES
                     }

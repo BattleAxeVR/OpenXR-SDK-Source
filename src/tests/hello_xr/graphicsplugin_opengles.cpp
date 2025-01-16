@@ -89,30 +89,6 @@ bool check_gl_errors()
 }
 
 #if ENABLE_TINT
-    typedef uint IndexType;
-    
-    typedef glm::vec2 Vector2;
-    typedef glm::vec3 Vector3;
-    typedef glm::vec4 Vector4;
-
-    typedef Vector3 Position;
-    typedef Vector3 Normal;
-    typedef Vector4 Colour;
-    typedef Vector2 TexCoord;
-
-    const Colour white(1.0f, 1.0f, 1.0f, 1.0f);
-    const Colour black(0.0f, 0.0f, 0.0f, 1.0f);
-    
-    const Colour transparent_white(1.0f, 1.0f, 1.0f, 0.0f);
-    const Colour transparent_black(0.0f, 0.0f, 0.0f, 0.0f);
-
-    const Colour semi_transparent_white(1.0f, 1.0f, 1.0f, 0.5f);
-    const Colour semi_transparent_black(0.0f, 0.0f, 0.0f, 0.5f);
-
-    const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
-    const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
-    const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
-    
     static const char* VertexShaderGlsl = R"_(#version 320 es
 
     in vec3 VertexPos;
