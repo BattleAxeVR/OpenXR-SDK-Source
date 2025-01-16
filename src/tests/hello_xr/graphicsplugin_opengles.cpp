@@ -554,6 +554,23 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         
 #if ENABLE_TINT
         glUniform4fv(tint_location_, 1, &tint_colour_.x);
+
+#if ENABLE_BLENDING
+        const bool enable_blend = true;
+        
+        if (enable_blend) 
+        {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        } 
+        else 
+        {
+            glDisable(GL_BLEND);
+        }
+#else
+            glDisable(GL_BLEND);
+#endif
+            
 #endif
 
 		// Render each cube
