@@ -102,8 +102,12 @@ bool check_gl_errors()
 
     const Colour white(1.0f, 1.0f, 1.0f, 1.0f);
     const Colour black(0.0f, 0.0f, 0.0f, 1.0f);
+    
     const Colour transparent_white(1.0f, 1.0f, 1.0f, 0.0f);
     const Colour transparent_black(0.0f, 0.0f, 0.0f, 0.0f);
+
+    const Colour semi_transparent_white(1.0f, 1.0f, 1.0f, 0.5f);
+    const Colour semi_transparent_black(0.0f, 0.0f, 0.0f, 0.5f);
 
     const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
     const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
@@ -175,7 +179,7 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
 #if ENABLE_TINT
     GLint tint_location_ = 0;
-    Colour tint_colour_ = red;
+    Colour tint_colour_ = semi_transparent_white;
 #endif
 
     ~OpenGLESGraphicsPlugin() override {
