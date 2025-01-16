@@ -106,7 +106,7 @@ bool check_gl_errors()
     const Colour transparent_white(1.0f, 1.0f, 1.0f, 0.0f);
     const Colour transparent_black(0.0f, 0.0f, 0.0f, 0.0f);
 
-    const Colour semi_transparent_white(1.0f, 1.0f, 1.0f, 0.5f);
+    const Colour semi_transparent_white(1.0f, 0.0f, 1.0f, 0.5f);
     const Colour semi_transparent_black(0.0f, 0.0f, 0.0f, 0.5f);
 
     const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
