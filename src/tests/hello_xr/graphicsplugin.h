@@ -7,7 +7,8 @@
 struct Cube {
     XrPosef Pose;
     XrVector3f Scale;
-    XrVector4f Colour;
+    XrVector4f Colour = {0.0f, 1.0f, 1.0f, 0.5f};
+    bool enable_blend = true;
 };
 
 // Wraps a graphics API so the main openxr program can be graphics API-independent.

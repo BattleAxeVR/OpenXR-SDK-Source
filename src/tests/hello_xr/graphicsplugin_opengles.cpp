@@ -106,7 +106,7 @@ bool check_gl_errors()
     const Colour transparent_white(1.0f, 1.0f, 1.0f, 0.0f);
     const Colour transparent_black(0.0f, 0.0f, 0.0f, 0.0f);
 
-    const Colour semi_transparent_white(1.0f, 0.0f, 1.0f, 0.5f);
+    const Colour semi_transparent_white(1.0f, 1.0f, 1.0f, 0.5f);
     const Colour semi_transparent_black(0.0f, 0.0f, 0.0f, 0.5f);
 
     const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
@@ -179,13 +179,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
 #if ENABLE_TINT
     GLint tint_location_ = 0;
-    
-#if ENABLE_BLENDING
-    Colour tint_colour_ = semi_transparent_white;
-#else
-    Colour tint_colour_ = white;
-#endif
-    
 #endif
 
     ~OpenGLESGraphicsPlugin() override {
@@ -557,31 +550,28 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
 		// Set cube primitive data.
 		glBindVertexArray(m_vao);
-        
-#if ENABLE_TINT
-        glUniform4fv(tint_location_, 1, &tint_colour_.x);
-
-#if ENABLE_BLENDING
-        const bool enable_blend = true;
-        
-        if (enable_blend) 
-        {
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        } 
-        else 
-        {
-            glDisable(GL_BLEND);
-        }
-#else
-            glDisable(GL_BLEND);
-#endif
-            
-#endif
 
 		// Render each cube
 		for (const Cube& cube : cubes) {
-			// Compute the model-view-projection transform and set it..
+
+#if ENABLE_TINT
+            glUniform4fv(tint_location_, 1, &cube.Colour.x);
+
+#if ENABLE_BLENDING
+            if (cube.enable_blend)
+            {
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            }
+            else
+            {
+                glDisable(GL_BLEND);
+            }
+#endif
+            
+#endif
+            
+            // Compute the model-view-projection transform and set it..
 			XrMatrix4x4f model;
 			XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
 			XrMatrix4x4f mvp;
