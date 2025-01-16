@@ -179,7 +179,13 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
 #if ENABLE_TINT
     GLint tint_location_ = 0;
+    
+#if ENABLE_BLENDING
     Colour tint_colour_ = semi_transparent_white;
+#else
+    Colour tint_colour_ = white;
+#endif
+    
 #endif
 
     ~OpenGLESGraphicsPlugin() override {
