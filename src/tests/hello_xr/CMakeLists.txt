@@ -28,6 +28,7 @@ set(LOCAL_HEADERS
     pch.h
     platformdata.h
     platformplugin.h
+    defines.h
 )
 set(LOCAL_SOURCE
     d3d_common.cpp
