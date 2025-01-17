@@ -4,7 +4,7 @@
 
 #pragma once
 
-#if ENABLE_TINT
+#if 1
 typedef uint IndexType;
 
 typedef glm::vec2 Vector2;
@@ -28,7 +28,7 @@ const Colour semi_transparent_black(0.0f, 0.0f, 0.0f, 0.5f);
 const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
 const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
 const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
-#endif // ENABLE_TINT
+#endif
 
 
 struct Cube {
