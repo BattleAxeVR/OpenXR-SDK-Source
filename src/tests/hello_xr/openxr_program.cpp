@@ -3578,7 +3578,7 @@ struct OpenXrProgram : IOpenXrProgram
                 if ((gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
                     (gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
 
-                    float width = GRIP_CUBE_WIDTH * m_input.handScale[hand];
+                    float width = GRIP_CUBE_WIDTH;
                     float length = GRIP_CUBE_LENGTH;
                     
 #if ENABLE_TINT
@@ -3593,7 +3593,13 @@ struct OpenXrProgram : IOpenXrProgram
                     cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
 #endif // DRAW_LOCAL_POSES
 
-                    const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
+                    BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
+
+#if APPLY_GRIP_OFFSET
+                    const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
+                    const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
+                    glm_local_pose.translation_ += grip_offset_world;
+#endif
                     
 #if DRAW_FIRST_PERSON_POSES
 
@@ -3653,14 +3659,20 @@ struct OpenXrProgram : IOpenXrProgram
                     if ((aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
                         (aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) 
                     {
-                        float width = AIM_CUBE_WIDTH * m_input.handScale[hand];
+                        float width = AIM_CUBE_WIDTH;
                         float length = AIM_CUBE_LENGTH;
                         
 #if DRAW_LOCAL_POSES
                         cubes.push_back(Cube{aimSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
 #endif // DRAW_LOCAL_POSES
 
-                        const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
+                        BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
+
+#if APPLY_AIM_OFFSET
+                        const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
+                        const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
+                        glm_local_pose.translation_ += grip_offset_world;
+#endif
                         
 #if DRAW_FIRST_PERSON_POSES
                         
