@@ -246,7 +246,7 @@ void update_sdl_joysticks()
 
 #if ENABLE_CONTROLLER_MOTION_BLUR
 #include <queue>
-std::queue<BVR::GLMPose> s_controller_pose_history[2];
+std::queue<BVR::GLMPose> controller_pose_history_[Side::COUNT];
 #endif
 
 #if USE_THUMBSTICKS
@@ -3191,7 +3191,7 @@ struct OpenXrProgram : IOpenXrProgram
                 // Scale the rendered hand by 1.0f (open) to 0.5f (fully squeezed).
                 m_input.handScale[hand] = 1.0f - 0.5f * grabValue.currentState;
                 
-                const float& grip_val = grabValue.currentState;
+                const float grip_val = grabValue.currentState;
                 bool should_vibrate = (grip_val >= VIBRATION_GRIP_THRESHOLD);
 
                 currently_gripping[hand] = (grip_val >= GRIP_THRESHOLD);
@@ -3557,15 +3557,25 @@ struct OpenXrProgram : IOpenXrProgram
                     float length = GRIP_CUBE_LENGTH;
                     
 #if ENABLE_TINT
-                    Colour tint_colour = semi_transparent_white;
-                    const bool enable_blend = ENABLE_BLENDING;
+                    Colour tint_colour = white;//semi_transparent_white;
+                    bool enable_blend = ENABLE_BLENDING;
 #else
                     Colour tint_colour = white;
-                    const bool enable_blend = false;
+                    bool enable_blend = false;
 #endif
 
+                    float alpha = tint_colour.w;
+
+#if ENABLE_CONTROLLER_MOTION_BLUR
+                    if (currently_gripping[hand]) 
+                    {
+                        alpha = 1.0f - current_grip_value[hand];
+                    }
+#endif
+                    
+
 #if DRAW_LOCAL_POSES
-                    cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
+                    cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});
 #endif // DRAW_LOCAL_POSES
 
                     BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
@@ -3589,7 +3599,7 @@ struct OpenXrProgram : IOpenXrProgram
 						world_xr_pose.position = BVR::convert_to_xr(world_position);
 						world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-						cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
+						cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});
 		            }
 #endif // DRAW_FIRST_PERSON_POSES
 
@@ -3606,7 +3616,7 @@ struct OpenXrProgram : IOpenXrProgram
                         world_xr_pose.position = BVR::convert_to_xr(world_position);
                         world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
+                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});
                     }
 #endif // DRAW_THIRD_PERSON_POSES
                 }
