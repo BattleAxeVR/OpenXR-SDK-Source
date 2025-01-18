@@ -246,7 +246,7 @@ void update_sdl_joysticks()
 
 #if ENABLE_CONTROLLER_MOTION_BLUR
 #include <queue>
-std::queue<BVR::GLMPose> controller_pose_history_[Side::COUNT];
+std::queue<XrPosef> controller_pose_history_[Side::COUNT];
 #endif
 
 #if USE_THUMBSTICKS
@@ -3569,7 +3569,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_CONTROLLER_MOTION_BLUR
                     if (currently_gripping[hand]) 
                     {
-                        alpha = 1.0f - current_grip_value[hand];
+                        //alpha = 1.0f - current_grip_value[hand];
                     }
 #endif
                     
@@ -3591,15 +3591,62 @@ struct OpenXrProgram : IOpenXrProgram
 #if AUTO_HIDE_OTHER_BODY
                     if (!is_third_person_view_auto_enabled())
 #endif
-					{
-						const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
-						const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
+                    {
+                        const glm::vec3 world_position = player_pose.translation_ +
+                                                         (player_pose.rotation_ *
+                                                          glm_local_pose.translation_);
+                        const glm::fquat world_rotation = glm::normalize(
+                                player_pose.rotation_ * glm_local_pose.rotation_);
 
-						XrPosef world_xr_pose;
-						world_xr_pose.position = BVR::convert_to_xr(world_position);
-						world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+                        XrPosef world_xr_pose;
+                        world_xr_pose.position = BVR::convert_to_xr(world_position);
+                        world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-						cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});
+#if ENABLE_CONTROLLER_MOTION_BLUR
+                        const bool motion_blur_enabled = currently_gripping[hand];
+                        
+                        if (motion_blur_enabled)
+                        {
+                            const int blur_steps = std::min<int>(std::floor(current_grip_value[hand] * (float)MAX_MOTION_BLUR_STEPS), MAX_MOTION_BLUR_STEPS);
+                            while (controller_pose_history_[hand].size() > blur_steps) 
+                            {
+                                controller_pose_history_[hand].pop();
+                            }
+
+                            controller_pose_history_[hand].push(world_xr_pose);
+
+                            //const float alpha_increment = 1.0f / (float) MOTION_BLUR_STEPS;
+                            float current_alpha = 0.1f;//alpha_increment;
+
+                            std::queue<XrPosef> queue_copy = controller_pose_history_[hand];
+
+                            while (!queue_copy.empty()) 
+                            {
+                                XrPosef current_cube_pose = queue_copy.front();
+                                queue_copy.pop();
+
+                                if (queue_copy.empty()) 
+                                {
+                                    //current_alpha = 1.0f;
+                                    break;//
+                                }
+
+                                cubes.push_back(Cube{current_cube_pose, {width, width, length},
+                                                     {tint_colour.x, tint_colour.y, tint_colour.z,
+                                                      current_alpha}, true});
+
+                                //current_alpha += alpha_increment;
+                            }
+                        }
+                        else 
+                        {
+                            controller_pose_history_[hand].empty();
+                        }
+#endif
+
+                        {
+                            cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});    
+                        }
 		            }
 #endif // DRAW_FIRST_PERSON_POSES
 
