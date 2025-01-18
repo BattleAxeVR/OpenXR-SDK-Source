@@ -3615,8 +3615,8 @@ struct OpenXrProgram : IOpenXrProgram
 
                             controller_pose_history_[hand].push(world_xr_pose);
 
-                            //const float alpha_increment = 1.0f / (float) MOTION_BLUR_STEPS;
-                            float current_alpha = 0.1f;//alpha_increment;
+                            const float alpha_increment = 1.0f / (float)blur_steps;
+                            float current_alpha = powf(alpha_increment, 5.0f);
 
                             std::queue<XrPosef> queue_copy = controller_pose_history_[hand];
 
@@ -3635,7 +3635,7 @@ struct OpenXrProgram : IOpenXrProgram
                                                      {tint_colour.x, tint_colour.y, tint_colour.z,
                                                       current_alpha}, true});
 
-                                //current_alpha += alpha_increment;
+                                current_alpha += alpha_increment;
                             }
                         }
                         else 
