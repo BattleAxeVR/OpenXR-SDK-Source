@@ -236,6 +236,11 @@ void update_sdl_joysticks()
 }
 #endif
 
+#if ENABLE_CONTROLLER_MOTION_BLUR
+#include <queue>
+std::queue<BVR::GLMPose> s_controller_pose_history[2];
+#endif
+
 #if USE_THUMBSTICKS
 const glm::vec3 forward_direction(0.0f, 0.0f, -1.0f);
 //const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
@@ -403,7 +408,7 @@ float current_left_grip_value = 0.0f;
 #endif
 
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-bool currently_spinning = false;
+bool currently_gripping = false;
 float current_right_grip_value = 0.0f;
 #endif
 
@@ -559,7 +564,7 @@ void rotate_player(const float right_thumbstick_x_value)
         float snap_turn_degrees = -SNAP_TURN_DEGREES_DEFAULT;
 
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-        if (currently_spinning)
+        if (currently_gripping)
         {
             snap_turn_degrees = SNAP_TURN_EXTRA_FAST;
         }
@@ -574,7 +579,7 @@ void rotate_player(const float right_thumbstick_x_value)
         float current_turning_speed = rotation_speed;
 
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-        if (currently_spinning && (ROTATION_SPEED_EXTRA > 0.0f))
+        if (currently_gripping && (ROTATION_SPEED_EXTRA > 0.0f))
         {
             current_turning_speed += current_right_grip_value * ROTATION_SPEED_EXTRA;
         }
@@ -3211,14 +3216,13 @@ struct OpenXrProgram : IOpenXrProgram
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
                 if (hand == Side::RIGHT)
                 {
-                    currently_spinning = (grip_val >= SPINNING_GRIP_THRESHOLD);
+                    currently_gripping = (grip_val >= SPINNING_GRIP_THRESHOLD);
                     current_right_grip_value = grip_val;
                     
-                    if (currently_spinning) 
+                    if (currently_gripping) 
                     {
                         should_vibrate = true;
                     }
-                    
                 }
 #endif
 
