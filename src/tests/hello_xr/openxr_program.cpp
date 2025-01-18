@@ -15,6 +15,14 @@
 #include <cmath>
 #include <set>
 
+
+namespace Side {
+    const int LEFT = 0;
+    const int RIGHT = 1;
+    const int COUNT = 2;
+}  // namespace Side
+
+
 #if ENABLE_STREAMLINE
 
 #include "streamline_wrapper.hpp"
@@ -316,7 +324,6 @@ BVR::GLMPose local_waist_pose_from_HTCX;
 int current_eye = 0;
 float IPD = 0.0063f;
 
-
 enum PERSPECTIVE
 {
     LOCAL_SPACE_,
@@ -402,15 +409,8 @@ bool is_snap_turn_enabled()
 }
 #endif
 
-#if SUPPORT_RUNNING_WITH_LEFT_GRIP
-bool currently_running = false;
-float current_left_grip_value = 0.0f;
-#endif
-
-#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-bool currently_gripping = false;
-float current_right_grip_value = 0.0f;
-#endif
+bool currently_gripping[Side::COUNT] = {false, false};
+float current_grip_value[Side::COUNT] = {0.0f, 0.0f};
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 BVR::GLMPose local_waist_pose;
@@ -501,9 +501,9 @@ void move_player(const glm::vec2& left_thumbstick_values)
     float current_movement_speed = movement_speed;
 
 #if SUPPORT_RUNNING_WITH_LEFT_GRIP
-    if (currently_running)
+    if (currently_gripping[Side::LEFT])
     {
-        current_movement_speed += current_left_grip_value * RUNNING_SPEED_BOOST;
+        current_movement_speed += current_grip_value[Side::LEFT] * RUNNING_SPEED_BOOST;
     }
 #endif
 
@@ -564,7 +564,7 @@ void rotate_player(const float right_thumbstick_x_value)
         float snap_turn_degrees = -SNAP_TURN_DEGREES_DEFAULT;
 
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-        if (currently_gripping)
+        if (currently_gripping[Side::RIGHT])
         {
             snap_turn_degrees = SNAP_TURN_EXTRA_FAST;
         }
@@ -579,9 +579,9 @@ void rotate_player(const float right_thumbstick_x_value)
         float current_turning_speed = rotation_speed;
 
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-        if (currently_gripping && (ROTATION_SPEED_EXTRA > 0.0f))
+        if (currently_gripping[Side::RIGHT] && (ROTATION_SPEED_EXTRA > 0.0f))
         {
-            current_turning_speed += current_right_grip_value * ROTATION_SPEED_EXTRA;
+            current_turning_speed += current_grip_value[Side::RIGHT] * ROTATION_SPEED_EXTRA;
         }
 #endif
         
@@ -643,12 +643,6 @@ namespace {
 #if !defined(XR_USE_PLATFORM_WIN32)
 #define strcpy_s(dest, source) strncpy((dest), (source), sizeof(dest))
 #endif
-
-namespace Side {
-const int LEFT = 0;
-const int RIGHT = 1;
-const int COUNT = 2;
-}  // namespace Side
 
 inline std::string GetXrVersionString(XrVersion ver) 
 {
@@ -3200,31 +3194,8 @@ struct OpenXrProgram : IOpenXrProgram
                 const float& grip_val = grabValue.currentState;
                 bool should_vibrate = (grip_val >= VIBRATION_GRIP_THRESHOLD);
 
-#if SUPPORT_RUNNING_WITH_LEFT_GRIP
-                if (hand == Side::LEFT)
-                {
-                    currently_running = (grip_val >= RUNNING_GRIP_THRESHOLD);
-                    current_left_grip_value = grip_val;
-                    
-                    if (currently_running) 
-                    {
-                        should_vibrate = true;
-                    }
-                }
-#endif
-
-#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-                if (hand == Side::RIGHT)
-                {
-                    currently_gripping = (grip_val >= SPINNING_GRIP_THRESHOLD);
-                    current_right_grip_value = grip_val;
-                    
-                    if (currently_gripping) 
-                    {
-                        should_vibrate = true;
-                    }
-                }
-#endif
+                currently_gripping[hand] = (grip_val >= GRIP_THRESHOLD);
+                current_grip_value[hand] = grip_val;
 
                 if (should_vibrate) 
                 {
