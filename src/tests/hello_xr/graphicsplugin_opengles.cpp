@@ -538,9 +538,14 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
             {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+                glDepthMask(GL_FALSE);
+                //glEnable(GL_DEPTH_TEST);
             }
             else
             {
+                //glDisable(GL_DEPTH_TEST);
+                glDepthMask(GL_TRUE);
                 glDisable(GL_BLEND);
             }
 #endif

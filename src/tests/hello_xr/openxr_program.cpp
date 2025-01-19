@@ -3555,7 +3555,11 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if ENABLE_CONTROLLER_MOTION_BLUR
                     const bool motion_blur_enabled = currently_gripping[hand];
+#if MODULATE_BLUR_STEPS_WITH_GRIP_VALUE
                     const int blur_steps = std::min<int>(std::floor(current_grip_value[hand] * (float) MAX_MOTION_BLUR_STEPS), MAX_MOTION_BLUR_STEPS);
+#else
+                    const int blur_steps = MAX_MOTION_BLUR_STEPS;
+#endif
                     const float alpha_increment = (blur_steps > 1) ? 1.0f / (float)blur_steps : 0.0f;
                     
                     if (motion_blur_enabled) 
@@ -3567,7 +3571,8 @@ struct OpenXrProgram : IOpenXrProgram
                     }
                     else
                     {
-                        controller_pose_history_[hand].empty();
+                        std::queue<XrPosef> empty;
+                        std::swap(controller_pose_history_[hand], empty);
                     }
 #endif
 
@@ -3625,13 +3630,22 @@ struct OpenXrProgram : IOpenXrProgram
                         {
                             controller_pose_history_[hand].push(world_xr_pose);
                             
+                            float alpha_base = ALPHA_BASE;
+
+#if MODULATE_ALPHA_BASE_WITH_GRIP_VALUE
+                            alpha_base *= current_grip_value[hand];
+#endif
+                            
+                            
+#if NORMALIZE_ALPHA
                             float total_alpha = 0.0f;
                             
-                            for (int blur_index = blur_steps; blur_index > 1; blur_index--) 
+                            for (int blur_index = blur_steps; blur_index >= 1; blur_index--) 
                             {
-                                float current_alpha = powf(0.5f, blur_index);
+                                float current_alpha = powf(alpha_base, (float)blur_index);
                                 total_alpha += alpha_increment;
                             }
+#endif
 
                             std::queue<XrPosef> queue_copy = controller_pose_history_[hand];
 
@@ -3647,7 +3661,18 @@ struct OpenXrProgram : IOpenXrProgram
                                     break;
                                 }
 
-                                float current_alpha = powf(0.9f, blur_index);
+                                float current_alpha = powf(alpha_base, (float)blur_index) * ALPHA_MULT;
+                                
+#if NORMALIZE_ALPHA
+                                current_alpha /= total_alpha;
+#endif
+
+#if DEBUG_LOG_ALPHA_VALUES
+                                if (hand == Side::LEFT) 
+                                {
+                                    Log::Write(Log::Level::Info, Fmt("BLUR INDEX: %d, ALPHA = %0.2f", blur_index, current_alpha));
+                                }
+#endif
                                 
                                 cubes.push_back(Cube{current_cube_pose, {width, width, length},
                                                      {tint_colour.x, tint_colour.y, tint_colour.z,
@@ -3658,7 +3683,7 @@ struct OpenXrProgram : IOpenXrProgram
                         }
 #endif
 
-                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});    
+                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, false});    
 		            }
 #endif // DRAW_FIRST_PERSON_POSES
 
@@ -3703,7 +3728,7 @@ struct OpenXrProgram : IOpenXrProgram
                         }
 #endif
 
-                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});
+                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, false});
                     }
 #endif // DRAW_THIRD_PERSON_POSES
                 }
