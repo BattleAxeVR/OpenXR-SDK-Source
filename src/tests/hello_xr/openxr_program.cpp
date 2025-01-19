@@ -3556,7 +3556,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_CONTROLLER_MOTION_BLUR
                     const bool motion_blur_enabled = currently_gripping[hand];
                     const int blur_steps = std::min<int>(std::floor(current_grip_value[hand] * (float) MAX_MOTION_BLUR_STEPS), MAX_MOTION_BLUR_STEPS);
-                    const float alpha_increment = 1.0f / (float)blur_steps;
+                    const float alpha_increment = (blur_steps > 1) ? 1.0f / (float)blur_steps : 0.0f;
                     
                     if (motion_blur_enabled) 
                     {
@@ -3625,9 +3625,17 @@ struct OpenXrProgram : IOpenXrProgram
                         {
                             controller_pose_history_[hand].push(world_xr_pose);
                             
-                            float current_alpha = powf(alpha_increment, 5.0f);
+                            float total_alpha = 0.0f;
+                            
+                            for (int blur_index = blur_steps; blur_index > 1; blur_index--) 
+                            {
+                                float current_alpha = powf(0.5f, blur_index);
+                                total_alpha += alpha_increment;
+                            }
 
                             std::queue<XrPosef> queue_copy = controller_pose_history_[hand];
+
+                            int blur_index = blur_steps;
 
                             while (!queue_copy.empty()) 
                             {
@@ -3639,11 +3647,13 @@ struct OpenXrProgram : IOpenXrProgram
                                     break;
                                 }
 
+                                float current_alpha = powf(0.9f, blur_index);
+                                
                                 cubes.push_back(Cube{current_cube_pose, {width, width, length},
                                                      {tint_colour.x, tint_colour.y, tint_colour.z,
                                                       current_alpha}, true});
 
-                                current_alpha += alpha_increment;
+                                blur_index--;
                             }
                         }
 #endif
