@@ -88,7 +88,6 @@ bool check_gl_errors()
     return no_error_occurred;
 }
 
-#if ENABLE_TINT
     static const char* VertexShaderGlsl = R"_(#version 320 es
 
     in vec3 VertexPos;
@@ -104,6 +103,7 @@ bool check_gl_errors()
     }
     )_";
 
+#if ENABLE_TINT
     static const char* FragmentShaderGlsl = R"_(#version 320 es
 
     in lowp vec3 PSVertexColor;
@@ -116,22 +116,6 @@ bool check_gl_errors()
     }
     )_";
 #else
-// The version statement has come on first line.
-static const char* VertexShaderGlsl = R"_(#version 320 es
-
-    in vec3 VertexPos;
-    in vec3 VertexColor;
-
-    out vec3 PSVertexColor;
-
-    uniform mat4 ModelViewProjection;
-
-    void main() {
-       gl_Position = ModelViewProjection * vec4(VertexPos, 1.0);
-       PSVertexColor = VertexColor;
-    }
-    )_";
-
 // The version statement has come on first line.
 static const char* FragmentShaderGlsl = R"_(#version 320 es
 
@@ -540,11 +524,9 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
                 glDepthMask(GL_FALSE);
-                //glEnable(GL_DEPTH_TEST);
             }
             else
             {
-                //glDisable(GL_DEPTH_TEST);
                 glDepthMask(GL_TRUE);
                 glDisable(GL_BLEND);
             }
