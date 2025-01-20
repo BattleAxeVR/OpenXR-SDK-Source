@@ -35,13 +35,35 @@ BVR::GLMPose blend_poses(const BVR::GLMPose& glm_poseA, const BVR::GLMPose& glm_
 
 XrPosef blend_poses(const XrPosef& poseA, const XrPosef& poseB, const float alpha) 
 {
-    BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
-    BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
+    const BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
+    const BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
 
-    BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
-    XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
+    const BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
+    const XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
     
     return blended_xr_pose;
+}
+
+std::vector<XrPosef> blend_poses(const XrPosef& poseA, const XrPosef& poseB, const int num_poses)
+{
+    std::vector<XrPosef> blended_xr_poses;
+    blended_xr_poses.reserve(num_poses);
+    
+    const BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
+    const BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
+    
+    const float alpha_increment = 1.0f / (float)num_poses;
+
+    for (int pose_index = 0; pose_index < num_poses; pose_index++)
+    {
+        const float alpha = pose_index * alpha_increment;
+        const BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
+        const XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
+
+        blended_xr_poses.emplace_back(blended_xr_pose);
+    }
+
+    return blended_xr_poses;
 }
 
 #if ENABLE_STREAMLINE
