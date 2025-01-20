@@ -22,6 +22,27 @@ namespace Side {
     const int COUNT = 2;
 }  // namespace Side
 
+BVR::GLMPose blend_poses(const BVR::GLMPose& glm_poseA, const BVR::GLMPose& glm_poseB, const float alpha)
+{
+    BVR::GLMPose blended_glm_pose;
+
+    const float one_minus_alpha = (1.0f - alpha);
+    blended_glm_pose.translation_ = (one_minus_alpha * glm_poseA.translation_) + (alpha * glm_poseB.translation_);
+    blended_glm_pose.rotation_ = glm::slerp(glm_poseA.rotation_, glm_poseB.rotation_, alpha);
+    
+    return blended_glm_pose;
+}
+
+XrPosef blend_poses(const XrPosef& poseA, const XrPosef& poseB, const float alpha) 
+{
+    BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
+    BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
+
+    BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
+    XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
+    
+    return blended_xr_pose;
+}
 
 #if ENABLE_STREAMLINE
 
