@@ -30,6 +30,7 @@ extern BVR::GLMPose player_pose;
 extern BVR::GLMPose local_hmd_pose;
 #endif
 
+namespace {
 
 static const char* VertexShaderGlsl = R"_(
     #version 410
