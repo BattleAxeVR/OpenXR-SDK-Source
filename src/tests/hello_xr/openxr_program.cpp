@@ -15,7 +15,6 @@
 #include <cmath>
 #include <set>
 
-
 namespace Side {
     const int LEFT = 0;
     const int RIGHT = 1;
@@ -3617,7 +3616,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_CONTROLLER_MOTION_BLUR
                     const bool motion_blur_enabled = currently_gripping[hand];
 #if MODULATE_BLUR_STEPS_WITH_GRIP_VALUE
-                    const int blur_steps = std::min<int>(std::floor(current_grip_value[hand] * (float) MAX_MOTION_BLUR_STEPS), MAX_MOTION_BLUR_STEPS);
+                    const int blur_steps = std::min<int>((int)(current_grip_value[hand] * MAX_MOTION_BLUR_STEPS), MAX_MOTION_BLUR_STEPS);
 #else
                     const int blur_steps = MAX_MOTION_BLUR_STEPS;
 #endif
