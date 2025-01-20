@@ -52,9 +52,9 @@ std::vector<XrPosef> blend_poses(const XrPosef& poseA, const XrPosef& poseB, con
     const BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
     const BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
     
-    const float alpha_increment = 1.0f / (float)num_poses;
+    const float alpha_increment = 1.0f / (float)(num_poses + 1);
 
-    for (int pose_index = 0; pose_index < num_poses; pose_index++)
+    for (int pose_index = 1; pose_index <= num_poses; pose_index++)
     {
         const float alpha = pose_index * alpha_increment;
         const BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
