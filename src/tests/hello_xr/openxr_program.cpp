@@ -395,11 +395,6 @@ bool is_first_person_view_enabled()
     return !s_third_person_enabled;
 }
 
-void toggle_3rd_person_view()
-{
-    s_third_person_enabled = !s_third_person_enabled;
-}
-
 void set_third_person_view_enabled(const bool enabled)
 {
     if (s_third_person_enabled == enabled)
@@ -418,6 +413,12 @@ void set_third_person_view_enabled(const bool enabled)
 
     s_third_person_enabled = enabled;
 }
+
+void toggle_3rd_person_view()
+{
+	set_third_person_view_enabled(!is_third_person_view_enabled());
+}
+
 
 bool is_third_person_view_auto_enabled()
 {
