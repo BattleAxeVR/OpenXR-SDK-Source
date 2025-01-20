@@ -419,7 +419,6 @@ void toggle_3rd_person_view()
 	set_third_person_view_enabled(!is_third_person_view_enabled());
 }
 
-
 bool is_third_person_view_auto_enabled()
 {
     return s_third_person_automatic;
