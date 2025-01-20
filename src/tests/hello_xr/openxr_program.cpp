@@ -288,8 +288,8 @@ void update_sdl_joysticks()
 #endif
 
 #if ENABLE_CONTROLLER_MOTION_BLUR
-#include <queue>
-std::queue<XrPosef> controller_pose_history_[Side::COUNT];
+XrPosef previous_grip_pose[Side::COUNT];
+XrPosef previous_aim_pose[Side::COUNT];
 #endif
 
 #if USE_THUMBSTICKS
@@ -3603,45 +3603,22 @@ struct OpenXrProgram : IOpenXrProgram
 #else
                     const int blur_steps = MAX_MOTION_BLUR_STEPS;
 #endif
-                    const float alpha_increment = (blur_steps > 1) ? 1.0f / (float)blur_steps : 0.0f;
-                    
-                    if (motion_blur_enabled) 
-                    {
-                        while (controller_pose_history_[hand].size() >= blur_steps) 
-                        {
-                            controller_pose_history_[hand].pop();
-                        }
-                    }
-                    else
-                    {
-                        std::queue<XrPosef> empty;
-                        std::swap(controller_pose_history_[hand], empty);
-                    }
+
+                    float alpha_base = ALPHA_BASE;
+
+#if MODULATE_ALPHA_BASE_WITH_GRIP_VALUE
+                    alpha_base *= current_grip_value[hand];
+#endif
+
 #endif
 
                     float width = GRIP_CUBE_WIDTH;
                     float length = GRIP_CUBE_LENGTH;
                     
-#if ENABLE_TINT
-                    Colour tint_colour = white;//semi_transparent_white;
-                    bool enable_blend = ENABLE_BLENDING;
-#else
                     Colour tint_colour = white;
-                    bool enable_blend = false;
-#endif
-
-                    float alpha = tint_colour.w;
-
-#if ENABLE_CONTROLLER_MOTION_BLUR
-                    if (currently_gripping[hand]) 
-                    {
-                        //alpha = 1.0f - current_grip_value[hand];
-                    }
-#endif
-                    
 
 #if DRAW_LOCAL_POSES
-                    cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, alpha}, enable_blend});
+                    cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, (tint_colour.w < 1.0f)});
 #endif // DRAW_LOCAL_POSES
 
                     BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
@@ -3650,13 +3627,13 @@ struct OpenXrProgram : IOpenXrProgram
                     const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
                     const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
                     glm_local_pose.translation_ += grip_offset_world;
-#endif
+#endif // APPLY_GRIP_OFFSET
                     
 #if DRAW_FIRST_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
                     if (!is_third_person_view_auto_enabled())
-#endif
+#endif // AUTO_HIDE_OTHER_BODY
                     {
                         const glm::vec3 world_position = player_pose.translation_ +
                                                          (player_pose.rotation_ *
@@ -3671,58 +3648,23 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_CONTROLLER_MOTION_BLUR
                         if (motion_blur_enabled)
                         {
-                            controller_pose_history_[hand].push(world_xr_pose);
+                            XrPosef& previous_xr_grip = previous_grip_pose[hand];
                             
-                            float alpha_base = ALPHA_BASE;
-
-#if MODULATE_ALPHA_BASE_WITH_GRIP_VALUE
-                            alpha_base *= current_grip_value[hand];
-#endif
+                            std::vector<XrPosef> blended_xr_poses = blend_poses(previous_xr_grip, world_xr_pose, blur_steps);
                             
-                            
-#if NORMALIZE_ALPHA
-                            float total_alpha = 0.0f;
-                            
-                            for (int blur_index = blur_steps; blur_index >= 1; blur_index--) 
+                            for (int pose_index = 0; pose_index < (int)blended_xr_poses.size(); pose_index++)
                             {
-                                float current_alpha = powf(alpha_base, (float)blur_index);
-                                total_alpha += alpha_increment;
-                            }
-#endif
+                                XrPosef current_cube_pose = blended_xr_poses[pose_index];
 
-                            std::queue<XrPosef> queue_copy = controller_pose_history_[hand];
-
-                            int blur_index = blur_steps;
-
-                            while (!queue_copy.empty()) 
-                            {
-                                XrPosef current_cube_pose = queue_copy.front();
-                                queue_copy.pop();
-
-                                if (queue_copy.empty()) 
-                                {
-                                    break;
-                                }
-
+                                const int blur_index = blur_steps - pose_index - 1;
                                 float current_alpha = powf(alpha_base, (float)blur_index) * ALPHA_MULT;
-                                
-#if NORMALIZE_ALPHA
-                                current_alpha /= total_alpha;
-#endif
 
-#if DEBUG_LOG_ALPHA_VALUES
-                                if (hand == Side::LEFT) 
-                                {
-                                    Log::Write(Log::Level::Info, Fmt("BLUR INDEX: %d, ALPHA = %0.2f", blur_index, current_alpha));
-                                }
-#endif
-                                
                                 cubes.push_back(Cube{current_cube_pose, {width, width, length},
                                                      {tint_colour.x, tint_colour.y, tint_colour.z,
                                                       current_alpha}, true});
-
-                                blur_index--;
                             }
+
+                            previous_xr_grip = world_xr_pose;
                         }
 #endif // ENABLE_CONTROLLER_MOTION_BLUR
 
@@ -3734,7 +3676,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if AUTO_HIDE_OTHER_BODY
                     if (is_third_person_view_auto_enabled())
-#endif
+#endif // AUTO_HIDE_OTHER_BODY
                     {
                         const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
                         const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
@@ -3746,58 +3688,23 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_CONTROLLER_MOTION_BLUR
                         if (motion_blur_enabled)
                         {
-                            controller_pose_history_[hand].push(world_xr_pose);
+                            XrPosef& previous_xr_grip = previous_grip_pose[hand];
 
-                            float alpha_base = ALPHA_BASE;
+                            std::vector<XrPosef> blended_xr_poses = blend_poses(previous_xr_grip, world_xr_pose, blur_steps);
 
-#if MODULATE_ALPHA_BASE_WITH_GRIP_VALUE
-                            alpha_base *= current_grip_value[hand];
-#endif
-
-
-#if NORMALIZE_ALPHA
-                            float total_alpha = 0.0f;
-                            
-                            for (int blur_index = blur_steps; blur_index >= 1; blur_index--) 
+                            for (int pose_index = 0; pose_index < (int)blended_xr_poses.size(); pose_index++)
                             {
-                                float current_alpha = powf(alpha_base, (float)blur_index);
-                                total_alpha += alpha_increment;
-                            }
-#endif
+                                XrPosef current_cube_pose = blended_xr_poses[pose_index];
 
-                            std::queue<XrPosef> queue_copy = controller_pose_history_[hand];
-
-                            int blur_index = blur_steps;
-
-                            while (!queue_copy.empty())
-                            {
-                                XrPosef current_cube_pose = queue_copy.front();
-                                queue_copy.pop();
-
-                                if (queue_copy.empty())
-                                {
-                                    break;
-                                }
-
+                                const int blur_index = blur_steps - pose_index - 1;
                                 float current_alpha = powf(alpha_base, (float)blur_index) * ALPHA_MULT;
-
-#if NORMALIZE_ALPHA
-                                current_alpha /= total_alpha;
-#endif
-
-#if DEBUG_LOG_ALPHA_VALUES
-                                if (hand == Side::LEFT) 
-                                {
-                                    Log::Write(Log::Level::Info, Fmt("BLUR INDEX: %d, ALPHA = %0.2f", blur_index, current_alpha));
-                                }
-#endif
 
                                 cubes.push_back(Cube{current_cube_pose, {width, width, length},
                                                      {tint_colour.x, tint_colour.y, tint_colour.z,
                                                       current_alpha}, true});
-
-                                blur_index--;
                             }
+
+                            previous_xr_grip = world_xr_pose;
                         }
 #endif // ENABLE_CONTROLLER_MOTION_BLUR
 
@@ -3842,7 +3749,7 @@ struct OpenXrProgram : IOpenXrProgram
                         const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
                         const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
                         glm_local_pose.translation_ += grip_offset_world;
-#endif
+#endif // APPLY_AIM_OFFSET
                         
 #if DRAW_FIRST_PERSON_POSES
                         
@@ -3865,7 +3772,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if AUTO_HIDE_OTHER_BODY
                         if (is_third_person_view_auto_enabled())
-#endif
+#endif // AUTO_HIDE_OTHER_BODY
                         {
 							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
 							const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
@@ -3893,11 +3800,11 @@ struct OpenXrProgram : IOpenXrProgram
 			const float scale_x = 1.5f * scale;
 			const float scale_y = 1.0f * scale;
 			const float scale_z = 0.5f * scale;
-#endif
+#endif // DRAW_ALL_VIVE_TRACKERS
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
             local_waist_pose_from_HTCX.is_valid_ = false;
-#endif
+#endif // USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 
             const int num_trackers = (int)m_input.tracker_infos_.size();
 
@@ -3938,7 +3845,7 @@ struct OpenXrProgram : IOpenXrProgram
                         
 #if AUTO_HIDE_OTHER_BODY
                         if (!is_third_person_view_auto_enabled())
-#endif
+#endif // AUTO_HIDE_OTHER_BODY
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
@@ -3956,7 +3863,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if AUTO_HIDE_OTHER_BODY
                         if (is_third_person_view_auto_enabled())
-#endif
+#endif // AUTO_HIDE_OTHER_BODY
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
 							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
@@ -3991,7 +3898,7 @@ struct OpenXrProgram : IOpenXrProgram
         xr_ground_pose.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
         xr_ground_pose.position.y = -1.4f; // relative to head, todo : make it y = 0.0 and HMD pose is relative to ground instead, requires different tracking space
         cubes.push_back(Cube{ xr_ground_pose, {100.0f, 0.0001f, 100.0f} });
-#endif
+#endif // ADD_GROUND
 
         {
             const XrPosef& left_eye = m_views[Side::LEFT].pose;
