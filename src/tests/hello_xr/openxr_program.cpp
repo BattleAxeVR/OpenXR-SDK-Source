@@ -391,6 +391,16 @@ bool is_third_person_view_enabled()
     return s_third_person_enabled;
 }
 
+bool is_first_person_view_enabled()
+{
+    return !s_third_person_enabled;
+}
+
+void toggle_3rd_person_view()
+{
+    s_third_person_enabled = !s_third_person_enabled;
+}
+
 void set_third_person_view_enabled(const bool enabled)
 {
     if (s_third_person_enabled == enabled)
@@ -422,6 +432,12 @@ void toggle_3rd_person_view_auto()
         set_third_person_view_enabled(false);
     }
     s_third_person_automatic = !s_third_person_automatic;
+}
+
+#else
+bool is_first_person_view_enabled()
+{
+    return true;
 }
 #endif // SUPPORT_THIRD_PERSON
 
@@ -3387,6 +3403,8 @@ struct OpenXrProgram : IOpenXrProgram
                     {
 #if TOGGLE_3RD_PERSON_AUTO_LEFT_STICK_CLICK
                         toggle_3rd_person_view_auto();
+#elif SUPPORT_THIRD_PERSON
+                        toggle_3rd_person_view();
 #endif
                     }
                     else
@@ -3406,7 +3424,7 @@ struct OpenXrProgram : IOpenXrProgram
             m_input.handActive[hand] = poseState.isActive;
         }
 
-#if SUPPORT_THIRD_PERSON
+#if TOGGLE_3RD_PERSON_AUTO_LEFT_STICK_CLICK
         if (is_third_person_view_auto_enabled())
         {
             set_third_person_view_enabled(should_third_person_be_enabled);
@@ -3632,7 +3650,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_FIRST_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                    if (!is_third_person_view_auto_enabled())
+                    if (is_first_person_view_enabled())
 #endif // AUTO_HIDE_OTHER_BODY
                     {
                         const glm::vec3 world_position = player_pose.translation_ +
@@ -3675,7 +3693,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_THIRD_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                    if (is_third_person_view_auto_enabled())
+                    if (is_third_person_view_enabled())
 #endif // AUTO_HIDE_OTHER_BODY
                     {
                         const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
@@ -3754,7 +3772,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_FIRST_PERSON_POSES
                         
 #if AUTO_HIDE_OTHER_BODY
-                        if (!is_third_person_view_auto_enabled())
+                        if (is_first_person_view_enabled())
 #endif
                         {
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
@@ -3771,7 +3789,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_THIRD_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                        if (is_third_person_view_auto_enabled())
+                        if (is_third_person_view_enabled())
 #endif // AUTO_HIDE_OTHER_BODY
                         {
 							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
@@ -3844,7 +3862,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_FIRST_PERSON_POSES
                         
 #if AUTO_HIDE_OTHER_BODY
-                        if (!is_third_person_view_auto_enabled())
+                        if (is_first_person_view_enabled())
 #endif // AUTO_HIDE_OTHER_BODY
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
@@ -3862,7 +3880,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_THIRD_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                        if (is_third_person_view_auto_enabled())
+                        if (is_third_person_view_enabled())
 #endif // AUTO_HIDE_OTHER_BODY
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
@@ -4159,7 +4177,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_FIRST_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                        if (!is_third_person_view_auto_enabled())
+                        if (is_first_person_view_enabled())
 #endif
                         {
                             const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
@@ -4179,7 +4197,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_THIRD_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                        if (is_third_person_view_auto_enabled())
+                        if (is_third_person_view_enabled())
 #endif
                         {
                             const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
@@ -4233,7 +4251,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_FIRST_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                            if (!is_third_person_view_auto_enabled())
+                            if (is_first_person_view_enabled())
 #endif
                             {
                                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
@@ -4248,7 +4266,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_THIRD_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-                            if (is_third_person_view_auto_enabled())
+                            if (is_third_person_view_enabled())
 #endif
                             {
                                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
@@ -4295,7 +4313,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_FIRST_PERSON_POSES
             
 #if AUTO_HIDE_OTHER_BODY
-            if (!is_third_person_view_auto_enabled())
+            if (is_first_person_view_enabled())
 #endif                        
             {
                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
@@ -4310,7 +4328,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_THIRD_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
-            if (is_third_person_view_auto_enabled())
+            if (is_third_person_view_enabled())
 #endif
             {
                 BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
