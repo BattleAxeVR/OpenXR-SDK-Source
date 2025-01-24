@@ -24,9 +24,8 @@
 #include "OKController.h"
 #include "OKConfig.h"
 #include "OKCloudClient.h"
-//#error "aaaa"
 #else
-#error "c c c "
+#error "Error, no cloudxr"
 #endif
 
 
@@ -1945,6 +1944,13 @@ struct OpenXrProgram : IOpenXrProgram
         {
             XrReferenceSpaceCreateInfo referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo(m_options->AppSpace);
             CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_appSpace));
+
+#if ENABLE_CLOUDXR
+            m_worldReferenceSpace = m_appSpace;
+
+            referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+            CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_viewReferenceSpace))
+#endif
         }
 
         GetSystemProperties();
@@ -2140,7 +2146,125 @@ struct OpenXrProgram : IOpenXrProgram
 		const bool init_ok = quad_layer_.init(width, height, format, m_graphicsPlugin, m_session, m_appSpace);
         assert(init_ok);
 #endif
+
+#if ENABLE_CLOUDXR
+        InitializeCloudXR();
+#endif
     }
+
+#if ENABLE_CLOUDXR
+        BVR::OKSimpleCloudSession ok_session_;
+
+        bool InitializeCloudXR() override
+        {
+            const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
+
+            const XrGraphicsBindingOpenGLESAndroidKHR* gles =
+                    reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(binding);
+
+            EGLDisplay egl_display = (void *)gles->display;
+            EGLContext egl_context = (void *)gles->context;
+
+            ok_session_.ok_client_.ok_config_.app_directory_ = "/sdcard/Android/data/com.battleaxevr.ok_cloud_streamer.opengles/files/";
+            const bool init_cxr_ok = ok_session_.ok_client_.init_android_gles(&ok_session_, egl_display, egl_context);
+
+            if (!init_cxr_ok)
+            {
+                return false;
+            }
+
+#if 0
+            const bool receiver_ok = ok_session_.ok_client_.create_receiver();
+
+            if (!receiver_ok)
+            {
+                return false;
+            }
+#endif
+
+            ok_session_.xr_instance_ = m_instance;
+            ok_session_.xr_session_ = m_session;
+
+            ok_session_.base_space_ = m_worldReferenceSpace;
+            ok_session_.head_space_ = m_viewReferenceSpace;
+
+            if (!m_views.empty())
+            {
+                ok_session_.views_[Side::LEFT] = m_views[Side::LEFT];
+                ok_session_.views_[Side::RIGHT] = m_views[Side::RIGHT];
+            }
+
+#if ENABLE_CLOUDXR_CONTROLLERS
+            ok_session_.ok_inputs_.actionSet = m_input.actionSet;
+
+            ok_session_.ok_inputs_.gripPoseAction = m_input.poseAction;
+            ok_session_.ok_inputs_.grabAction = m_input.grabAction;
+
+            ok_session_.ok_inputs_.aimPoseAction = m_input.poseAction;
+            ok_session_.ok_inputs_.vibrateAction = m_input.vibrateAction;
+
+            ok_session_.ok_inputs_.handSubactionPath[Side::LEFT] = m_input.handSubactionPath[Side::LEFT];
+            ok_session_.ok_inputs_.handSubactionPath[Side::RIGHT] = m_input.handSubactionPath[Side::RIGHT];
+
+#if ADD_AIM_POSE
+            ok_session_.ok_inputs_.aimPoseAction = m_input.aimPoseAction;
+            ok_session_.ok_inputs_.aimSpace[Side::LEFT] = m_input.aimSpace[Side::LEFT];
+            ok_session_.ok_inputs_.aimSpace[Side::RIGHT] = m_input.aimSpace[Side::RIGHT];
+#endif // ADD_AIM_POSE
+
+#endif        // ENABLE_CLOUDXR_CONTROLLERS
+
+            return true;
+        }
+
+        bool UpdateCloudXR() override
+        {
+            static bool tried_yet = false;
+            const bool try_auto_connect = (m_input.handScale[Side::LEFT] < 0.6f) && !tried_yet;
+
+            if (ok_session_.ok_client_.is_ready_to_connect() && ok_session_.ok_client_.ok_config_.enable_auto_connect_ && try_auto_connect)
+            {
+                ok_session_.ok_client_.connect();
+                tried_yet = true;
+            }
+
+            if (ok_session_.ok_client_.is_connected())
+            {
+                bool latched_ok = ok_session_.ok_client_.latch_frame();
+
+                if (latched_ok)
+                {
+                    Log::Write(Log::Level::Info, "UpdateCloudXR LATCH SUCCESS");
+                }
+            }
+
+            return true;
+        }
+
+        bool BlitCloudXR(const int view_id, XrPosef& xr_eye_pose) override
+        {
+            BVR::GLMPose eye_pose;
+            bool blit_ok = ok_session_.ok_client_.blit_frame(view_id, eye_pose);
+
+            if (blit_ok)
+            {
+                Log::Write(Log::Level::Info, "BlitCloudXR BLIT SUCCESS");
+                xr_eye_pose = BVR::convert_to_xr_pose(eye_pose);
+            }
+
+            return blit_ok;
+        }
+
+        void ReleaseCloudXRFrame() override
+        {
+            ok_session_.ok_client_.release_frame();
+        }
+
+        void ShutdownCloudXR() override
+        {
+            ok_session_.ok_client_.shutdown_cxr();
+        }
+#endif // ENABLE_CLOUDXR
 
 #if USE_DUAL_LAYERS
 	void CreateSecondSwapchains()
@@ -2158,6 +2282,14 @@ struct OpenXrProgram : IOpenXrProgram
 			Log::Write(Log::Level::Info,
 				Fmt("Creating swapchain for view %d with dimensions Width=%d Height=%d SampleCount=%d", i,
 					vp.recommendedImageRectWidth, vp.recommendedImageRectHeight, vp.recommendedSwapchainSampleCount));
+            
+#if ENABLE_CLOUDXR
+                uint32_t width = ok_session_.ok_client_.ok_config_.per_eye_width_;
+                uint32_t height = ok_session_.ok_client_.ok_config_.per_eye_height_;
+#else
+                uint32_t width = vp.recommendedImageRectWidth;
+                uint32_t height = vp.recommendedImageRectHeight;
+#endif
 
 			// Create the swapchain.
 			XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
@@ -4232,6 +4364,13 @@ struct OpenXrProgram : IOpenXrProgram
 		local_hmd_pose.translation_ = (local_left_eye_pose.translation_ + local_right_eye_pose.translation_) * 0.5f; // Average
 #endif
 
+#if ENABLE_CLOUDXR
+        if (ok_session_.ok_client_.is_latched_)
+        {
+            cubes.empty();
+        }
+#endif
+
 #if (ENABLE_BFI || ENABLE_ALTERNATE_EYE_RENDERING)
         static int frame_index = 0;
         frame_index++;
@@ -4334,6 +4473,15 @@ struct OpenXrProgram : IOpenXrProgram
             {
                 m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
             }
+
+#if ENABLE_CLOUDXR
+            XrPosef xr_eye_pose;
+
+            if (BlitCloudXR(i, xr_eye_pose))
+            {
+                projectionLayerViews[i].pose = xr_eye_pose;
+            }
+#endif
 
 #if SUPPORT_SCREENSHOTS
             if (i == Side::LEFT) 
@@ -4535,6 +4683,12 @@ struct OpenXrProgram : IOpenXrProgram
     XrInstance m_instance{XR_NULL_HANDLE};
     XrSession m_session{XR_NULL_HANDLE};
     XrSpace m_appSpace{XR_NULL_HANDLE};
+
+#if ENABLE_CLOUDXR
+    XrSpace m_worldReferenceSpace{XR_NULL_HANDLE};
+    XrSpace m_viewReferenceSpace{XR_NULL_HANDLE};
+#endif // ENABLE_CLOUDXR
+    
     XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
 
     std::vector<XrViewConfigurationView> m_configViews;
