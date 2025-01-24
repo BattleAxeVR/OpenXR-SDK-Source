@@ -179,7 +179,7 @@ endif()
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
 
-option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" ON)
+option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" OFF)
 
 if(ENABLE_CLOUDXR_SDK)
     add_library(CloudXRClient SHARED IMPORTED)
@@ -223,11 +223,6 @@ if(ENABLE_CLOUDXR_SDK)
     target_compile_definitions(hello_xr PRIVATE ENABLE_AUDIO=0)
 
     if(ANDROID)
-        #set_target_properties(CloudXRClient
-                #PROPERTIES
-                #IMPORTED_LOCATION $ENV{CLOUDXR_SDK}/Lib/Android/CloudXR/jni/${ANDROID_ABI}/libCloudXRClient.so
-        #)
-
         set_target_properties(CloudXRClient
                 PROPERTIES
                 IMPORTED_LOCATION ${CLOUDXR_ROOT}/jni/${ANDROID_ABI}/libCloudXRClient.so
