@@ -15,6 +15,21 @@
 #include <cmath>
 #include <set>
 
+#if ENABLE_CLOUDXR
+#include "ok_defines.h"
+#include "GLMPose.h"
+#include "OKDigitalButton.h"
+#include "OKAnalogAxis.h"
+#include "OKPlayerState.h"
+#include "OKController.h"
+#include "OKConfig.h"
+#include "OKCloudClient.h"
+//#error "aaaa"
+#else
+#error "c c c "
+#endif
+
+
 namespace Side {
     const int LEFT = 0;
     const int RIGHT = 1;

@@ -63,6 +63,8 @@ if(ANDROID)
         hello_xr PRIVATE ${ANDROID_LIBRARY} ${ANDROID_LOG_LIBRARY}
     )
 
+    #target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR=1)
+
     # Only for Android because it lacks a command line
     set(HELLOXR_DEFAULT_GRAPHICS_PLUGIN
         "OpenGLES"
@@ -182,7 +184,7 @@ option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" ON)
 if(ENABLE_CLOUDXR_SDK)
     add_library(CloudXRClient SHARED IMPORTED)
 
-    target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR=1)
+    target_compile_definitions(hello_xr PUBLIC ENABLE_CLOUDXR=1)
     target_compile_options(hello_xr PRIVATE -Wno-unused-parameter)
     target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR_LOGGING_STUB=1)
     target_compile_definitions(hello_xr PRIVATE DRAW_UI=0)
