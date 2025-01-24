@@ -34,11 +34,11 @@ BVR::GLMPose blend_poses(const BVR::GLMPose& glm_poseA, const BVR::GLMPose& glm_
 
 XrPosef blend_poses(const XrPosef& poseA, const XrPosef& poseB, const float alpha) 
 {
-    const BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
-    const BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
+    const BVR::GLMPose glm_poseA = BVR::convert_to_glm_pose(poseA);
+    const BVR::GLMPose glm_poseB = BVR::convert_to_glm_pose(poseB);
 
     const BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
-    const XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
+    const XrPosef blended_xr_pose = BVR::convert_to_xr_pose(blended_glm_pose);
     
     return blended_xr_pose;
 }
@@ -48,8 +48,8 @@ std::vector<XrPosef> blend_poses(const XrPosef& poseA, const XrPosef& poseB, con
     std::vector<XrPosef> blended_xr_poses;
     blended_xr_poses.reserve(num_poses);
     
-    const BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
-    const BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
+    const BVR::GLMPose glm_poseA = BVR::convert_to_glm_pose(poseA);
+    const BVR::GLMPose glm_poseB = BVR::convert_to_glm_pose(poseB);
     
     const float alpha_increment = 1.0f / (float)(num_poses + 1);
 
@@ -57,7 +57,7 @@ std::vector<XrPosef> blend_poses(const XrPosef& poseA, const XrPosef& poseB, con
     {
         const float alpha = pose_index * alpha_increment;
         const BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
-        const XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
+        const XrPosef blended_xr_pose = BVR::convert_to_xr_pose(blended_glm_pose);
 
         blended_xr_poses.emplace_back(blended_xr_pose);
     }
@@ -240,6 +240,9 @@ enum PERSPECTIVE
 #endif
 };
 
+bool currently_gripping[Side::COUNT] = {false, false};
+float current_grip_value[Side::COUNT] = {0.0f, 0.0f};
+
 #if USE_THUMBSTICKS
 BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
@@ -331,9 +334,6 @@ bool is_snap_turn_enabled()
 #endif
 }
 #endif
-
-bool currently_gripping[Side::COUNT] = {false, false};
-float current_grip_value[Side::COUNT] = {0.0f, 0.0f};
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 BVR::GLMPose local_waist_pose;

@@ -105,7 +105,7 @@ void GLMPose::transform(const GLMPose& glm_pose)
 	//euler_angles_degrees_ = glm_pose.euler_angles_degrees_;
 }
 
-GLMPose convert_to_glm(const XrVector3f& position, const XrQuaternionf& rotation, const XrVector3f& scale)
+GLMPose convert_to_glm_pose(const XrVector3f& position, const XrQuaternionf& rotation, const XrVector3f& scale)
 {
 	GLMPose glm_pose;
 	glm_pose.translation_ = convert_to_glm(position);
@@ -114,7 +114,7 @@ GLMPose convert_to_glm(const XrVector3f& position, const XrQuaternionf& rotation
 	return glm_pose;
 }
 
-GLMPose convert_to_glm(const XrPosef& xr_pose)
+GLMPose convert_to_glm_pose(const XrPosef& xr_pose)
 {
 	GLMPose glm_pose;
 	glm_pose.translation_ = convert_to_glm(xr_pose.position);
@@ -122,7 +122,7 @@ GLMPose convert_to_glm(const XrPosef& xr_pose)
 	return glm_pose;
 }
 
-XrPosef convert_to_xr(const GLMPose& glm_pose)
+XrPosef convert_to_xr_pose(const GLMPose& glm_pose)
 {
 	// No scale
 	XrPosef xr_pose;
