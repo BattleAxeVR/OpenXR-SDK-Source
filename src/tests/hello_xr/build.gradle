@@ -21,15 +21,15 @@ project.ext.repoRoot = file('../../../')
 apply from: file('../../version.gradle')
 
 android {
-    compileSdk 33
-    ndkVersion "23.2.8568313"
+    compileSdk 34
+    ndkVersion '25.2.9519653'
     buildToolsVersion = "34.0.0"
     namespace 'org.khronos.openxr.hello_xr'
 
     defaultConfig {
         applicationId "org.khronos.openxr.hello_xr"
-        // for Vulkan, need at least 24, CloudXR needs 25
-        minSdkVersion 25
+        minSdkVersion 29
+        targetSdkVersion 32
 
         versionName = project.versionOpenXR.toString() + project.versionQualifier
         versionCode = project.versionOpenXR.getVersionCode()
@@ -40,6 +40,7 @@ android {
 
         externalNativeBuild {
             cmake {
+                cppFlags '-std=c++20'
                 arguments '-DBUILD_API_LAYERS=OFF',
                         '-DBUILD_TESTS=ON',
                         '-DBUILD_LOADER=ON',
@@ -82,6 +83,11 @@ android {
         cmake {
             path "${project.repoRoot}/CMakeLists.txt"
         }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     flavorDimensions 'api'
@@ -127,7 +133,7 @@ if (keystorePropertiesFilename) {
 
 dependencies {
     implementation files("${CLOUDXR_AAR_PATH}")
-    ///implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "androidx.appcompat:appcompat:1.6.1"
     //implementation "com.google.oboe:oboe:1.7.0"
 }
 

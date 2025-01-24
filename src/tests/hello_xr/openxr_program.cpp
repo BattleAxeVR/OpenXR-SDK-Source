@@ -2303,7 +2303,7 @@ struct OpenXrProgram : IOpenXrProgram
 				Fmt("Creating swapchain for view %d with dimensions Width=%d Height=%d SampleCount=%d", i,
 					vp.recommendedImageRectWidth, vp.recommendedImageRectHeight, vp.recommendedSwapchainSampleCount));
             
-#if 0//ENABLE_CLOUDXR
+#if ENABLE_CLOUDXR
                 uint32_t width = ok_session_.ok_client_.ok_config_.per_eye_width_;
                 uint32_t height = ok_session_.ok_client_.ok_config_.per_eye_height_;
 #else
