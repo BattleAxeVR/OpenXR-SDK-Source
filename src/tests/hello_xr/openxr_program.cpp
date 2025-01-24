@@ -240,7 +240,6 @@ enum PERSPECTIVE
 #endif
 };
 
-#if USE_THUMBSTICKS
 BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
 
@@ -266,14 +265,14 @@ void set_third_person_view_enabled(const bool enabled)
     {
         return;
     }
-    
+
     if (enabled)
     {
-        third_person_player_pose = player_pose;    
+        third_person_player_pose = player_pose;
     }
     else
     {
-        player_pose = third_person_player_pose;    
+        player_pose = third_person_player_pose;
     }
 
     s_third_person_enabled = enabled;
@@ -281,7 +280,7 @@ void set_third_person_view_enabled(const bool enabled)
 
 void toggle_3rd_person_view()
 {
-	set_third_person_view_enabled(!is_third_person_view_enabled());
+    set_third_person_view_enabled(!is_third_person_view_enabled());
 }
 
 bool is_third_person_view_auto_enabled()
@@ -303,8 +302,20 @@ bool is_first_person_view_enabled()
 {
     return true;
 }
+
+bool is_third_person_view_enabled()
+{
+    return false;
+}
+
+bool is_first_person_view_enabled()
+{
+    return true;
+}
+
 #endif // SUPPORT_THIRD_PERSON
 
+#if USE_THUMBSTICKS
 const float movement_speed = WALKING_SPEED;
 const float rotation_speed = SMOOTH_TURNING_ROTATION_SPEED;
 
