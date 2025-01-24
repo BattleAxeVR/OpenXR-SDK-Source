@@ -2146,10 +2146,6 @@ struct OpenXrProgram : IOpenXrProgram
 		const bool init_ok = quad_layer_.init(width, height, format, m_graphicsPlugin, m_session, m_appSpace);
         assert(init_ok);
 #endif
-
-#if ENABLE_CLOUDXR
-        InitializeCloudXR();
-#endif
     }
 
 #if ENABLE_CLOUDXR
@@ -2219,13 +2215,37 @@ struct OpenXrProgram : IOpenXrProgram
 
         bool UpdateCloudXR() override
         {
-            static bool tried_yet = false;
-            const bool try_auto_connect = (m_input.handScale[Side::LEFT] < 0.6f) && !tried_yet;
+            if (!ok_session_.ok_client_.is_cxr_initialized())
+            {
+                return InitializeCloudXR();
+            }
+            
+#if WAIT_TO_CONNECT
+            const float delay_ms = WAIT_TO_CONNECT_MS;
 
+            static std::chrono::time_point<std::chrono::high_resolution_clock> start_time = std::chrono::steady_clock::now();
+            std::chrono::time_point<std::chrono::high_resolution_clock> now_time = std::chrono::steady_clock::now();
+
+            float time_since_begin_ms = (float)(std::chrono::duration<double, std::milli>(now_time - start_time).count());
+
+            const bool try_connecting = (time_since_begin_ms > delay_ms) && ok_client_.ok_config_.enable_auto_connect_;
+#else
+            //const bool try_connecting = (ok_client_.ok_config_.enable_auto_connect_ || try_connecting_);
+            //try_connecting_ = false;
+
+            static bool tried_yet = false;
+            const bool try_auto_connect = (current_grip_value[Side::LEFT] > 0.9f) && !tried_yet;
+#endif
+            
             if (ok_session_.ok_client_.is_ready_to_connect() && ok_session_.ok_client_.ok_config_.enable_auto_connect_ && try_auto_connect)
             {
                 ok_session_.ok_client_.connect();
                 tried_yet = true;
+
+#if WAIT_TO_CONNECT
+                // Reset timer so we can try again in WAIT_TO_CONNECT_MS MS
+                start_time = now_time;
+#endif
             }
 
             if (ok_session_.ok_client_.is_connected())
@@ -2283,7 +2303,7 @@ struct OpenXrProgram : IOpenXrProgram
 				Fmt("Creating swapchain for view %d with dimensions Width=%d Height=%d SampleCount=%d", i,
 					vp.recommendedImageRectWidth, vp.recommendedImageRectHeight, vp.recommendedSwapchainSampleCount));
             
-#if ENABLE_CLOUDXR
+#if 0//ENABLE_CLOUDXR
                 uint32_t width = ok_session_.ok_client_.ok_config_.per_eye_width_;
                 uint32_t height = ok_session_.ok_client_.ok_config_.per_eye_height_;
 #else
@@ -3283,16 +3303,14 @@ struct OpenXrProgram : IOpenXrProgram
 #if TAKE_SCREENSHOT_WITH_LEFT_GRAB
                 if (hand == Side::LEFT) 
                 {
-                    m_input.handScale[hand] = 1.0f;
-                    
                     static bool currently_gripping = false;
 
-                    if (!currently_gripping && grabValue.currentState > 0.9f) 
+                    if (!currently_gripping && currently_gripping[LEFT]) 
                     {
                         TakeScreenShot();
                         currently_gripping = true;
                     } 
-                    else if (currently_gripping && grabValue.currentState < 0.5f) 
+                    else if (currently_gripping && !currently_gripping[LEFT]) 
                     {
                         currently_gripping = false;
                     }
@@ -3302,7 +3320,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_LOCAL_DIMMING_WITH_RIGHT_GRAB
                 if (hand == Side::RIGHT)
                 {
-                    const bool enable_local_dimming = (grabValue.currentState > 0.9f);
+                    const bool enable_local_dimming = (currently_grip_value[RIGHT] > 0.9f);
                     SetLocalDimmingEnabled(enable_local_dimming);
 
                     m_input.handScale[hand] = 1.0f;

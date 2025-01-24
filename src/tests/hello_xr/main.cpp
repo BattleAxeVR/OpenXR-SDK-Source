@@ -263,6 +263,10 @@ void android_main(struct android_app* app) {
         program->InitializeSession();
         program->CreateSwapchains();
 
+#if ENABLE_CLOUDXR
+        program->InitializeCloudXR();
+#endif
+
         while (app->destroyRequested == 0) {
             // Read all pending events.
             for (;;) {
@@ -299,6 +303,11 @@ void android_main(struct android_app* app) {
 #endif
 
             program->PollActions();
+            
+#if ENABLE_CLOUDXR
+            program->UpdateCloudXR();
+#endif
+            
             program->RenderFrame();
         }
 
@@ -363,7 +372,10 @@ int main(int argc, char* argv[]) {
             program->InitializeDevice();
             program->InitializeSession();
             program->CreateSwapchains();
-
+            
+#if ENABLE_CLOUDXR
+            program->InitializeCloudXR();
+#endif
             while (!quitKeyPressed) {
                 bool exitRenderLoop = false;
                 program->PollEvents(&exitRenderLoop, &requestRestart);
@@ -377,6 +389,11 @@ int main(int argc, char* argv[]) {
 					program->UpdateSDLJoysticks();
 #endif
                     program->PollActions();
+                    
+#if ENABLE_CLOUDXR
+                    program->UpdateCloudXR();
+#endif
+                    
                     program->RenderFrame();
 
                 } else {
