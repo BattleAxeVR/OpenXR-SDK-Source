@@ -2153,10 +2153,16 @@ struct OpenXrProgram : IOpenXrProgram
 
         bool InitializeCloudXR() override
         {
-            const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
+            if (!system_properties_initialized_ || ok_session_.ok_client_.is_cxr_initialized())
+            {
+                return false;
+            }
 
-            const XrGraphicsBindingOpenGLESAndroidKHR* gles =
-                    reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(binding);
+            ok_session_.xr_system_properties_ = xr_system_properties_;
+            ok_session_.headset_type_ = BVR::OKOpenXRInterface::compute_headset_type(xr_system_properties_.systemName, xr_system_properties_.systemId, xr_system_properties_.vendorId);
+
+            const XrBaseInStructure* binding = m_graphicsPlugin->GetGraphicsBinding();
+            const XrGraphicsBindingOpenGLESAndroidKHR* gles = reinterpret_cast<const XrGraphicsBindingOpenGLESAndroidKHR *>(binding);
 
             EGLDisplay egl_display = (void *)gles->display;
             EGLContext egl_context = (void *)gles->context;
@@ -2168,15 +2174,6 @@ struct OpenXrProgram : IOpenXrProgram
             {
                 return false;
             }
-
-#if 0
-            const bool receiver_ok = ok_session_.ok_client_.create_receiver();
-
-            if (!receiver_ok)
-            {
-                return false;
-            }
-#endif
 
             ok_session_.xr_instance_ = m_instance;
             ok_session_.xr_session_ = m_session;
@@ -2190,26 +2187,10 @@ struct OpenXrProgram : IOpenXrProgram
                 ok_session_.views_[Side::RIGHT] = m_views[Side::RIGHT];
             }
 
-#if ENABLE_CLOUDXR_CONTROLLERS
-            ok_session_.ok_inputs_.actionSet = m_input.actionSet;
-
-            ok_session_.ok_inputs_.gripPoseAction = m_input.poseAction;
-            ok_session_.ok_inputs_.grabAction = m_input.grabAction;
-
-            ok_session_.ok_inputs_.aimPoseAction = m_input.poseAction;
-            ok_session_.ok_inputs_.vibrateAction = m_input.vibrateAction;
-
-            ok_session_.ok_inputs_.handSubactionPath[Side::LEFT] = m_input.handSubactionPath[Side::LEFT];
-            ok_session_.ok_inputs_.handSubactionPath[Side::RIGHT] = m_input.handSubactionPath[Side::RIGHT];
-
-#if ADD_AIM_POSE
-            ok_session_.ok_inputs_.aimPoseAction = m_input.aimPoseAction;
-            ok_session_.ok_inputs_.aimSpace[Side::LEFT] = m_input.aimSpace[Side::LEFT];
-            ok_session_.ok_inputs_.aimSpace[Side::RIGHT] = m_input.aimSpace[Side::RIGHT];
-#endif // ADD_AIM_POSE
-
-#endif        // ENABLE_CLOUDXR_CONTROLLERS
-
+#if ENABLE_CONTROLLERS
+            ok_session_.initialized_controllers_ = ok_session_.ok_inputs_.init(ok_session_.headset_type_, ok_session_.get_instance(), ok_session_.get_session());
+#endif
+            
             return true;
         }
 
@@ -2218,6 +2199,12 @@ struct OpenXrProgram : IOpenXrProgram
             if (!ok_session_.ok_client_.is_cxr_initialized())
             {
                 return InitializeCloudXR();
+            }
+
+            if (m_views.size() == BVR::NUM_SIDES)
+            {
+                ok_session_.views_[Side::LEFT]  = m_views[Side::LEFT];
+                ok_session_.views_[Side::RIGHT] = m_views[Side::RIGHT];    
             }
             
 #if WAIT_TO_CONNECT
@@ -2248,15 +2235,7 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
             }
 
-            if (ok_session_.ok_client_.is_connected())
-            {
-                bool latched_ok = ok_session_.ok_client_.latch_frame();
-
-                if (latched_ok)
-                {
-                    Log::Write(Log::Level::Info, "UpdateCloudXR LATCH SUCCESS");
-                }
-            }
+            ok_session_.ok_client_.pre_update();
 
             return true;
         }
