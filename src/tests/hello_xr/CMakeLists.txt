@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+
 set(LOCAL_HEADERS
     check.h
     common.h
@@ -42,7 +43,6 @@ set(LOCAL_SOURCE
     logger.cpp
     main.cpp
     openxr_program.cpp
-    utils.cpp
     pch.cpp
     platformplugin_android.cpp
     platformplugin_factory.cpp
@@ -107,11 +107,11 @@ target_link_libraries(hello_xr PRIVATE OpenXR::openxr_loader)
 target_include_directories(hello_xr PUBLIC $ENV{OCULUS_OPENXR_MOBILE_SDK}/OpenXR)
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
-target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/Streamline/include)
 
 compile_glsl(run_hello_xr_glsl_compiles ${VULKAN_SHADERS})
 
 add_dependencies(hello_xr run_hello_xr_glsl_compiles)
+
 
 target_include_directories(
     hello_xr
@@ -172,6 +172,59 @@ if(APPLE)
                          "-framework Metal"
     )
 endif()
+
+
+target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
+target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
+
+option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" OFF)
+
+if(ENABLE_CLOUDXR_SDK)
+    add_library(CloudXRClient SHARED IMPORTED)
+
+    target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR=1)
+    target_compile_options(hello_xr PRIVATE -Wno-unused-parameter)
+    target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR_LOGGING_STUB=1)
+    target_compile_definitions(hello_xr PRIVATE DRAW_UI=0)
+    target_compile_definitions(hello_xr PRIVATE SUPPORT_BODY_TRACKING_FB=0)
+
+    target_include_directories(hello_xr PRIVATE $ENV{CLOUDXR_SDK}/include)
+    target_include_directories(hello_xr PRIVATE $ENV{CLOUDXR_SDK}//Sample/Shared)
+    target_sources(hello_xr PRIVATE $ENV{CLOUDXR_SDK}/Sample/Shared/CloudXRController.cpp)
+
+    target_include_directories(hello_xr PRIVATE $ENV{OCULUS_OPENXR_MOBILE_SDK}/OpenXR/meta_openxr_preview)
+
+    target_include_directories(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/jsoncpp/json_value.cpp)
+    
+    target_include_directories(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/jsoncpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/jsoncpp/json_reader.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/jsoncpp/json_writer.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/jsoncpp/json_value.cpp)
+
+    target_include_directories(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT})
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/GLMPose.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKDigitalButton.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKAnalogAxis.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKPlayerState.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKController.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKConfig.cpp)
+    target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKCloudClient.cpp)
+
+    if(ANDROID)# AND ${ANDROID_ABI} STREQUAL "arm64-v8a")
+        set_target_properties(CloudXRClient
+                PROPERTIES
+                IMPORTED_LOCATION $ENV{CLOUDXR_SDK}/Lib/Android/CloudXR/jni/${ANDROID_ABI}/libCloudXRClient.so
+        )
+
+        target_link_libraries(hello_xr PRIVATE CloudXRClient)
+    else()
+        message(FATAL_ERROR "Missing CloudXR")
+    endif()
+else()
+    target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR=0)
+    target_sources(hello_xr PRIVATE utils.cpp)
+endif()
+
 
 if(NOT ANDROID)
     install(
