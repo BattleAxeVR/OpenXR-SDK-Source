@@ -214,6 +214,8 @@ if(ENABLE_CLOUDXR_SDK)
     target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKConfig.cpp)
     target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKCloudClient.cpp)
 
+    target_compile_definitions(hello_xr PRIVATE ENABLE_AUDIO=0)
+
     if(ANDROID)
         #set_target_properties(CloudXRClient
                 #PROPERTIES
@@ -232,6 +234,7 @@ if(ENABLE_CLOUDXR_SDK)
     endif()
 else()
     target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR=0)
+    target_compile_definitions(hello_xr PRIVATE ENABLE_AUDIO=0)
     target_sources(hello_xr PRIVATE utils.cpp)
 endif()
 
