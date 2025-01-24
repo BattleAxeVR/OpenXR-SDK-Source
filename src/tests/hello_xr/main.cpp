@@ -311,10 +311,6 @@ void android_main(struct android_app* app) {
 }
 #else
 
-#if ENABLE_STREAMLINE
-extern bool InitStreamLine();
-#endif
-
 int main(int argc, char* argv[]) {
     try {
         // Parse command-line arguments into Options.
@@ -342,11 +338,6 @@ int main(int argc, char* argv[]) {
 
         bool requestRestart = false;
         do {
-
-#if ENABLE_STREAMLINE
-			InitStreamLine();
-#endif
-
             // Create platform-specific implementation.
             std::shared_ptr<IPlatformPlugin> platformPlugin = CreatePlatformPlugin(options, data);
 

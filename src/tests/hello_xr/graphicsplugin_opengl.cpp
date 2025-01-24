@@ -25,7 +25,7 @@
 extern int current_eye;
 extern float IPD;
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 extern BVR::GLMPose player_pose;
 extern BVR::GLMPose local_hmd_pose;
 #endif
@@ -48,6 +48,20 @@ static const char* VertexShaderGlsl = R"_(
     }
     )_";
 
+#if ENABLE_TINT
+static const char* FragmentShaderGlsl = R"_(
+    #version 410
+
+    in vec3 PSVertexColor;
+    out vec4 FragColor;
+
+    uniform lowp vec4 Tint;
+
+    void main() {
+       FragColor = vec4(PSVertexColor, 1) * Tint;
+    }
+    )_";
+#else
 static const char* FragmentShaderGlsl = R"_(
     #version 410
 
@@ -58,6 +72,7 @@ static const char* FragmentShaderGlsl = R"_(
        FragColor = vec4(PSVertexColor, 1);
     }
     )_";
+#endif
 
 struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
     OpenGLGraphicsPlugin(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin> /*unused*/&)
@@ -68,6 +83,10 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
     OpenGLGraphicsPlugin(OpenGLGraphicsPlugin&&) = delete;
     OpenGLGraphicsPlugin& operator=(OpenGLGraphicsPlugin&&) = delete;
 
+#if ENABLE_TINT
+    GLint tint_location_ = 0;
+#endif
+    
     ~OpenGLGraphicsPlugin() override {
         if (m_swapchainFramebuffer != 0) {
             glDeleteFramebuffers(1, &m_swapchainFramebuffer);
@@ -195,6 +214,10 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         glAttachShader(m_program, fragmentShader);
         glLinkProgram(m_program);
         CheckProgram(m_program);
+        
+#if ENABLE_TINT
+        tint_location_ = glGetUniformLocation(m_program, "Tint");
+#endif
 
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
@@ -462,7 +485,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         }
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
         const XrPosef xr_local_eye_pose = layerView.pose;
 		const BVR::GLMPose local_eye_pose = BVR::convert_to_glm(xr_local_eye_pose);
 
@@ -494,6 +517,25 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         // Render each cube
         for (const Cube& cube : cubes) 
         {
+#if ENABLE_TINT
+            glUniform4fv(tint_location_, 1, &cube.Colour.x);
+
+#if ENABLE_BLENDING
+            if (cube.enable_blend)
+            {
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+                glDepthMask(GL_FALSE);
+            }
+            else
+            {
+                glDepthMask(GL_TRUE);
+                glDisable(GL_BLEND);
+            }
+#endif
+            
+#endif
             // Compute the model-view-projection transform and set it..
             XrMatrix4x4f model;
             XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);

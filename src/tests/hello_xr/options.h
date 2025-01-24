@@ -61,7 +61,7 @@ struct Options {
 
     std::string EnvironmentBlendMode{"Opaque"};
 
-    std::string AppSpace{"Local"};
+    std::string AppSpace{"Stage"};
 
     struct {
         XrFormFactor FormFactor{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};

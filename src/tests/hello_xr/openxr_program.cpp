@@ -15,142 +15,57 @@
 #include <cmath>
 #include <set>
 
-#if ENABLE_STREAMLINE
+namespace Side {
+    const int LEFT = 0;
+    const int RIGHT = 1;
+    const int COUNT = 2;
+}  // namespace Side
 
-#include "streamline_wrapper.hpp"
-
-static constexpr int STREAMLINE_APP_ID = 231313132;
-static constexpr uint64_t SDK_VERSION = sl::kSDKVersion;
-static const char* STREAMLINE_PROJECT_ID = "b5559ce7-7b69-430c-863c-54554b2cb367";
-
-void StreamLineCallback(sl::LogType type, const char* msg)
+BVR::GLMPose blend_poses(const BVR::GLMPose& glm_poseA, const BVR::GLMPose& glm_poseB, const float alpha)
 {
-	std::string prefix = (type == sl::LogType::eInfo) ? "Info: " : (type == sl::LogType::eWarn) ? "Warn: " : "Error: ";
-	std::string message = prefix + msg;
+    BVR::GLMPose blended_glm_pose;
 
-    Log::Write(Log::Level::Info, message);
+    const float one_minus_alpha = (1.0f - alpha);
+    blended_glm_pose.translation_ = (one_minus_alpha * glm_poseA.translation_) + (alpha * glm_poseB.translation_);
+    blended_glm_pose.rotation_ = glm::slerp(glm_poseA.rotation_, glm_poseB.rotation_, alpha);
+    
+    return blended_glm_pose;
 }
 
-//void SetDLSSOptions(const sl::DLSSOptions consts);
-//void QueryDLSSOptimalSettings(DLSSSettings& settings);
-//void EvaluateDLSS(nvrhi::ICommandList* commandList);
-//void CleanupDLSS();
-
-//void set_dlss_textures(VkCommandBuffer command_buffer, const int eye);
-//void set_dlss_options(const int eye);
-//void shutdown_dlss();
-
-#if ENABLE_STREAMLINE_WRAPPER
-
-static const sl::Feature SL_FEATURES[] = {
-	sl::kFeatureReflex,  // Reflex is required for DLSS Frame Generation
-	sl::kFeatureDLSS,    // DLSS Super Resolution
-	sl::kFeatureDLSS_G,  // DLSS Frame Generation
-};
-
-#else
-
-const std::wstring s_interposer_dll_filename_ = L"sl.interposer.dll";
-HMODULE s_interposer_ = {};
-const bool check_signature_ = false;
-
-sl::Preferences prefs_{};
-
-bool is_dlss_supported_ = false;
-
-sl::DLSSOptimalSettings dlss_settings_{};
-sl::DLSSOptions dlss_options_{};
-
-bool streamline_initialized_ = false;
-#endif
-
-bool InitStreamLine()
+XrPosef blend_poses(const XrPosef& poseA, const XrPosef& poseB, const float alpha) 
 {
-#if ENABLE_STREAMLINE_WRAPPER
-	// Initialize Streamline (this must happen before any Vulkan calls are made)
-	sl::Preferences pref;
-	pref.showConsole = true;
-	pref.logLevel = sl::LogLevel::eVerbose;
-#if SL_MANUAL_HOOKING
-	pref.flags |= sl::PreferenceFlags::eUseManualHooking;
-#endif
-	pref.featuresToLoad = SL_FEATURES;
-	pref.numFeaturesToLoad = static_cast<uint32_t>(std::size(SL_FEATURES));
-	pref.applicationId = 231313132;
-	pref.engine = sl::EngineType::eCustom;
-	pref.engineVersion = 0;
-	pref.renderAPI = sl::RenderAPI::eVulkan;
+    const BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
+    const BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
 
-	const sl::Result init_result = slInit(pref, SDK_VERSION);
-
-	if(init_result != sl::Result::eOk)
-	{
-		return false;
-	}
-#else
-	if(streamline_initialized_)
-	{
-		return true;
-	}
-
-	std::vector<sl::Feature> features_to_load;
-
-	features_to_load.push_back(sl::kFeatureDLSS);
-
-	if(features_to_load.empty())
-	{
-		return false;
-	}
-
-	if(s_interposer_ == nullptr)
-	{
-		//if(check_signature_ && !sl::security::verifyEmbeddedSignature(s_interposer_dll_filename_.c_str()))
-		{
-			//return false;
-		}
-
-		s_interposer_ = LoadLibraryW(s_interposer_dll_filename_.c_str());
-	}
-
-	if(s_interposer_ == nullptr)
-	{
-		return false;
-	}
-
-	prefs_ = {};
-
-#if 1
-	prefs_.flags |= sl::PreferenceFlags::eUseManualHooking;
-#endif
-
-	prefs_.renderAPI = sl::RenderAPI::eVulkan;
-	prefs_.featuresToLoad = features_to_load.data();
-	prefs_.numFeaturesToLoad = (uint32_t)features_to_load.size();
-
-	prefs_.showConsole = true; // for debugging, set to false in production
-	prefs_.logLevel = sl::LogLevel::eDefault;
-
-	prefs_.pathsToPlugins = {};
-	prefs_.numPathsToPlugins = 0;
-	prefs_.pathToLogsAndData = L".";
-	prefs_.logMessageCallback = &StreamLineCallback;
-	prefs_.applicationId = STREAMLINE_APP_ID;
-	prefs_.engineVersion = "v1.0";
-	prefs_.projectId = STREAMLINE_PROJECT_ID;
-
-	const sl::Result init_result = slInit(prefs_, SDK_VERSION);
-
-	if(init_result != sl::Result::eOk)
-	{
-		return false;
-	}
-
-	streamline_initialized_ = true;
-#endif
-	return true;
+    const BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
+    const XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
+    
+    return blended_xr_pose;
 }
 
-#elif XR_USE_PLATFORM_WIN32
+std::vector<XrPosef> blend_poses(const XrPosef& poseA, const XrPosef& poseB, const int num_poses)
+{
+    std::vector<XrPosef> blended_xr_poses;
+    blended_xr_poses.reserve(num_poses);
+    
+    const BVR::GLMPose glm_poseA = BVR::convert_to_glm(poseA);
+    const BVR::GLMPose glm_poseB = BVR::convert_to_glm(poseB);
+    
+    const float alpha_increment = 1.0f / (float)(num_poses + 1);
+
+    for (int pose_index = 1; pose_index <= num_poses; pose_index++)
+    {
+        const float alpha = pose_index * alpha_increment;
+        const BVR::GLMPose blended_glm_pose = blend_poses(glm_poseA, glm_poseB, alpha);
+        const XrPosef blended_xr_pose = BVR::convert_to_xr(blended_glm_pose);
+
+        blended_xr_poses.emplace_back(blended_xr_pose);
+    }
+
+    return blended_xr_poses;
+}
+
+#if XR_USE_PLATFORM_WIN32
 #pragma comment(lib, "vulkan-1.lib")
 #endif
 
@@ -236,7 +151,12 @@ void update_sdl_joysticks()
 }
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if ENABLE_CONTROLLER_MOTION_BLUR
+XrPosef previous_grip_pose[Side::COUNT];
+XrPosef previous_aim_pose[Side::COUNT];
+#endif
+
+#if USE_THUMBSTICKS
 const glm::vec3 forward_direction(0.0f, 0.0f, -1.0f);
 //const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 //const glm::vec3 left_direction(-1.0f, 0.0f, 0.0f);
@@ -311,9 +231,79 @@ BVR::GLMPose local_waist_pose_from_HTCX;
 int current_eye = 0;
 float IPD = 0.0063f;
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+enum PERSPECTIVE
+{
+    LOCAL_SPACE_,
+    FIRST_PERSON_,
+#if SUPPORT_THIRD_PERSON
+    THIRD_PERSON_
+#endif
+};
+
+#if USE_THUMBSTICKS
 BVR::GLMPose player_pose;
 BVR::GLMPose local_hmd_pose;
+
+#if SUPPORT_THIRD_PERSON
+bool s_third_person_enabled = false;
+bool s_third_person_automatic = PREFER_THIRD_PERSON_AUTO;
+
+BVR::GLMPose third_person_player_pose;
+
+bool is_third_person_view_enabled()
+{
+    return s_third_person_enabled;
+}
+
+bool is_first_person_view_enabled()
+{
+    return !s_third_person_enabled;
+}
+
+void set_third_person_view_enabled(const bool enabled)
+{
+    if (s_third_person_enabled == enabled)
+    {
+        return;
+    }
+    
+    if (enabled)
+    {
+        third_person_player_pose = player_pose;    
+    }
+    else
+    {
+        player_pose = third_person_player_pose;    
+    }
+
+    s_third_person_enabled = enabled;
+}
+
+void toggle_3rd_person_view()
+{
+	set_third_person_view_enabled(!is_third_person_view_enabled());
+}
+
+bool is_third_person_view_auto_enabled()
+{
+    return s_third_person_automatic;
+}
+
+void toggle_3rd_person_view_auto()
+{
+    if (s_third_person_enabled && s_third_person_automatic)
+    {
+        set_third_person_view_enabled(false);
+    }
+    s_third_person_automatic = !s_third_person_automatic;
+}
+
+#else
+bool is_first_person_view_enabled()
+{
+    return true;
+}
+#endif // SUPPORT_THIRD_PERSON
 
 const float movement_speed = WALKING_SPEED;
 const float rotation_speed = SMOOTH_TURNING_ROTATION_SPEED;
@@ -324,29 +314,50 @@ const float left_deadzone_y = CONTROLLER_THUMBSTICK_DEADZONE_Y;
 const float right_deadzone_x = ROTATION_DEADZONE;
 //const float right_deadzone_y = CONTROLLER_THUMBSTICK_DEADZONE_Y;
 
-bool snap_turn_enabled = PREFER_SNAP_TURNING;
+#if SUPPORT_SNAP_TURNING
+bool s_snap_turn_enabled = PREFER_SNAP_TURNING;
 
-#if SUPPORT_RUNNING_WITH_LEFT_GRIP
-bool currently_running = false;
-float current_left_grip_value = 0.0f;
+void toggle_snap_turning()
+{
+    s_snap_turn_enabled = !s_snap_turn_enabled;
+}
+
+bool is_snap_turn_enabled()
+{
+#if SUPPORT_THIRD_PERSON
+    return s_snap_turn_enabled && !is_third_person_view_auto_enabled();
+#else
+    return s_snap_turn_enabled;
+#endif
+}
 #endif
 
-#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-bool currently_spinning = false;
-float current_right_grip_value = 0.0f;
-#endif
+bool currently_gripping[Side::COUNT] = {false, false};
+float current_grip_value[Side::COUNT] = {0.0f, 0.0f};
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 BVR::GLMPose local_waist_pose;
 
-BVR::GLMPose get_waist_pose_2D(const bool world_space)
+BVR::GLMPose get_waist_pose_2D(const PERSPECTIVE perspective)
 {
 	glm::fquat waist_orientation = local_waist_pose.rotation_;
+    
+    const bool is_first_person = (perspective == PERSPECTIVE::FIRST_PERSON_);
 
-	if (world_space)
+#if SUPPORT_THIRD_PERSON
+    const bool is_third_person = (perspective == PERSPECTIVE::THIRD_PERSON_);
+#endif // SUPPORT_THIRD_PERSON
+
+	if (is_first_person)
 	{
 		waist_orientation = glm::normalize(waist_orientation * player_pose.rotation_);
 	}
+#if SUPPORT_THIRD_PERSON
+    else if (is_third_person)
+    {
+        waist_orientation = glm::normalize(waist_orientation * third_person_player_pose.rotation_);
+    }
+#endif // SUPPORT_THIRD_PERSON
 
 	glm::vec3 waist_direction = glm::rotate(waist_orientation, forward_direction);
 	waist_direction.y = 0.0f;
@@ -380,10 +391,16 @@ BVR::GLMPose get_waist_pose_2D(const bool world_space)
 	BVR::GLMPose waist_pose_2D;
 	waist_pose_2D.rotation_ = waist_rotation_world_2D;
 
-	if (world_space)
+	if (is_first_person)
 	{
 		waist_pose_2D.translation_ = player_pose.translation_ + glm::rotate(player_pose.rotation_, local_waist_pose.translation_);
 	}
+#if SUPPORT_THIRD_PERSON
+    else if (is_third_person)
+    {
+        waist_pose_2D.translation_ = third_person_player_pose.translation_ + glm::rotate(third_person_player_pose.rotation_, local_waist_pose.translation_);
+    }
+#endif // SUPPORT_THIRD_PERSON
 	else
 	{
 		waist_pose_2D.translation_ = local_waist_pose.translation_;
@@ -391,8 +408,9 @@ BVR::GLMPose get_waist_pose_2D(const bool world_space)
 
 	return waist_pose_2D;
 }
-#endif
+#endif // USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 
+#if USE_THUMBSTICKS_FOR_MOVEMENT
 void move_player(const glm::vec2& left_thumbstick_values)
 {
 	if ((fabs(left_thumbstick_values.x) < left_deadzone_x) && (fabs(left_thumbstick_values.y) < left_deadzone_y))
@@ -406,18 +424,35 @@ void move_player(const glm::vec2& left_thumbstick_values)
     float current_movement_speed = movement_speed;
 
 #if SUPPORT_RUNNING_WITH_LEFT_GRIP
-    if (currently_running)
+    if (currently_gripping[Side::LEFT])
     {
-        current_movement_speed += current_left_grip_value * movement_speed;
+        current_movement_speed += current_grip_value[Side::LEFT] * RUNNING_SPEED_BOOST;
     }
 #endif
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 	if (local_waist_pose.is_valid_)
 	{
-        const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(true);
-        const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
-        player_pose.translation_ += position_increment_world * current_movement_speed;
+#if SUPPORT_THIRD_PERSON
+        const bool third_person_enabled = is_third_person_view_enabled();
+        
+        if (!third_person_enabled)
+#endif
+        {
+            const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
+            const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
+            player_pose.translation_ += position_increment_world * current_movement_speed;    
+        }
+        
+#if SUPPORT_THIRD_PERSON
+        if (third_person_enabled)
+        {
+            const BVR::GLMPose world_waist_pose_2D = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
+            const glm::vec3 position_increment_world = world_waist_pose_2D.rotation_ * position_increment_local;
+            third_person_player_pose.translation_ += position_increment_world * current_movement_speed;    
+        }
+#endif // SUPPORT_THIRD_PERSON
+        
 	}
     else
 #endif
@@ -426,7 +461,9 @@ void move_player(const glm::vec2& left_thumbstick_values)
         player_pose.translation_ += position_increment_world * current_movement_speed;
     }
 }
+#endif // USE_THUMBSTICKS_FOR_MOVEMENT
 
+#if USE_THUMBSTICKS_FOR_TURNING
 void rotate_player(const float right_thumbstick_x_value)
 {
     static bool was_last_x_value_0 = true;
@@ -439,47 +476,88 @@ void rotate_player(const float right_thumbstick_x_value)
 
     float rotation_degrees = 0.0f;
             
-    if (snap_turn_enabled)
+//#if SUPPORT_SNAP_TURNING
+    if (is_snap_turn_enabled())
     {
         if (!was_last_x_value_0)
         {
             return;
         }
 
-        const float snap_turn_degrees = -SNAP_TURN_DEGREES_DEFAULT;
+        float snap_turn_degrees = -SNAP_TURN_DEGREES_DEFAULT;
+
+#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
+        if (currently_gripping[Side::RIGHT])
+        {
+            snap_turn_degrees = SNAP_TURN_EXTRA_FAST;
+        }
+#endif
+
         rotation_degrees = BVR::sign(right_thumbstick_x_value) * snap_turn_degrees;
     }
     else
+//#elif SUPPORT_SMOOTH_TURNING
     {
         // Rotate player about +Y (UP) axis
         float current_turning_speed = rotation_speed;
 
 #if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-        if (currently_spinning)
+        if (currently_gripping[Side::RIGHT] && (ROTATION_SPEED_EXTRA > 0.0f))
         {
-            current_turning_speed += current_right_grip_value * rotation_speed;
+            current_turning_speed += current_grip_value[Side::RIGHT] * ROTATION_SPEED_EXTRA;
         }
 #endif
         
         rotation_degrees = -right_thumbstick_x_value * current_turning_speed;
     }
-    
-    //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
-    player_pose.euler_angles_degrees_.y += rotation_degrees;
+//#endif // SUPPORT_SMOOTH_TURNING
 
-    if (player_pose.euler_angles_degrees_.y >= 360.0f)
+#if SUPPORT_THIRD_PERSON
+    const bool third_person_enabled = is_third_person_view_enabled();
+    
+    if (!third_person_enabled)
+#endif
     {
-        player_pose.euler_angles_degrees_.y -= 360.0f;
+        //player_pose.euler_angles_degrees_.y = fmodf(player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
+        player_pose.euler_angles_degrees_.y += rotation_degrees;
+
+        if (player_pose.euler_angles_degrees_.y >= 360.0f)
+        {
+            player_pose.euler_angles_degrees_.y -= 360.0f;
+        }
+
+        if (player_pose.euler_angles_degrees_.y <= -360.0f)
+        {
+            player_pose.euler_angles_degrees_.y += 360.0f;
+        }
+
+        player_pose.update_rotation_from_euler();    
     }
 
-	if (player_pose.euler_angles_degrees_.y <= -360.0f)
-	{
-		player_pose.euler_angles_degrees_.y += 360.0f;
-	}
+#if SUPPORT_THIRD_PERSON
+    if (third_person_enabled)
+    {
+        //third_person_player_pose.euler_angles_degrees_.y = fmodf(third_person_player_pose.euler_angles_degrees_.y + rotation_degrees, 360.0f);
+        third_person_player_pose.euler_angles_degrees_.y += rotation_degrees;
 
-    player_pose.update_rotation_from_euler();
+        if (third_person_player_pose.euler_angles_degrees_.y >= 360.0f)
+        {
+            third_person_player_pose.euler_angles_degrees_.y -= 360.0f;
+        }
+
+        if (third_person_player_pose.euler_angles_degrees_.y <= -360.0f)
+        {
+            third_person_player_pose.euler_angles_degrees_.y += 360.0f;
+        }
+
+        third_person_player_pose.update_rotation_from_euler();
+    }
+#endif // SUPPORT_THIRD_PERSON
+
     was_last_x_value_0 = false;
 }
+#endif // USE_THUMBSTICKS_FOR_TURNING
+
 #endif
 
 
@@ -488,12 +566,6 @@ namespace {
 #if !defined(XR_USE_PLATFORM_WIN32)
 #define strcpy_s(dest, source) strncpy((dest), (source), sizeof(dest))
 #endif
-
-namespace Side {
-const int LEFT = 0;
-const int RIGHT = 1;
-const int COUNT = 2;
-}  // namespace Side
 
 inline std::string GetXrVersionString(XrVersion ver) 
 {
@@ -1168,9 +1240,18 @@ struct OpenXrProgram : IOpenXrProgram
         std::array<XrSpace, Side::COUNT> aimSpace;
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
+        XrAction thumbstickTouchAction{ XR_NULL_HANDLE };
+        XrAction thumbstickClickAction{ XR_NULL_HANDLE };
 		XrAction thumbstickXAction{ XR_NULL_HANDLE };
 		XrAction thumbstickYAction{ XR_NULL_HANDLE };
+#endif
+
+#if USE_BUTTONS_TRIGGERS
+        XrAction triggerValueAction{ XR_NULL_HANDLE };
+        XrAction triggerClickAction{ XR_NULL_HANDLE };
+        XrAction buttonAXClickAction{ XR_NULL_HANDLE };
+        XrAction buttonBYClickAction{ XR_NULL_HANDLE };
 #endif
 
 #if ENABLE_EXT_EYE_TRACKING
@@ -1227,7 +1308,17 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.aimPoseAction));
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "thumbstick_touch");
+            strcpy(actionInfo.localizedActionName, "Thumbstick Touch");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.thumbstickTouchAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "thumbstick_click");
+            strcpy(actionInfo.localizedActionName, "Thumbstick Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.thumbstickClickAction));
+            
             actionInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
 			strcpy_s(actionInfo.actionName, "thumbstick_x");
 			strcpy_s(actionInfo.localizedActionName, "Thumbstick X");
@@ -1237,6 +1328,28 @@ struct OpenXrProgram : IOpenXrProgram
 			strcpy_s(actionInfo.actionName, "thumbstick_y");
 			strcpy_s(actionInfo.localizedActionName, "Thumbstick Y");
 			CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.thumbstickYAction));
+#endif
+
+#if USE_BUTTONS_TRIGGERS
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "trigger_click");
+            strcpy(actionInfo.localizedActionName, "Trigger Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.triggerClickAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_FLOAT_INPUT;
+            strcpy(actionInfo.actionName, "trigger_value");
+            strcpy(actionInfo.localizedActionName, "Trigger Value");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.triggerValueAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "button_a_click");
+            strcpy(actionInfo.localizedActionName, "Button A Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.buttonAXClickAction));
+
+            actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
+            strcpy(actionInfo.actionName, "button_b_click");
+            strcpy(actionInfo.localizedActionName, "Button B Click");
+            CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.buttonBYClickAction));
 #endif
 
             // Create output actions for vibrating the left and right controller.
@@ -1270,7 +1383,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ADD_AIM_POSE
         std::array<XrPath, Side::COUNT> aimPath;
 #endif
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 		std::array<XrPath, Side::COUNT> stickXPath;
         std::array<XrPath, Side::COUNT> stickYPath;
 #endif
@@ -1278,7 +1391,6 @@ struct OpenXrProgram : IOpenXrProgram
         std::array<XrPath, Side::COUNT> hapticPath;
         std::array<XrPath, Side::COUNT> menuClickPath;
         std::array<XrPath, Side::COUNT> bClickPath;
-        std::array<XrPath, Side::COUNT> triggerValuePath;
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/select/click", &selectPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/select/click", &selectPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/squeeze/value", &squeezeValuePath[Side::LEFT]));
@@ -1293,12 +1405,48 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/aim/pose", &aimPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/aim/pose", &aimPath[Side::RIGHT]));
 #endif
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
+        std::array<XrPath, Side::COUNT> stickClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/click", &stickClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/click", &stickClickPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> stickTouchPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/touch", &stickTouchPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/touch", &stickTouchPath[Side::RIGHT]);
+        
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/x", &stickXPath[Side::LEFT]));
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/x", &stickXPath[Side::RIGHT]));
 
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/y", &stickYPath[Side::LEFT]));
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/y", &stickYPath[Side::RIGHT]));
+#endif
+#if USE_BUTTONS_TRIGGERS
+        std::array<XrPath, Side::COUNT> triggerClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/trigger/click", &triggerClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/trigger/click", &triggerClickPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> triggerTouchPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/trigger/touch", &triggerTouchPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/trigger/touch", &triggerTouchPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> triggerValuePath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/trigger/value", &triggerValuePath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/trigger/value", &triggerValuePath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> XA_ClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/x/click", &XA_ClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/a/click", &XA_ClickPath[Side::RIGHT]);
+
+        std::array<XrPath, Side::COUNT> YB_ClickPath;
+
+        xrStringToPath(m_instance, "/user/hand/left/input/y/click", &YB_ClickPath[Side::LEFT]);
+        xrStringToPath(m_instance, "/user/hand/right/input/b/click", &YB_ClickPath[Side::RIGHT]);
 #endif
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/output/haptic", &hapticPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/output/haptic", &hapticPath[Side::RIGHT]));
@@ -1306,9 +1454,7 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/menu/click", &menuClickPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/b/click", &bClickPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/b/click", &bClickPath[Side::RIGHT]));
-        CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/trigger/value", &triggerValuePath[Side::LEFT]));
-        CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/trigger/value", &triggerValuePath[Side::RIGHT]));
-
+        
         // Suggest bindings for KHR Simple.
         {
             XrPath khrSimpleInteractionProfilePath;
@@ -1347,12 +1493,25 @@ struct OpenXrProgram : IOpenXrProgram
                                                             {m_input.aimPoseAction, aimPath[Side::LEFT]},
                                                             {m_input.aimPoseAction, aimPath[Side::RIGHT]},
 #endif
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 															{m_input.thumbstickXAction, stickXPath[Side::LEFT]},
 															{m_input.thumbstickXAction, stickXPath[Side::RIGHT]},
 															{m_input.thumbstickYAction, stickYPath[Side::LEFT]},
 															{m_input.thumbstickYAction, stickYPath[Side::RIGHT]},
-
+                                                            {m_input.thumbstickClickAction, stickClickPath[Side::LEFT]},
+                                                            {m_input.thumbstickClickAction, stickClickPath[Side::RIGHT]},
+                                                            {m_input.thumbstickTouchAction, stickTouchPath[Side::LEFT]},
+                                                            {m_input.thumbstickTouchAction, stickTouchPath[Side::RIGHT]},
+#endif
+#if USE_BUTTONS_TRIGGERS
+                                                            {m_input.triggerClickAction, triggerValuePath[Side::LEFT]},
+                                                            {m_input.triggerClickAction, triggerValuePath[Side::RIGHT]},
+                                                            {m_input.triggerValueAction, triggerValuePath[Side::LEFT]},
+                                                            {m_input.triggerValueAction, triggerValuePath[Side::RIGHT]},
+                                                            {m_input.buttonAXClickAction, XA_ClickPath[Side::LEFT]},
+                                                            {m_input.buttonAXClickAction, XA_ClickPath[Side::RIGHT]},
+                                                            {m_input.buttonBYClickAction, YB_ClickPath[Side::LEFT]},
+                                                            {m_input.buttonBYClickAction, YB_ClickPath[Side::RIGHT]},
 #endif
                                                             {m_input.quitAction, menuClickPath[Side::LEFT]},
                                                             {m_input.vibrateAction, hapticPath[Side::LEFT]},
@@ -2936,6 +3095,10 @@ struct OpenXrProgram : IOpenXrProgram
         syncInfo.activeActionSets = &activeActionSet;
         CHECK_XRCMD(xrSyncActions(m_session, &syncInfo));
 
+#if SUPPORT_THIRD_PERSON
+        bool should_third_person_be_enabled = false;
+#endif
+
         // Get pose and grab action state and start haptic vibrate when hand is 90% squeezed.
         for (auto hand : {Side::LEFT, Side::RIGHT}) 
         {
@@ -2951,35 +3114,11 @@ struct OpenXrProgram : IOpenXrProgram
                 // Scale the rendered hand by 1.0f (open) to 0.5f (fully squeezed).
                 m_input.handScale[hand] = 1.0f - 0.5f * grabValue.currentState;
                 
-                const float& grip_val = grabValue.currentState;
+                const float grip_val = grabValue.currentState;
                 bool should_vibrate = (grip_val >= VIBRATION_GRIP_THRESHOLD);
 
-#if SUPPORT_RUNNING_WITH_LEFT_GRIP
-                if (hand == Side::LEFT)
-                {
-                    currently_running = (grip_val >= RUNNING_GRIP_THRESHOLD);
-                    current_left_grip_value = grip_val;
-                    
-                    if (currently_running) 
-                    {
-                        should_vibrate = true;
-                    }
-                }
-#endif
-
-#if SUPPORT_SPINNING_WITH_RIGHT_GRIP
-                if (hand == Side::RIGHT)
-                {
-                    currently_spinning = (grip_val >= SPINNING_GRIP_THRESHOLD);
-                    current_right_grip_value = grip_val;
-                    
-                    if (currently_spinning) 
-                    {
-                        should_vibrate = true;
-                    }
-                    
-                }
-#endif
+                currently_gripping[hand] = (grip_val >= GRIP_THRESHOLD);
+                current_grip_value[hand] = grip_val;
 
                 if (should_vibrate) 
                 {
@@ -3023,7 +3162,7 @@ struct OpenXrProgram : IOpenXrProgram
                 }
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
                 XrActionStateFloat axis_state_x = { XR_TYPE_ACTION_STATE_FLOAT };
                 XrActionStateFloat axis_state_y = { XR_TYPE_ACTION_STATE_FLOAT };
 
@@ -3035,7 +3174,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 				action_get_info.action = m_input.thumbstickYAction;
 				CHECK_XRCMD(xrGetActionStateFloat(m_session, &action_get_info, &axis_state_y));
-
+                
                 if (hand == Side::LEFT)
                 {
 #if USE_THUMBSTICKS_FOR_MOVEMENT
@@ -3046,31 +3185,45 @@ struct OpenXrProgram : IOpenXrProgram
 					if (axis_state_x.isActive)
 					{
                         const float& x_val = axis_state_x.currentState;
+
+#if SUPPORT_THIRD_PERSON
+                        if (fabs(x_val) > left_deadzone_x) 
+                        {
+                            should_third_person_be_enabled = true;
+                        }
+#endif
                         
 #if USE_THUMBSTICKS_STRAFING_SPEED_POWER
                         const float sign_val = BVR::sign(x_val);
                         left_thumbstick_values.x = sign_val * powf(fabs(x_val), THUMBSTICK_STRAFING_SPEED_POWER);
 #else
                         left_thumbstick_values.x = x_val;
-#endif
+#endif // USE_THUMBSTICKS_STRAFING_SPEED_POWER
 					}
-#endif
+#endif // USE_THUMBSTICKS_FOR_MOVEMENT_X
 
 #if USE_THUMBSTICKS_FOR_MOVEMENT_Y
 					if (axis_state_y.isActive)
 					{
                         const float& y_val = axis_state_y.currentState;
-						left_thumbstick_values.y = y_val;
-					}
+
+#if SUPPORT_THIRD_PERSON
+                        if (fabs(y_val) > left_deadzone_y)
+                        {
+                            should_third_person_be_enabled = true;
+                        }
 #endif
 
+						left_thumbstick_values.y = y_val;
+					}
+#endif // USE_THUMBSTICKS_FOR_MOVEMENT_Y
 					const bool has_moved = (axis_state_x.isActive || axis_state_y.isActive);
 
                     if (has_moved)
                     {
                         move_player(left_thumbstick_values);
                     }
-#endif
+#endif //USE_THUMBSTICKS_FOR_MOVEMENT
                 }
                 else
                 {
@@ -3082,18 +3235,51 @@ struct OpenXrProgram : IOpenXrProgram
                         
 						const float x_val = axis_state_x.currentState;
 
+#if SUPPORT_THIRD_PERSON
+                        if (fabs(x_val) > right_deadzone_x)
+                        {
+                            should_third_person_be_enabled = true;
+                        }
+#endif
+
+
 #if USE_THUMBSTICKS_TURNING_SPEED_POWER
                         const float sign_val = BVR::sign(x_val);
                         right_thumbstick_values.x = sign_val * powf(fabs(x_val), THUMBSTICK_TURNING_SPEED_POWER);
 #else
                         right_thumbstick_values.x = x_val;
-#endif
+#endif // USE_THUMBSTICKS_TURNING_SPEED_POWER
                         
 						rotate_player(right_thumbstick_values.x);
 					}
-#endif
+#endif // USE_THUMBSTICKS_FOR_TURNING
                 }
+
+                // Buttons
+                action_get_info.action = m_input.thumbstickClickAction;
+                XrActionStateBoolean thumbstick_click_value{XR_TYPE_ACTION_STATE_BOOLEAN};
+
+                XrResult action_result = xrGetActionStateBoolean(m_session, &action_get_info, &thumbstick_click_value);
+
+                if ((action_result == XR_SUCCESS) && thumbstick_click_value.isActive && thumbstick_click_value.changedSinceLastSync && (thumbstick_click_value.currentState == XR_TRUE))
+                {
+                    if (hand == Side::LEFT)
+                    {
+#if TOGGLE_3RD_PERSON_AUTO_LEFT_STICK_CLICK
+                        toggle_3rd_person_view_auto();
+#elif SUPPORT_THIRD_PERSON
+                        toggle_3rd_person_view();
 #endif
+                    }
+                    else
+                    {
+#if TOGGLE_SNAP_TURNING_RIGHT_STICK_CLICK
+                        toggle_snap_turning();
+#endif
+                    }
+                }
+
+#endif // USE_THUMBSTICKS
             }
 
             getInfo.action = m_input.poseAction;
@@ -3102,6 +3288,12 @@ struct OpenXrProgram : IOpenXrProgram
             m_input.handActive[hand] = poseState.isActive;
         }
 
+#if TOGGLE_3RD_PERSON_AUTO_LEFT_STICK_CLICK
+        if (is_third_person_view_auto_enabled())
+        {
+            set_third_person_view_enabled(should_third_person_be_enabled);
+        }
+#endif
         // There were no subaction paths specified for the quit action, because we don't care which hand did it.
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, m_input.quitAction, XR_NULL_PATH};
         XrActionStateBoolean quitValue{XR_TYPE_ACTION_STATE_BOOLEAN};
@@ -3111,6 +3303,7 @@ struct OpenXrProgram : IOpenXrProgram
         {
             CHECK_XRCMD(xrRequestExitSession(m_session));
         }
+
     }
 
     void RenderFrame() override 
@@ -3216,43 +3409,37 @@ struct OpenXrProgram : IOpenXrProgram
         // For each locatable space that we want to visualize, render a 25cm cube.
         std::vector<Cube> cubes;
 
-#if ADD_EXTRA_CUBES
-        const int num_cubes_x = 5;
-        const int num_cubes_y = 5;
+#if DRAW_FLOOR_AND_CEILING
+        const int num_cubes_x = 20;
         const int num_cubes_z = 20;
 
-        const float offset_x = (float)(num_cubes_x - 1) * 0.5f;
-        const float offset_y = (float)(num_cubes_y - 1) * 0.5f;
-        const float offset_z = 1.0f;
-
-#if defined(WIN32)
-        const int hand_for_cube_scale = Side::LEFT;
-#else
-        const int hand_for_cube_scale = Side::RIGHT;
-#endif
+        const float offset_x = (float)(num_cubes_x / 2 - 1) * 0.5f;
+        const float offset_z = (float)(num_cubes_z / 2 - 1) * 0.5f;
 
         XrPosef cube_pose;
         cube_pose.orientation = {0.0f, 0.0f, 0.0f, 1.0f};
 
-        float hand_scale = 0.1f * m_input.handScale[hand_for_cube_scale];
-        XrVector3f scale_vec{hand_scale, hand_scale, hand_scale};
+        float base_scale = 0.4f;
+        XrVector3f scale_vec{base_scale, 0.01f, base_scale};
 
         for (int cube_z_index = 0; cube_z_index < num_cubes_z; cube_z_index++) 
         {
-            for (int cube_y_index = 0; cube_y_index < num_cubes_y; cube_y_index++) 
+            for (int cube_x_index = 0; cube_x_index < num_cubes_x; cube_x_index++) 
             {
-                for (int cube_x_index = 0; cube_x_index < num_cubes_x; cube_x_index++) 
+                cube_pose.position =
                 {
-                    cube_pose.position =
-                    {
-                        (float)cube_x_index - offset_x, 
-                        (float)cube_y_index - offset_y, 
-                        -(float)cube_z_index - offset_z
-                    };
+                    (float)cube_x_index - offset_x,
+                    0.0f, 
+                    -(float)cube_z_index - offset_z
+                };
 
-                    Cube cube{cube_pose, scale_vec};
-                    cubes.push_back(cube);
-                }
+                Cube floor_cube{cube_pose, scale_vec};
+                cubes.push_back(floor_cube);
+
+                cube_pose.position.y = CEILING_HEIGHT_METERS;
+                
+                Cube ceiling_cube{cube_pose, scale_vec};
+                cubes.push_back(ceiling_cube);
             }
         }
 #endif
@@ -3291,22 +3478,121 @@ struct OpenXrProgram : IOpenXrProgram
                 if ((gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
                     (gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
 
-                    float scale = 0.1f * m_input.handScale[hand];
-                    cubes.push_back(Cube{ gripSpaceLocation.pose, {scale, scale, scale}});
-
-#if DRAW_WORLD_POSES
-					{
-						const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
-						const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
-						const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
-
-						XrPosef world_xr_pose;
-						world_xr_pose.position = BVR::convert_to_xr(world_position);
-						world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
-
-						cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
-		            }
+#if ENABLE_CONTROLLER_MOTION_BLUR
+                    const bool motion_blur_enabled = currently_gripping[hand];
+#if MODULATE_BLUR_STEPS_WITH_GRIP_VALUE
+                    const int blur_steps = std::min<int>((int)(current_grip_value[hand] * MAX_MOTION_BLUR_STEPS), MAX_MOTION_BLUR_STEPS);
+#else
+                    const int blur_steps = MAX_MOTION_BLUR_STEPS;
 #endif
+
+                    float alpha_base = ALPHA_BASE;
+
+#if MODULATE_ALPHA_BASE_WITH_GRIP_VALUE
+                    alpha_base *= current_grip_value[hand];
+#endif
+
+#endif
+
+                    float width = GRIP_CUBE_WIDTH;
+                    float length = GRIP_CUBE_LENGTH;
+                    
+                    Colour tint_colour = white;
+
+#if DRAW_LOCAL_POSES
+                    cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, (tint_colour.w < 1.0f)});
+#endif // DRAW_LOCAL_POSES
+
+                    BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
+
+#if APPLY_GRIP_OFFSET
+                    const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
+                    const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
+                    glm_local_pose.translation_ += grip_offset_world;
+#endif // APPLY_GRIP_OFFSET
+                    
+#if DRAW_FIRST_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                    if (is_first_person_view_enabled())
+#endif // AUTO_HIDE_OTHER_BODY
+                    {
+                        const glm::vec3 world_position = player_pose.translation_ +
+                                                         (player_pose.rotation_ *
+                                                          glm_local_pose.translation_);
+                        const glm::fquat world_rotation = glm::normalize(
+                                player_pose.rotation_ * glm_local_pose.rotation_);
+
+                        XrPosef world_xr_pose;
+                        world_xr_pose.position = BVR::convert_to_xr(world_position);
+                        world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+#if ENABLE_CONTROLLER_MOTION_BLUR
+                        if (motion_blur_enabled)
+                        {
+                            XrPosef& previous_xr_grip = previous_grip_pose[hand];
+                            
+                            std::vector<XrPosef> blended_xr_poses = blend_poses(previous_xr_grip, world_xr_pose, blur_steps);
+                            
+                            for (int pose_index = 0; pose_index < (int)blended_xr_poses.size(); pose_index++)
+                            {
+                                XrPosef current_cube_pose = blended_xr_poses[pose_index];
+
+                                const int blur_index = blur_steps - pose_index - 1;
+                                float current_alpha = powf(alpha_base, (float)blur_index) * ALPHA_MULT;
+
+                                cubes.push_back(Cube{current_cube_pose, {width, width, length},
+                                                     {tint_colour.x, tint_colour.y, tint_colour.z,
+                                                      current_alpha}, true});
+                            }
+
+                            previous_xr_grip = world_xr_pose;
+                        }
+#endif // ENABLE_CONTROLLER_MOTION_BLUR
+
+                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, false});    
+		            }
+#endif // DRAW_FIRST_PERSON_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                    if (is_third_person_view_enabled())
+#endif // AUTO_HIDE_OTHER_BODY
+                    {
+                        const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
+                        const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
+
+                        XrPosef world_xr_pose;
+                        world_xr_pose.position = BVR::convert_to_xr(world_position);
+                        world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+#if ENABLE_CONTROLLER_MOTION_BLUR
+                        if (motion_blur_enabled)
+                        {
+                            XrPosef& previous_xr_grip = previous_grip_pose[hand];
+
+                            std::vector<XrPosef> blended_xr_poses = blend_poses(previous_xr_grip, world_xr_pose, blur_steps);
+
+                            for (int pose_index = 0; pose_index < (int)blended_xr_poses.size(); pose_index++)
+                            {
+                                XrPosef current_cube_pose = blended_xr_poses[pose_index];
+
+                                const int blur_index = blur_steps - pose_index - 1;
+                                float current_alpha = powf(alpha_base, (float)blur_index) * ALPHA_MULT;
+
+                                cubes.push_back(Cube{current_cube_pose, {width, width, length},
+                                                     {tint_colour.x, tint_colour.y, tint_colour.z,
+                                                      current_alpha}, true});
+                            }
+
+                            previous_xr_grip = world_xr_pose;
+                        }
+#endif // ENABLE_CONTROLLER_MOTION_BLUR
+
+                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, false});
+                    }
+#endif // DRAW_THIRD_PERSON_POSES
                 }
             } 
             else 
@@ -3321,7 +3607,7 @@ struct OpenXrProgram : IOpenXrProgram
             }
 #endif
 
-#if (DRAW_AIM_POSE && 0)
+#if DRAW_AIM_POSE
             {
                 XrSpaceLocation aimSpaceLocation{XR_TYPE_SPACE_LOCATION};
                 res = xrLocateSpace(m_input.aimSpace[hand], m_appSpace, predictedDisplayTime, &aimSpaceLocation);
@@ -3332,12 +3618,27 @@ struct OpenXrProgram : IOpenXrProgram
                     if ((aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
                         (aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) 
                     {
-                        float scale = 0.1f * m_input.handScale[hand];
-                        cubes.push_back(Cube{aimSpaceLocation.pose, {scale, scale, scale}});
+                        float width = AIM_CUBE_WIDTH;
+                        float length = AIM_CUBE_LENGTH;
+                        
+#if DRAW_LOCAL_POSES
+                        cubes.push_back(Cube{aimSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
+#endif // DRAW_LOCAL_POSES
 
-#if DRAW_WORLD_POSES
+                        BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
+
+#if APPLY_AIM_OFFSET
+                        const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
+                        const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
+                        glm_local_pose.translation_ += grip_offset_world;
+#endif // APPLY_AIM_OFFSET
+                        
+#if DRAW_FIRST_PERSON_POSES
+                        
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_first_person_view_enabled())
+#endif
                         {
-							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
 							const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
 
@@ -3345,9 +3646,26 @@ struct OpenXrProgram : IOpenXrProgram
                             world_xr_pose.position = BVR::convert_to_xr(world_position);
                             world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
 
-                            cubes.push_back(Cube{ world_xr_pose, {scale, scale, scale} });
+                            cubes.push_back(Cube{ world_xr_pose, {width, width, length}});
                         }
-#endif
+#endif // DRAW_FIRST_PERSON_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_third_person_view_enabled())
+#endif // AUTO_HIDE_OTHER_BODY
+                        {
+							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
+							const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
+
+							XrPosef world_xr_pose;
+                            world_xr_pose.position = BVR::convert_to_xr(world_position);
+                            world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+                            cubes.push_back(Cube{ world_xr_pose, {width, width, length}});
+                        }
+#endif // DRAW_THIRD_PERSON_POSES
                     }
                 } 
             }
@@ -3364,11 +3682,11 @@ struct OpenXrProgram : IOpenXrProgram
 			const float scale_x = 1.5f * scale;
 			const float scale_y = 1.0f * scale;
 			const float scale_z = 0.5f * scale;
-#endif
+#endif // DRAW_ALL_VIVE_TRACKERS
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
             local_waist_pose_from_HTCX.is_valid_ = false;
-#endif
+#endif // USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 
             const int num_trackers = (int)m_input.tracker_infos_.size();
 
@@ -3400,9 +3718,16 @@ struct OpenXrProgram : IOpenXrProgram
 #endif // ADAPT_VIVE_TRACKER_POSES
 
 #if DRAW_ALL_VIVE_TRACKERS
-						cubes.push_back(Cube{ tracker_space_location.pose, {scale_x, scale_y, scale_z} });
 
-#if DRAW_WORLD_POSES
+#if DRAW_LOCAL_POSES
+                        cubes.push_back(Cube{ tracker_space_location.pose, {scale_x, scale_y, scale_z} });
+#endif // DRAW_LOCAL_POSES
+
+#if DRAW_FIRST_PERSON_POSES
+                        
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_first_person_view_enabled())
+#endif // AUTO_HIDE_OTHER_BODY
 						{
 							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
 							const glm::vec3 world_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_pose.translation_);
@@ -3414,7 +3739,25 @@ struct OpenXrProgram : IOpenXrProgram
 
 							cubes.push_back(Cube{ world_xr_pose, {scale_x, scale_y, scale_z} });
 						}
-#endif // DRAW_WORLD_POSES
+#endif // DRAW_FIRST_PERSON_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_third_person_view_enabled())
+#endif // AUTO_HIDE_OTHER_BODY
+						{
+							const BVR::GLMPose glm_local_pose = BVR::convert_to_glm(tracker_space_location.pose);
+							const glm::vec3 world_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_pose.translation_);
+							const glm::fquat world_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_pose.rotation_);
+
+							XrPosef world_xr_pose;
+							world_xr_pose.position = BVR::convert_to_xr(world_position);
+							world_xr_pose.orientation = BVR::convert_to_xr(world_rotation);
+
+							cubes.push_back(Cube{ world_xr_pose, {scale_x, scale_y, scale_z} });
+						}
+#endif // DRAW_THIRD_PERSON_POSES
 
 #endif // DRAW_ALL_VIVE_TRACKERS
 
@@ -3437,7 +3780,7 @@ struct OpenXrProgram : IOpenXrProgram
         xr_ground_pose.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
         xr_ground_pose.position.y = -1.4f; // relative to head, todo : make it y = 0.0 and HMD pose is relative to ground instead, requires different tracking space
         cubes.push_back(Cube{ xr_ground_pose, {100.0f, 0.0001f, 100.0f} });
-#endif
+#endif // ADD_GROUND
 
         {
             const XrPosef& left_eye = m_views[Side::LEFT].pose;
@@ -3494,6 +3837,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                 if (GetGazePoseSocial(eye, gaze_pose))
                 {
+#if DRAW_EYE_LASERS
                     XrVector4f social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
 					const XrPosef& eye_pose = m_views[eye].pose;
 
@@ -3529,27 +3873,50 @@ struct OpenXrProgram : IOpenXrProgram
                     // Make a slender laser pointer-like box for gazes
                     XrVector3f gaze_cube_scale{ 0.001f, 0.001f, laser_length };
 
-#if DRAW_LOCAL_EYE_LASERS
+#if DRAW_LOCAL_POSES
                     cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, social_laser_colour });
-#endif
+#endif // DRAW_LOCAL_POSES
 
-#if DRAW_WORLD_EYE_LASERS
-					const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
-					const glm::vec3 world_eye_laser_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
-					const glm::fquat world_eye_laser_rotation = glm::normalize(player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
-
-					XrPosef world_eye_laser_pose;
-                    world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
-                    world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
-
-#if ENABLE_EXT_EYE_TRACKING
-                    if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
-#endif
+                    const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
+                    
+#if DRAW_FIRST_PERSON_EYE_LASERS
                     {
-                        cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+                        const glm::vec3 world_eye_laser_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
+                        const glm::fquat world_eye_laser_rotation = glm::normalize(player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
+    
+                        XrPosef world_eye_laser_pose;
+                        world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
+                        world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
+    
+    #if ENABLE_EXT_EYE_TRACKING
+                        if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
+    #endif
+                        {
+                            cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+                        }    
                     }
-					
-#endif
+#endif // DRAW_FIRST_PERSON_EYE_LASERS
+
+#if DRAW_THIRD_PERSON_EYE_LASERS
+                    {
+                        const glm::vec3 world_eye_laser_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
+                        const glm::fquat world_eye_laser_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
+    
+                        XrPosef world_eye_laser_pose;
+                        world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
+                        world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
+    
+    #if ENABLE_EXT_EYE_TRACKING
+                        if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
+    #endif
+                        {
+                            cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+                        }    
+                    }
+#endif // DRAW_THIRD_PERSON_EYE_LASERS
+
+#endif // DRAW_EYE_LASERS
+
                 }
             }
         }
@@ -3665,23 +4032,53 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
                         
 
-#if DRAW_LOCAL_BODY_JOINTS
-						cubes.push_back(Cube{ local_body_joint_pose, body_joint_scale });
-#endif
-
-#if DRAW_WORLD_POSES
-                        const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
-                        const glm::vec3 world_joint_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_joint_pose.translation_);
-                        const glm::fquat world_joint_rotation = glm::normalize(player_pose.rotation_ * glm_local_joint_pose.rotation_);
+#if DRAW_BODY_JOINTS
                         
-                        //const BVR::GLMPose glm_world_joint_pose(world_joint_position, world_joint_rotation);
+#if DRAW_LOCAL_POSES
+						cubes.push_back(Cube{ local_body_joint_pose, body_joint_scale });
+#endif // DRAW_LOCAL_POSES
 
-                        XrPosef world_body_joint_pose;
-                        world_body_joint_pose.position = BVR::convert_to_xr(world_joint_position);
-                        world_body_joint_pose.orientation = BVR::convert_to_xr(world_joint_rotation);
-                        //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
-                        cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });
+#if DRAW_FIRST_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_first_person_view_enabled())
 #endif
+                        {
+                            const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
+                            const glm::vec3 world_joint_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_joint_pose.translation_);
+                            const glm::fquat world_joint_rotation = glm::normalize(player_pose.rotation_ * glm_local_joint_pose.rotation_);
+
+                            //const BVR::GLMPose glm_world_joint_pose(world_joint_position, world_joint_rotation);
+
+                            XrPosef world_body_joint_pose;
+                            world_body_joint_pose.position = BVR::convert_to_xr(world_joint_position);
+                            world_body_joint_pose.orientation = BVR::convert_to_xr(world_joint_rotation);
+                            //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
+                            cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });    
+                        }
+#endif // DRAW_FIRST_PERSON_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                        if (is_third_person_view_enabled())
+#endif
+                        {
+                            const BVR::GLMPose glm_local_joint_pose = BVR::convert_to_glm(local_body_joint_pose);
+                            const glm::vec3 world_joint_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_joint_pose.translation_);
+                            const glm::fquat world_joint_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_joint_pose.rotation_);
+
+                            //const BVR::GLMPose glm_world_joint_pose(world_joint_position, world_joint_rotation);
+
+                            XrPosef world_body_joint_pose;
+                            world_body_joint_pose.position = BVR::convert_to_xr(world_joint_position);
+                            world_body_joint_pose.orientation = BVR::convert_to_xr(world_joint_rotation);
+                            //world_body_joint_pose = BVR::convert_to_xr(glm_world_joint_pose);
+                            cubes.push_back(Cube{ world_body_joint_pose, body_joint_scale });
+                        }
+#endif // DRAW_THIRD_PERSON_POSES
+
+#endif // DRAW_BODY_JOINTS
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 
@@ -3702,26 +4099,50 @@ struct OpenXrProgram : IOpenXrProgram
                             local_waist_pose.rotation_ = glm::normalize(local_waist_pose.rotation_ * rotation);
                             local_waist_pose.is_valid_ = true;
                             
-#if DRAW_LOCAL_WAIST_DIRECTION
+#if DRAW_WAIST_DIRECTION
                             const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
                             const glm::vec3 local_waist_offset = forward_direction * waist_arrow_length;
 
-                            BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(false);
+                            BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::LOCAL_SPACE_);
                             glm_local_waist_pose_with_offset.translation_ += (glm_local_waist_pose_with_offset.rotation_ * local_waist_offset);
                             glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
-
+                            
+#if DRAW_LOCAL_POSES
                             XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
                             cubes.push_back(Cube{local_waist_offset_xr_pose, body_joint_scale});
-#if DRAW_WORLD_POSES
-                            BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
-                            glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
-                            glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+#endif // DRAW_LOCAL_POSES
                             
-                            XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
-                            cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});
-#endif // DRAW_WORLD_POSES
+#if DRAW_FIRST_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                            if (is_first_person_view_enabled())
+#endif
+                            {
+                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
+                                glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+                                glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+                                XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+                                cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});    
+                            }
+#endif // DRAW_FIRST_PERSON_POSES
+
+#if DRAW_THIRD_PERSON_POSES
+
+#if AUTO_HIDE_OTHER_BODY
+                            if (is_third_person_view_enabled())
+#endif
+                            {
+                                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
+                                glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+                                glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+                                XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+                                cubes.push_back(Cube{world_waist_offset_xr_pose, body_joint_scale});
+                            }
+#endif // DRAW_THIRD_PERSON_POSES
                             
-#endif // DRAW_LOCAL_WAIST_DIRECTION
+#endif // DRAW_WAIST_DIRECTION
                             
                         }
 #endif
@@ -3737,33 +4158,58 @@ struct OpenXrProgram : IOpenXrProgram
             // Override IOBT / FBE waist pose with VUT-based waist pose, which should be more accurate & responsive
             local_waist_pose = local_waist_pose_from_HTCX;
 
-#if DRAW_LOCAL_WAIST_DIRECTION
+#if DRAW_WAIST_DIRECTION
             XrVector3f body_joint_scale{ BODY_CUBE_SIZE, BODY_CUBE_SIZE, BODY_CUBE_SIZE };
 
 			const float waist_arrow_length = LOCAL_WAIST_DIRECTION_OFFSET_Z;
 			const glm::vec3 local_waist_offset = forward_direction * waist_arrow_length;
 
-			BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(false);
+			BVR::GLMPose glm_local_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::LOCAL_SPACE_);
 			glm_local_waist_pose_with_offset.translation_ += (glm_local_waist_pose_with_offset.rotation_ * local_waist_offset);
 			glm_local_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
 			XrPosef local_waist_offset_xr_pose = BVR::convert_to_xr(glm_local_waist_pose_with_offset);
+            
+#if DRAW_LOCAL_POSES
 			cubes.push_back(Cube{ local_waist_offset_xr_pose, body_joint_scale });
-#if DRAW_WORLD_POSES
-			BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(true);
-			glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
-			glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+#endif
+            
+#if DRAW_FIRST_PERSON_POSES
+            
+#if AUTO_HIDE_OTHER_BODY
+            if (is_first_person_view_enabled())
+#endif                        
+            {
+                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::FIRST_PERSON_);
+			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+			    glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
 
-			XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
-			cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
-#endif // DRAW_WORLD_POSES
+			    XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+			    cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
+            }
+#endif // DRAW_FIRST_PERSON_POSES
 
-#endif // DRAW_LOCAL_WAIST_DIRECTION
+#if DRAW_THIRD_PERSON_POSES
 
+#if AUTO_HIDE_OTHER_BODY
+            if (is_third_person_view_enabled())
+#endif
+            {
+                BVR::GLMPose glm_world_waist_pose_with_offset = get_waist_pose_2D(PERSPECTIVE::THIRD_PERSON_);
+			    glm_world_waist_pose_with_offset.translation_ += (glm_world_waist_pose_with_offset.rotation_ * local_waist_offset);
+			    glm_world_waist_pose_with_offset.translation_.y += LOCAL_WAIST_DIRECTION_OFFSET_Y;
+
+			    XrPosef world_waist_offset_xr_pose = BVR::convert_to_xr(glm_world_waist_pose_with_offset);
+			    cubes.push_back(Cube{ world_waist_offset_xr_pose, body_joint_scale });
+            }
+#endif // DRAW_THIRD_PERSON_POSES
+      
+#endif // DRAW_WAIST_DIRECTION
+      
 		}
 #endif
 
-#if USE_THUMBSTICKS_FOR_SMOOTH_LOCOMOTION
+#if USE_THUMBSTICKS
 		const BVR::GLMPose local_left_eye_pose = BVR::convert_to_glm(m_views[Side::LEFT].pose);
 		const BVR::GLMPose local_right_eye_pose = BVR::convert_to_glm(m_views[Side::RIGHT].pose);
 
