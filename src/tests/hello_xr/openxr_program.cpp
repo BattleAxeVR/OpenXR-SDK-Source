@@ -2304,11 +2304,11 @@ struct OpenXrProgram : IOpenXrProgram
 					vp.recommendedImageRectWidth, vp.recommendedImageRectHeight, vp.recommendedSwapchainSampleCount));
             
 #if ENABLE_CLOUDXR
-                uint32_t width = ok_session_.ok_client_.ok_config_.per_eye_width_;
-                uint32_t height = ok_session_.ok_client_.ok_config_.per_eye_height_;
+            uint32_t width = ok_session_.ok_client_.ok_config_.per_eye_width_;
+            uint32_t height = ok_session_.ok_client_.ok_config_.per_eye_height_;
 #else
-                uint32_t width = vp.recommendedImageRectWidth;
-                uint32_t height = vp.recommendedImageRectHeight;
+            uint32_t width = vp.recommendedImageRectWidth;
+            uint32_t height = vp.recommendedImageRectHeight;
 #endif
 
 			// Create the swapchain.
