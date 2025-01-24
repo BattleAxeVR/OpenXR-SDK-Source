@@ -187,6 +187,7 @@ if(ENABLE_CLOUDXR_SDK)
     target_compile_definitions(hello_xr PUBLIC ENABLE_CLOUDXR=1)
     target_compile_definitions(hello_xr PUBLIC AUTO_CONNECT_TO_CLOUDXR=1)
     target_compile_definitions(hello_xr PUBLIC WAIT_TO_CONNECT=0)
+    target_compile_definitions(hello_xr PUBLIC OVERRIDE_CLOUDXR_FOV=1)
     
     target_compile_options(hello_xr PRIVATE -Wno-unused-parameter)
     target_compile_definitions(hello_xr PRIVATE ENABLE_CLOUDXR_LOGGING_STUB=1)

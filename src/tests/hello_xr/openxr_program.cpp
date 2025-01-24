@@ -3668,7 +3668,7 @@ struct OpenXrProgram : IOpenXrProgram
                     cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, (tint_colour.w < 1.0f)});
 #endif // DRAW_LOCAL_POSES
 
-                    BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
+                    BVR::GLMPose glm_local_pose = BVR::convert_to_glm_pose(gripSpaceLocation.pose);
 
 #if APPLY_GRIP_OFFSET
                     const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
@@ -3685,8 +3685,8 @@ struct OpenXrProgram : IOpenXrProgram
                         const glm::vec3 world_position = player_pose.translation_ +
                                                          (player_pose.rotation_ *
                                                           glm_local_pose.translation_);
-                        const glm::fquat world_rotation = glm::normalize(
-                                player_pose.rotation_ * glm_local_pose.rotation_);
+                        
+                        const glm::fquat world_rotation = glm::normalize(player_pose.rotation_ * glm_local_pose.rotation_);
 
                         XrPosef world_xr_pose;
                         world_xr_pose.position = BVR::convert_to_xr(world_position);
@@ -3787,10 +3787,11 @@ struct OpenXrProgram : IOpenXrProgram
                         float length = AIM_CUBE_LENGTH;
                         
 #if DRAW_LOCAL_POSES
-                        cubes.push_back(Cube{aimSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
+                        Colour tint_colour = white;
+                        cubes.push_back(Cube{aimSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, false});
 #endif // DRAW_LOCAL_POSES
 
-                        BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
+                        BVR::GLMPose glm_local_pose = BVR::convert_to_glm_pose(aimSpaceLocation.pose);
 
 #if APPLY_AIM_OFFSET
                         const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
@@ -4255,7 +4256,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                         if (joint_id == hips_joint_id) 
                         {
-                            local_waist_pose = BVR::convert_to_glm(local_body_joint_pose);
+                            local_waist_pose = BVR::convert_to_glm_pose(local_body_joint_pose);
                             
                             // Change coordinate system to GLM
                             const glm::vec3 euler_angles_radians(deg2rad(90.0f), deg2rad(-90.0f),deg2rad(0.0f));
@@ -4375,8 +4376,8 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if USE_THUMBSTICKS
-		const BVR::GLMPose local_left_eye_pose = BVR::convert_to_glm(m_views[Side::LEFT].pose);
-		const BVR::GLMPose local_right_eye_pose = BVR::convert_to_glm(m_views[Side::RIGHT].pose);
+		const BVR::GLMPose local_left_eye_pose = BVR::convert_to_glm_pose(m_views[Side::LEFT].pose);
+		const BVR::GLMPose local_right_eye_pose = BVR::convert_to_glm_pose(m_views[Side::RIGHT].pose);
 
 		local_hmd_pose.rotation_ = local_left_eye_pose.rotation_;
 		local_hmd_pose.translation_ = (local_left_eye_pose.translation_ + local_right_eye_pose.translation_) * 0.5f; // Average
