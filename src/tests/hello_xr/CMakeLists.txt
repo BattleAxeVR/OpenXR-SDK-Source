@@ -210,7 +210,7 @@ if(ENABLE_CLOUDXR_SDK)
     target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKConfig.cpp)
     target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKCloudClient.cpp)
 
-    if(ANDROID)# AND ${ANDROID_ABI} STREQUAL "arm64-v8a")
+    if(ANDROID)
         set_target_properties(CloudXRClient
                 PROPERTIES
                 IMPORTED_LOCATION $ENV{CLOUDXR_SDK}/Lib/Android/CloudXR/jni/${ANDROID_ABI}/libCloudXRClient.so
