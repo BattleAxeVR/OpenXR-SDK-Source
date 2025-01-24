@@ -9,6 +9,12 @@ plugins {
     id 'com.android.application' version '7.4.2'
 }
 
+def CLOUDXR_AAR_PATH = file("${System.env.CLOUDXR_SDK}/Lib/Android/CloudXR.aar")
+def CLOUDXR_ROOT = file("${project.buildDir}/tmp/CloudXR")
+
+def OBOE_AAR_PATH = file("${project.rootDir}/app/libs/oboe.aar")
+def OBOE_SDK_ROOT = file("${project.buildDir}/tmp/oboe")
+
 
 // These next few lines are just to make the version match the OpenXR release.
 project.ext.repoRoot = file('../../../')
@@ -22,11 +28,15 @@ android {
 
     defaultConfig {
         applicationId "org.khronos.openxr.hello_xr"
-        // for Vulkan, need at least 24
-        minSdkVersion 24
+        // for Vulkan, need at least 24, CloudXR needs 25
+        minSdkVersion 25
 
         versionName = project.versionOpenXR.toString() + project.versionQualifier
         versionCode = project.versionOpenXR.getVersionCode()
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
 
         externalNativeBuild {
             cmake {
@@ -34,8 +44,16 @@ android {
                         '-DBUILD_TESTS=ON',
                         '-DBUILD_LOADER=ON',
                         '-DBUILD_CONFORMANCE_TESTS=OFF',
-                        '-DBUILD_ALL_EXTENSIONS=ON'
+                        '-DBUILD_ALL_EXTENSIONS=ON',
+                        '-DENABLE_CLOUDXR=ON',
+                        "-DCLOUDXR_ROOT=${CLOUDXR_ROOT}",
+                        '-DENABLE_OBOE=OFF'//,
+                        //"-DOBOE_SDK_ROOT=${OBOE_SDK_ROOT}"
                 targets "openxr_loader", "hello_xr"
+            }
+
+            ndk {
+                abiFilters 'arm64-v8a'
             }
         }
     }
@@ -107,3 +125,21 @@ if (keystorePropertiesFilename) {
     }
 }
 
+dependencies {
+    implementation files("${CLOUDXR_AAR_PATH}")
+    ///implementation "androidx.appcompat:appcompat:1.6.1"
+    //implementation "com.google.oboe:oboe:1.7.0"
+}
+
+tasks.register('extractCloudXR', Copy) {
+    from zipTree(CLOUDXR_AAR_PATH)
+    into CLOUDXR_ROOT
+}
+
+tasks.register('extractOboeSDK', Copy) {
+    from zipTree(OBOE_AAR_PATH)
+    into OBOE_SDK_ROOT
+}
+
+preBuild.dependsOn(extractCloudXR)
+//preBuild.dependsOn(extractOboeSDK)

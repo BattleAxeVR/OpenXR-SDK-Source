@@ -177,7 +177,7 @@ endif()
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
 
-option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" OFF)
+option(ENABLE_CLOUDXR_SDK "Enable CloudXR SDK" ON)
 
 if(ENABLE_CLOUDXR_SDK)
     add_library(CloudXRClient SHARED IMPORTED)
@@ -188,10 +188,14 @@ if(ENABLE_CLOUDXR_SDK)
     target_compile_definitions(hello_xr PRIVATE DRAW_UI=0)
     target_compile_definitions(hello_xr PRIVATE SUPPORT_BODY_TRACKING_FB=0)
 
+    #target_include_directories(hello_xr PUBLIC ${CLOUDXR_ROOT}/include)
+    
     target_include_directories(hello_xr PRIVATE $ENV{CLOUDXR_SDK}/include)
     target_include_directories(hello_xr PRIVATE $ENV{CLOUDXR_SDK}//Sample/Shared)
+    
     target_sources(hello_xr PRIVATE $ENV{CLOUDXR_SDK}/Sample/Shared/CloudXRController.cpp)
-
+    #target_sources(hello_xr PRIVATE ${CLOUDXR_ROOT}/include/CloudXRController.cpp)
+    
     target_include_directories(hello_xr PRIVATE $ENV{OCULUS_OPENXR_MOBILE_SDK}/OpenXR/meta_openxr_preview)
 
     target_include_directories(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/jsoncpp/json_value.cpp)
@@ -211,12 +215,18 @@ if(ENABLE_CLOUDXR_SDK)
     target_sources(hello_xr PRIVATE $ENV{OK_VR_STREAMER_ROOT}/OKCloudClient.cpp)
 
     if(ANDROID)
+        #set_target_properties(CloudXRClient
+                #PROPERTIES
+                #IMPORTED_LOCATION $ENV{CLOUDXR_SDK}/Lib/Android/CloudXR/jni/${ANDROID_ABI}/libCloudXRClient.so
+        #)
+
         set_target_properties(CloudXRClient
                 PROPERTIES
-                IMPORTED_LOCATION $ENV{CLOUDXR_SDK}/Lib/Android/CloudXR/jni/${ANDROID_ABI}/libCloudXRClient.so
+                IMPORTED_LOCATION ${CLOUDXR_ROOT}/jni/${ANDROID_ABI}/libCloudXRClient.so
         )
 
         target_link_libraries(hello_xr PRIVATE CloudXRClient)
+        
     else()
         message(FATAL_ERROR "Missing CloudXR")
     endif()
