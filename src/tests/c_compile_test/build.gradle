@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The Khronos Group Inc.
+// Copyright (c) 2020-2025 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -6,7 +6,7 @@
 // to build the "c_compile_test" sample application
 
 plugins {
-    id 'com.android.application' version '7.4.2'
+    id 'com.android.application' version '8.1.4'
 }
 
 
@@ -15,7 +15,7 @@ project.ext.repoRoot = file('../../../')
 apply from: file('../../version.gradle')
 
 android {
-    compileSdk 33
+    compileSdk 34
     ndkVersion "23.2.8568313"
     buildToolsVersion = "34.0.0"
     namespace 'org.khronos.openxr.c_compile_test'
