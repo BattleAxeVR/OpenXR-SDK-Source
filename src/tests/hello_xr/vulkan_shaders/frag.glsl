@@ -11,6 +11,11 @@ layout (location = 0) in vec4 oColor;
 
 layout (location = 0) out vec4 FragColor;
 
+// Code copy-pasted from here:
+// https://www.shadertoy.com/view/MsKfDc
+
+// Original implementation credit: Jasmin Party
+// https://www.glowybits.com/blog/2017/01/04/ifl_iss_hdr_2/
 
 #define ENABLE_HDR 0
 
