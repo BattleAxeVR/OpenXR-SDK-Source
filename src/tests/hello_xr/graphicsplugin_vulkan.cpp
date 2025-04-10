@@ -1565,7 +1565,11 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         // List of supported color swapchain formats.
         
 #if ENABLE_HDR_SWAPCHAIN
-        constexpr int64_t SupportedColorSwapchainFormats[] = {VK_FORMAT_R16G16B16A16_SFLOAT};
+        constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_R16G16B16A16_SFLOAT }; // OK on PSVR 2 and Quest 3
+        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_A2R10G10B10_UNORM_PACK32 };  // fail on Quest 3 and PSVR 2
+        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_A2R10G10B10_UINT_PACK32 };  // fail on Quest 3 and PSVR 2
+        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32 };   // fail on Quest 3 and PSVR 2      
+        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_E5B9G9R9_UFLOAT_PACK32 };  // fail on Quest 3 and PSVR 2    
 #else
         constexpr int64_t SupportedColorSwapchainFormats[] = {VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_SRGB,
                                                               VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM};
@@ -2186,3 +2190,4 @@ std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_VulkanLegacy(const std::sh
 }
 
 #endif  // XR_USE_GRAPHICS_API_VULKAN
+
