@@ -346,6 +346,9 @@ bool is_snap_turn_enabled()
 bool currently_gripping[Side::COUNT] = {false, false};
 float current_grip_value[Side::COUNT] = {0.0f, 0.0f};
 
+bool currently_squeezing_trigger[Side::COUNT] = { false, false };
+float current_trigger_value[Side::COUNT] = { 0.0f, 0.0f };
+
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
 BVR::GLMPose local_waist_pose;
 
@@ -3297,6 +3300,27 @@ struct OpenXrProgram : IOpenXrProgram
             XrActionStatePose poseState{XR_TYPE_ACTION_STATE_POSE};
             CHECK_XRCMD(xrGetActionStatePose(m_session, &getInfo, &poseState));
             m_input.handActive[hand] = poseState.isActive;
+
+#if USE_BUTTONS_TRIGGERS
+			XrActionStateFloat triggerValue{ XR_TYPE_ACTION_STATE_FLOAT };
+			getInfo.action = m_input.triggerValueAction;
+			getInfo.subactionPath = m_input.handSubactionPath[hand];
+
+			CHECK_XRCMD(xrGetActionStateFloat(m_session, &getInfo, &triggerValue));
+
+            const float trigger_val = triggerValue.currentState;
+
+			if((triggerValue.isActive == XR_TRUE) && (trigger_val > 0.0f))
+			{
+                currently_squeezing_trigger[hand] = true;
+                current_trigger_value[hand] = trigger_val;
+			}
+            else
+            {
+                currently_squeezing_trigger[hand] = false;
+                current_trigger_value[hand] = 0.0f;
+            }
+#endif
         }
 
 #if TOGGLE_3RD_PERSON_AUTO_LEFT_STICK_CLICK
@@ -3431,7 +3455,8 @@ struct OpenXrProgram : IOpenXrProgram
         cube_pose.orientation = {0.0f, 0.0f, 0.0f, 1.0f};
 
         float base_scale = 0.4f;
-        XrVector3f scale_vec{base_scale, 0.01f, base_scale};
+        //XrVector3f scale_vec{base_scale, 0.01f, base_scale};
+        XrVector3f scale_vec{ base_scale, base_scale, base_scale };
 
         for (int cube_z_index = 0; cube_z_index < num_cubes_z; cube_z_index++) 
         {
@@ -3561,7 +3586,20 @@ struct OpenXrProgram : IOpenXrProgram
                         }
 #endif // ENABLE_CONTROLLER_MOTION_BLUR
 
-                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, false});    
+                        float intensity = 1.0f;
+                        bool enable_blend = false;
+
+#if ENABLE_HDR_SWAPCHAIN
+                        intensity = HDR_BASE_INTENSITY;
+
+                        if (currently_squeezing_trigger[hand])
+                        {
+                            intensity += current_trigger_value[hand] * HDR_INTENSITY_RANGE;
+                            enable_blend = true;
+                        }
+#endif
+
+                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, enable_blend, intensity });
 		            }
 #endif // DRAW_FIRST_PERSON_POSES
 

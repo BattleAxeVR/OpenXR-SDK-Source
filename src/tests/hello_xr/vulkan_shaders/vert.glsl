@@ -10,6 +10,8 @@
 layout (std140, push_constant) uniform buf
 {
     mat4 mvp;
+    vec3 tint;
+    float intensity;
 } ubuf;
 
 layout (location = 0) in vec3 Position;
@@ -25,5 +27,7 @@ void main()
 {
     oColor.rgb  = Color.rgb;
     oColor.a  = 1.0;
+    oColor.rgb *= ubuf.tint;
+    oColor.rgb *= ubuf.intensity;
     gl_Position = ubuf.mvp * vec4(Position, 1);
 }
