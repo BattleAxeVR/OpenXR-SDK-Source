@@ -11,7 +11,7 @@ layout (location = 0) in vec4 oColor;
 
 layout (location = 0) out vec4 FragColor;
 
-#define ENABLE_HDR 1
+#define ENABLE_HDR 0
 // Only this part was written by BattleAxeVR:
 
 //--------------------------------------------------------------------------------------
@@ -91,13 +91,10 @@ vec4 pq_to_linear(vec4 N)
 void main()
 {
 #if ENABLE_HDR
-	//FragColor = linear_to_pq(oColor);
-    FragColor = pq_to_linear(oColor);
-	//FragColor.r = 0.0;
-    FragColor.rgb *= 1000.0;
+	FragColor = linear_to_pq(oColor);
+    //FragColor = pq_to_linear(oColor);
 #else
 	FragColor = oColor; // sRGB/gamma encoding from linear float input colours is applied in hardware w/ full alpha blending support
     //FragColor.b = 0.0;
-    //FragColor.rgb *= 1000.0;
 #endif
 }

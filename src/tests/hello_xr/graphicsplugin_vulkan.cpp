@@ -1783,15 +1783,27 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             XrMatrix4x4f vp;
             XrMatrix4x4f_Multiply(&vp, &proj, &view);
 
+			struct vk_push_constant
+			{
+				XrMatrix4x4f mvp;
+                XrVector3f tint;
+                float intensity;
+			};
+
             // Render each cube
             for(const Cube& cube : cubes)
             {
                 // Compute the model-view-projection transform and push it.
                 XrMatrix4x4f model;
                 XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
-                XrMatrix4x4f mvp;
-                XrMatrix4x4f_Multiply(&mvp, &vp, &model);
-                vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mvp.m), &mvp.m[0]);
+
+                vk_push_constant push{};
+                XrMatrix4x4f_Multiply(&push.mvp, &vp, &model);
+
+                push.tint = Geometry::White;
+                push.intensity = cube.intensity;
+
+                vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), &push);
 
                 // Draw the cube.
                 vkCmdDrawIndexed(m_cmdBuffer.buf, m_drawBuffer.count.idx, 1, 0, 0, 0);

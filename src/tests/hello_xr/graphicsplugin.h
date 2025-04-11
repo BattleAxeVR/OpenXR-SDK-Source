@@ -34,6 +34,12 @@ struct Cube {
     XrVector3f Scale;
     XrVector4f Colour = {1.0f, 1.0f, 1.0f, 1.0f};
     bool enable_blend = false;
+
+#if ENABLE_HDR_SWAPCHAIN
+    float intensity = HDR_BASE_INTENSITY;
+#else
+    float intensity = 1.0f;
+#endif
 };
 
 // Wraps a graphics API so the main openxr program can be graphics API-independent.
