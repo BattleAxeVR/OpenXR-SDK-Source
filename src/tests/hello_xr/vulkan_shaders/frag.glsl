@@ -11,62 +11,93 @@ layout (location = 0) in vec4 oColor;
 
 layout (location = 0) out vec4 FragColor;
 
-// Code copy-pasted from here:
-// https://www.shadertoy.com/view/MsKfDc
+#define ENABLE_HDR 1
+// Only this part was written by BattleAxeVR:
 
-// Original implementation credit: Jasmin Party
-// https://www.glowybits.com/blog/2017/01/04/ifl_iss_hdr_2/
+//--------------------------------------------------------------------------------------
+// Copyright (c) 2025 BattleAxeVR. All rights reserved.
+//--------------------------------------------------------------------------------------
 
-#define ENABLE_HDR 0
+// Author: Bela Kampis
+// Date: April 10, 2025
+
+// A reference implementation of PQ (Perceptual Quantizer) <-> Linear conversion, used in HDR10 etc.
+// Source: https://pub.smpte.org/latest/st2084/st2084-2014.pdf
+
+// ShaderToy Link: https://www.shadertoy.com/view/wXjGRV
 
 #if ENABLE_HDR
+const float m1 = 0.1593017578125;
+const float m2 = 78.84375;
+const float c1 = 0.8359375;
+const float c2 = 18.8515625;
+const float c3 = 18.6875;
 
-vec3 linear_to_pq(vec3 x)
+const float error_gain = 100.0;
+
+float linear_to_pq(float L)
 {
-    x = (x * (x * (x * (x * (x * 533095.76 + 47438306.2) + 29063622.1) + 575216.76) + 383.09104) + 0.000487781) /
-        (x * (x * (x * (x * 66391357.4 + 81884528.2) + 4182885.1) + 10668.404) + 1.0);
-    return x;
+    float L_m1 = pow(L, m1);
+    float numerator = c1 + c2 * L_m1;
+    float denominator = 1.0 + c3 * L_m1;
+
+    float N = pow(numerator / denominator, m2);
+    return N;
 }
 
-vec3 pq_to_linear(vec3 x)
+vec3 linear_to_pq(vec3 L)
 {
-	return (x * (x * (x * 85.471 + 13.947) + 0.1357) - 0.0008537) / (x * ( x * (x * -1.2149 + 3.1911) - 2.9834)+ 1.0);
+    vec3 N = vec3(linear_to_pq(L.r), linear_to_pq(L.g), linear_to_pq(L.b));
+    return N;
 }
 
-//Passthrough for alpha, which should stay in linear space
-
-vec4 linear_to_pq(vec4 input)
+vec4 linear_to_pq(vec4 L)
 {
-    vec4 output;
-	
-	ouput.rgb = linear_to_pq(input.rgb);
-	ouput.a = input.a;
-	
-	return output;	
+    vec4 N;
+    N.a = 1.0; // Alpha passthrough stays linear
+    
+    N.rgb = linear_to_pq(L.rgb);
+    
+    return N;
 }
 
-vec4 pq_to_linear(vec4 input)
+float pq_to_linear(float N)
 {
-    vec4 output;
-	
-	ouput.rgb = pq_to_linear(input.rgb);
-	ouput.a = input.a;
-	
-	return output;
+    float N_1_m2 = pow(N, 1.0/m2);
+    float max_arg = (N_1_m2 - c1);
+    float numerator = max(max_arg, 0.0);
+    float denominator = c2 - c3 * N_1_m2;
+
+    float L = pow(numerator / denominator, 1.0/m1);
+    return L;
+}
+
+vec3 pq_to_linear(vec3 N)
+{
+    vec3 L = vec3(pq_to_linear(N.r), pq_to_linear(N.g), pq_to_linear(N.b));
+    return L;
+}
+
+vec4 pq_to_linear(vec4 N)
+{
+    vec4 L;
+    L.a = 1.0; // Alpha passthrough stays linear
+    
+    L.rgb = pq_to_linear(N.rgb);
+    return L;
 }
 #endif
 
 void main()
 {
 #if ENABLE_HDR
-	// warning: PQ-Encoded colours won't alpha blend properly due to hardware thinking FP16 colours are linear
-
-    FragColor = linear_to_pq(oColor);  // This is just a hack / temp fix until Valve converts to PQ inside SteamVR
-	
-	// Hack to test HDR, if the colours can go above 1.0 (works on PSVR 2 w/ FP16 swap chain)
-	//FragColor *= 10;
-	
+	//FragColor = linear_to_pq(oColor);
+    FragColor = pq_to_linear(oColor);
+	//FragColor.r = 0.0;
+    FragColor.rgb *= 1000.0;
 #else
 	FragColor = oColor; // sRGB/gamma encoding from linear float input colours is applied in hardware w/ full alpha blending support
+    //FragColor.b = 0.0;
+    //FragColor.rgb *= 1000.0;
 #endif
 }
