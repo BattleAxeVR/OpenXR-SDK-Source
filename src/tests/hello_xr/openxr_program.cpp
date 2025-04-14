@@ -228,6 +228,13 @@ bool supports_HTCX_vive_tracker_interaction_ = false;
 BVR::GLMPose local_waist_pose_from_HTCX;
 #endif
 
+#if ENABLE_PSVR2_EYE_TRACKING
+bool PSVR2_eyetracking_enabled_ = false;
+#include "D:\\PSVR2\\ipc_client.cpp"
+#include "D:\\PSVR2\\psvr2_gazes.h"
+IPCClient g_ipcClient;
+#endif
+
 int current_eye = 0;
 float IPD = 0.0063f;
 
@@ -655,6 +662,14 @@ struct OpenXrProgram : IOpenXrProgram
 
     ~OpenXrProgram() override 
     {
+#if ENABLE_PSVR2_EYE_TRACKING
+		if(PSVR2_eyetracking_enabled_)
+		{
+            //g_ipcClient.Disconnect(); // no such method yet
+            PSVR2_eyetracking_enabled_ = false;
+		}
+#endif
+
 #if USE_SDL_JOYSTICKS
         ShutdownSDLJoySticks();
 #endif
@@ -1967,6 +1982,13 @@ struct OpenXrProgram : IOpenXrProgram
             SetSimultaneousHandsAndControllersEnabled(true);
         }
 #endif
+
+#if ENABLE_PSVR2_EYE_TRACKING
+        if (g_ipcClient.Connect())
+        {
+            PSVR2_eyetracking_enabled_ = true;
+        }
+#endif
     }
 
 	XrSystemProperties xr_system_properties_{ XR_TYPE_SYSTEM_PROPERTIES };
@@ -2512,7 +2534,7 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 	}
 
-	void UpdateSocialEyeTrackerGazes() override
+	void UpdateSocialEyeTrackerGazes(const XrTime& predicted_display_time) override
 	{
 		if (social_eye_tracker_ && social_eye_tracking_enabled_)
 		{
@@ -2527,7 +2549,8 @@ struct OpenXrProgram : IOpenXrProgram
 			}
 
 			XrEyeGazesInfoFB gazes_info{ XR_TYPE_EYE_GAZES_INFO_FB };
-			gazes_info.baseSpace = m_appSpace;
+            gazes_info.time = predicted_display_time;
+            gazes_info.baseSpace = m_appSpace;
 
 #if LOG_EYE_TRACKING_DATA
 			XrResult result = xrGetEyeGazesFB(social_eye_tracker_, &gazes_info, &social_eye_gazes_);
@@ -2629,7 +2652,18 @@ struct OpenXrProgram : IOpenXrProgram
 		XrSpaceLocation gaze_location{ XR_TYPE_SPACE_LOCATION, &eye_gaze_sample_time };
 		XrResult gaze_result = xrLocateSpace(m_input.gazeActionSpace, m_appSpace, predicted_display_time, &gaze_location);
 
-        ext_gaze_pose_valid_ = (gaze_result == XR_SUCCESS);
+        if (gaze_result == XR_SUCCESS)
+        {
+            ext_gaze_pose_valid_ = true;
+			//ext_gaze_pose_valid_ = (
+                //(gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+				//(gaze_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
+
+        }
+        else
+        {
+            ext_gaze_pose_valid_ = false;
+        }
 
         if(ext_gaze_pose_valid_)
         {
@@ -3671,7 +3705,8 @@ struct OpenXrProgram : IOpenXrProgram
                         float length = AIM_CUBE_LENGTH;
                         
 #if DRAW_LOCAL_POSES
-                        cubes.push_back(Cube{aimSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, enable_blend});
+						Colour tint_colour = white;
+                        cubes.push_back(Cube{aimSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, false});
 #endif // DRAW_LOCAL_POSES
 
                         BVR::GLMPose glm_local_pose = BVR::convert_to_glm(aimSpaceLocation.pose);
@@ -3878,7 +3913,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
         if (supports_eye_tracking_social_ && social_eye_tracking_enabled_)
         {
-            UpdateSocialEyeTrackerGazes();
+            UpdateSocialEyeTrackerGazes(predictedDisplayTime);
 
             for (int eye : { Side::LEFT, Side::RIGHT }) 
             {
@@ -4018,16 +4053,15 @@ struct OpenXrProgram : IOpenXrProgram
 					// Make a slender laser pointer-like box for gazes
 					XrVector3f gaze_cube_scale{ 0.001f, 0.001f, laser_length };
 
-#if DRAW_LOCAL_EYE_LASERS
+#if DRAW_EYE_LASERS 
+
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
                     if(!supports_eye_tracking_social_ || !social_eye_tracking_enabled_)
 #endif
                     {
                         cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, ext_laser_colour });
                     }
-#endif
 
-#if DRAW_WORLD_EYE_LASERS
 					const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
 					const glm::vec3 world_eye_laser_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
 					const glm::fquat world_eye_laser_rotation = glm::normalize(player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
@@ -4037,10 +4071,95 @@ struct OpenXrProgram : IOpenXrProgram
 					world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
 
 					cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, ext_laser_colour });
-#endif
+#endif // DRAW_EYE_LASERS
 				}
             }
 		}
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING
+        if (PSVR2_eyetracking_enabled_)
+        {
+			ipc::Request_t requestGazePacket(ipc::RequestUpdateGazeState);
+			ipc::Response_t response = g_ipcClient.SendBlocking(requestGazePacket);
+
+            if (response.type == ipc::ResponseSuccess)
+            {
+                // Success!
+                Psvr2GazeState_t* pLocalGazeState = (Psvr2GazeState_t*)&response.gazeState;
+
+                if (pLocalGazeState)
+                {
+                    // Combined
+                    GazeCombined_t& combined = pLocalGazeState->packetData.combined;
+
+                    if(combined.bIsValid)
+                    {
+                        XrVector3f gaze_cube_scale{ 0.01f, 0.01f, 0.01f };// laser_length
+						XrVector4f psvr2_gaze_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
+
+                        if (combined.bGazePointValid)
+                        {
+							XrPosef world_gaze_pose;
+                            world_gaze_pose.position = BVR::convert_to_xr(glm::vec3(combined.vGazePoint3D.x, combined.vGazePoint3D.y, combined.vGazePoint3D.z));
+
+                            cubes.push_back(Cube{ world_gaze_pose, gaze_cube_scale, psvr2_gaze_colour });
+                        }
+
+						if(combined.bNormalisedGazeValid)
+						{
+							const float laser_length = 10.0f;
+							//const float half_laser_length = laser_length * 0.5f;
+							//const float distance_to_eye = 0.1f;
+
+#if 0
+                            XrPosef gaze_pose;
+
+							const XrPosef& eye_pose = m_views[Side::LEFT].pose;
+
+
+
+							// Apply an offset so the lasers aren't overlapping the eye directly
+							XrVector3f local_laser_offset = { 0.0f, 0.0f, (-half_laser_length - distance_to_eye) };
+
+							XrMatrix4x4f gaze_rotation_matrix;
+							XrMatrix4x4f_CreateFromQuaternion(&gaze_rotation_matrix, &gaze_pose.orientation);
+
+							XrMatrix4x4f eye_rotation_matrix;
+							XrMatrix4x4f_CreateFromQuaternion(&eye_rotation_matrix, &eye_pose.orientation);
+
+							XrMatrix4x4f world_eye_gaze_matrix;
+							XrMatrix4x4f_Multiply(&world_eye_gaze_matrix, &gaze_rotation_matrix, &eye_rotation_matrix);
+
+							XrQuaternionf world_orientation;
+							XrMatrix4x4f_GetRotation(&world_orientation, &world_eye_gaze_matrix);
+
+							XrPosef local_eye_laser_pose;
+							local_eye_laser_pose.position = eye_pose.position;
+							//XrVector3f_Add(&final_pose.position, &gaze_pose.position, &eye_pose.position);
+							local_eye_laser_pose.orientation = world_orientation;
+#endif
+
+                            glm::vec3 normalized_gaze_local = glm::vec3(combined.vNormalisedGaze.x, combined.vNormalisedGaze.y, combined.vNormalisedGaze.z);
+                            glm::vec3 normalized_gaze_world = glm::rotate(player_pose.rotation_, normalized_gaze_local);
+
+							//const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
+							const glm::vec3 world_eye_laser_position = player_pose.translation_ + normalized_gaze_world * laser_length;
+							//const glm::fquat world_eye_laser_rotation = glm::normalize(player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
+
+							XrPosef world_eye_laser_pose;
+							world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
+							//world_eye_laser_pose.orientation = BVR::convert_to_xr(normalized_gaze_world);
+
+							cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, psvr2_gaze_colour });
+
+						}
+                    }
+                }
+				//DrawEyeState("Left", pLocalGazeState->packetData.left);
+				//DrawEyeState("Right", pLocalGazeState->packetData.right);
+            }
+        }
 #endif
 
 #if ENABLE_OPENXR_FB_BODY_TRACKING

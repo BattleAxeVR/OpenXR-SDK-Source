@@ -68,7 +68,7 @@ struct IOpenXrProgram
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
     virtual bool GetGazePoseSocial(const int eye, XrPosef& gaze_pose) = 0;
     virtual void SetSocialEyeTrackerEnabled(const bool enabled) = 0;
-    virtual void UpdateSocialEyeTrackerGazes() = 0;
+    virtual void UpdateSocialEyeTrackerGazes(const XrTime& predicted_display_time) = 0;
 #endif
 
 #if ENABLE_EXT_EYE_TRACKING

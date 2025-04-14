@@ -53,9 +53,10 @@
 #define ENABLE_OPENXR_FB_LOCAL_DIMMING (PLATFORM_ANDROID && 0)
 
 // Eye tracking only enabled on PC for now (needs permissions on Android, requires java calls. TODO)
-#define ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL (PLATFORM_PC && 0)
-#define ENABLE_EXT_EYE_TRACKING (PLATFORM_PC && 1)
-#define ENABLE_EYE_TRACKING (ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL || ENABLE_EXT_EYE_TRACKING)
+#define ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL (PLATFORM_PC && 0)  // An OpenXR API layer plugin will be written to expose PSVR 2 independent gazes through this API.
+#define ENABLE_EXT_EYE_TRACKING (PLATFORM_PC && 1) // Quest Pro + API plugin via Meta Link, or PSVR 2 via same plugin -> SteamVR, or directly via SteamVR exposing ET internally
+#define ENABLE_PSVR2_EYE_TRACKING (PLATFORM_PC && 0) // Direct Integration of DriverEx, not via OpenXR. Supports independent / eye gazes this way.
+#define ENABLE_EYE_TRACKING (ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL || ENABLE_EXT_EYE_TRACKING || ENABLE_PSVR2_EYE_TRACKING)
 
 #define DRAW_EYE_LASERS (ENABLE_EYE_TRACKING && 1)
 #define DRAW_FIRST_PERSON_EYE_LASERS (DRAW_EYE_LASERS && USE_THUMBSTICKS && 1)
@@ -66,7 +67,7 @@
 // Face tracking (not implemented yet)
 #define ENABLE_OPENXR_FB_FACE_TRACKING 0
 #define ENABLE_OPENXR_HAND_TRACKING 0
-#define ENABLE_OPENXR_FB_BODY_TRACKING 1 // Hand tracking is redundant if you have body tracking, which includes all the same finger joints
+#define ENABLE_OPENXR_FB_BODY_TRACKING 0 // Hand tracking is redundant if you have body tracking, which includes all the same finger joints
 #define ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS ((ENABLE_OPENXR_FB_BODY_TRACKING || ENABLE_OPENXR_HAND_TRACKING) && 1)
 
 // New inside-out body tracking, depends on FB Body Tracking
@@ -99,7 +100,7 @@
 
 #define USE_DUAL_LAYERS 0
 
-#define LOG_EYE_TRACKING_DATA (ENABLE_EYE_TRACKING && 0)
+#define LOG_EYE_TRACKING_DATA (ENABLE_EYE_TRACKING && 1)
 #define LOG_BODY_TRACKING_DATA (ENABLE_OPENXR_FB_BODY_TRACKING && 0)
 
 #define USE_SDL_JOYSTICKS 0
@@ -149,7 +150,7 @@
 #define DRAW_VISUALIZED_SPACES 0
 
 // Draw / debug
-#define DRAW_LOCAL_POSES (USE_THUMBSTICKS && 0)
+#define DRAW_LOCAL_POSES (USE_THUMBSTICKS && 1)
 #define DRAW_FIRST_PERSON_POSES (USE_THUMBSTICKS && 1)
 #define DRAW_THIRD_PERSON_POSES (SUPPORT_THIRD_PERSON && 1)
 
