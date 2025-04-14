@@ -3569,18 +3569,22 @@ struct OpenXrProgram : IOpenXrProgram
                     
                     Colour tint_colour = white;
 
-#if DRAW_LOCAL_POSES
-                    cubes.push_back(Cube{ gripSpaceLocation.pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, (tint_colour.w < 1.0f)});
-#endif // DRAW_LOCAL_POSES
-
                     BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
 
 #if APPLY_GRIP_OFFSET
-                    const glm::vec3 grip_offset_local = glm::vec3{0.0f, 0.0f, length * -0.5f};
-                    const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
-                    glm_local_pose.translation_ += grip_offset_world;
+					const glm::vec3 grip_offset_local = glm::vec3{ 0.0f, 0.0f, length * -0.5f };
+					const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
+					glm_local_pose.translation_ += grip_offset_world;
 #endif // APPLY_GRIP_OFFSET
-                    
+
+
+#if DRAW_LOCAL_POSES
+					XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_pose);
+                    cubes.push_back(Cube{ local_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, (tint_colour.w < 1.0f)});
+#endif // DRAW_LOCAL_POSES
+
+                   
+
 #if DRAW_FIRST_PERSON_POSES
 
 #if AUTO_HIDE_OTHER_BODY
