@@ -21,6 +21,12 @@ namespace Side {
     const int COUNT = 2;
 }  // namespace Side
 
+constexpr bool IsPoseValid(XrSpaceLocationFlags locationFlags) 
+{
+	constexpr XrSpaceLocationFlags PoseValidFlags = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
+	return (locationFlags & PoseValidFlags) == PoseValidFlags;
+}
+
 BVR::GLMPose blend_poses(const BVR::GLMPose& glm_poseA, const BVR::GLMPose& glm_poseB, const float alpha)
 {
     BVR::GLMPose blended_glm_pose;
@@ -2693,6 +2699,12 @@ struct OpenXrProgram : IOpenXrProgram
             return;
         }
 
+		const XrActiveActionSet activeActionSet{ m_input.actionSet, XR_NULL_PATH };
+		XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
+		syncInfo.countActiveActionSets = 1;
+		syncInfo.activeActionSets = &activeActionSet;
+		CHECK_XRCMD(xrSyncActions(m_session, &syncInfo));
+
 		XrActionStatePose actionStatePose{ XR_TYPE_ACTION_STATE_POSE };
 		XrActionStateGetInfo getActionStateInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
 		getActionStateInfo.action = m_input.gazeAction;
@@ -2702,18 +2714,12 @@ struct OpenXrProgram : IOpenXrProgram
         //if(actionStatePose.isActive) 
         {
 			XrEyeGazeSampleTimeEXT eye_gaze_sample_time{ XR_TYPE_EYE_GAZE_SAMPLE_TIME_EXT };
-            eye_gaze_sample_time.time = predicted_display_time;
-
 			XrSpaceLocation gaze_location{ XR_TYPE_SPACE_LOCATION, &eye_gaze_sample_time };
 			XrResult gaze_result = xrLocateSpace(m_input.gazeActionSpace, m_input.localReferenceSpace, predicted_display_time, &gaze_location);
 
 			if(gaze_result == XR_SUCCESS)
 			{
-                ext_gaze_pose_valid_ = (
-                       ((gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 )
-                    && ((gaze_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0));
-
-				//ext_gaze_pose_valid_ = (gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) != 0;
+                ext_gaze_pose_valid_ = IsPoseValid(gaze_location.locationFlags);
 			}
 			else
 			{
@@ -3578,8 +3584,7 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRRESULT(res, "xrLocateSpace");
             if (XR_UNQUALIFIED_SUCCESS(res)) 
             {
-                if ((spaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
-                    (spaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+                if (IsPoseValid(spaceLocation.locationFlags) {
                     cubes.push_back(Cube{spaceLocation.pose, {0.25f, 0.25f, 0.25f}});
                 }
             } else {
@@ -3600,8 +3605,7 @@ struct OpenXrProgram : IOpenXrProgram
             
             if (XR_UNQUALIFIED_SUCCESS(res)) 
             {
-                if ((gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
-                    (gripSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) {
+                if (IsPoseValid(gripSpaceLocation.locationFlags)) {
 
 #if ENABLE_CONTROLLER_MOTION_BLUR
                     const bool motion_blur_enabled = currently_gripping[hand];
@@ -3757,8 +3761,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                 if (XR_UNQUALIFIED_SUCCESS(res)) 
                 {
-                    if ((aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
-                        (aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0) 
+                    if (IsPoseValid(aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) 
                     {
                         float width = AIM_CUBE_WIDTH;
                         float length = AIM_CUBE_LENGTH;
@@ -3844,8 +3847,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 				if(XR_UNQUALIFIED_SUCCESS(res))
 				{
-					if((tracker_space_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
-						(tracker_space_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0)
+					if(IsPoseValid(tracker_space_location.locationFlags))
 					{
 #if ADAPT_VIVE_TRACKER_POSES
 						{
@@ -4242,11 +4244,9 @@ struct OpenXrProgram : IOpenXrProgram
                 {
 
 #if ENABLE_OPENXR_META_FULL_BODY_TRACKING
-                    const bool is_joint_valid = supports_meta_full_body_tracking_ ? 
-                    (full_body_joints_[joint_id].locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT)) :
-                    (body_joints_[joint_id].locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT));
+                    const bool is_joint_valid = supports_meta_full_body_tracking_ ? IsPoseValid(full_body_joints_[joint_id].locationFlags) : IsPoseValid(body_joints_[joint_id].locationFlags);
 #else
-                    const bool is_joint_valid = (body_joints_[joint_id].locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT));
+                    const bool is_joint_valid = IsPoseValid(body_joints_[joint_id].locationFlags);
 #endif
 					if (is_joint_valid)
                     {
