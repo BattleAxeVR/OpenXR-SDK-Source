@@ -694,10 +694,19 @@ struct OpenXrProgram : IOpenXrProgram
         {
             for (auto hand : {Side::LEFT, Side::RIGHT}) 
             {
-                xrDestroySpace(m_input.handSpace[hand]);
+                if (m_input.handSpace[hand])
+                {
+                    xrDestroySpace(m_input.handSpace[hand]);
+                    m_input.handSpace[hand] = nullptr;
+                }
 
 #if ADD_AIM_POSE
-                xrDestroySpace(m_input.aimSpace[hand]);
+                if (m_input.aimSpace[hand])
+                {
+                    xrDestroySpace(m_input.aimSpace[hand]);
+                    m_input.aimSpace[hand] = nullptr;
+                }
+                
 #endif
             }
             xrDestroyActionSet(m_input.actionSet);
@@ -1266,7 +1275,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ADD_AIM_POSE
         XrAction aimPoseAction{XR_NULL_HANDLE};
         std::array<XrPath, Side::COUNT> aimSubactionPath;
-        std::array<XrSpace, Side::COUNT> aimSpace;
+        std::array<XrSpace, Side::COUNT> aimSpace{ XR_NULL_HANDLE, XR_NULL_HANDLE };
 #endif
 
 #if USE_THUMBSTICKS
@@ -1285,7 +1294,8 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if ENABLE_EXT_EYE_TRACKING
 		XrAction gazeAction{ XR_NULL_HANDLE };
-		XrSpace gazeActionSpace;
+		XrSpace gazeActionSpace{ XR_NULL_HANDLE };
+        XrSpace localReferenceSpace{ XR_NULL_HANDLE };
 		XrBool32 gazeActive;
 #endif
 
@@ -2595,16 +2605,27 @@ struct OpenXrProgram : IOpenXrProgram
     {
         if(supports_ext_eye_tracking_ && m_instance && m_session)
         {
+            // https://registry.khronos.org/OpenXR/specs/1.0/html/xrspec.html#XR_EXT_eye_gaze_interaction
+
+            static BVR::GLMPose glm_pose_identity;
+            XrPosef pose_identity = BVR::convert_to_xr(glm_pose_identity);
+
+			// Create user intent action
 			XrActionCreateInfo actionInfo{ XR_TYPE_ACTION_CREATE_INFO };
-			strcpy_s(actionInfo.actionName, "eye_tracking");
+			strcpy(actionInfo.actionName, "user_intent");
 			actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
-			strcpy_s(actionInfo.localizedActionName, "Eye Tracking");
+			strcpy(actionInfo.localizedActionName, "User Intent");
 			CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.gazeAction));
 
+#if 0
+            // Already done by SteamVR or otherwise
+
+			// Create suggested bindings
 			XrPath eyeGazeInteractionProfilePath;
+            CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/ext/eye_gaze_interaction", &eyeGazeInteractionProfilePath));
+
 			XrPath gazePosePath;
-			CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/ext/eye_gaze_interaction", &eyeGazeInteractionProfilePath));
-			CHECK_XRCMD(xrStringToPath(m_instance, "/user/eyes_ext/input/gaze_ext/pose", &gazePosePath));
+            CHECK_XRCMD(xrStringToPath(m_instance, "/user/eyes_ext/input/gaze_ext/pose", &gazePosePath));
 
 			XrActionSuggestedBinding bindings;
 			bindings.action = m_input.gazeAction;
@@ -2614,12 +2635,24 @@ struct OpenXrProgram : IOpenXrProgram
 			suggestedBindings.interactionProfile = eyeGazeInteractionProfilePath;
 			suggestedBindings.suggestedBindings = &bindings;
 			suggestedBindings.countSuggestedBindings = 1;
-			CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
+            CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
+
+			XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
+			attachInfo.countActionSets = 1;
+			attachInfo.actionSets = &m_input.actionSet;
+            CHECK_XRCMD(xrAttachSessionActionSets(m_session, &attachInfo));
+#endif
 
 			XrActionSpaceCreateInfo createActionSpaceInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
 			createActionSpaceInfo.action = m_input.gazeAction;
-			createActionSpaceInfo.poseInActionSpace = Math::Pose::Identity();
-			CHECK_XRCMD(xrCreateActionSpace(m_session, &createActionSpaceInfo, &m_input.gazeActionSpace));
+			createActionSpaceInfo.poseInActionSpace = pose_identity;
+
+            CHECK_XRCMD(xrCreateActionSpace(m_session, &createActionSpaceInfo, &m_input.gazeActionSpace));
+
+			XrReferenceSpaceCreateInfo createReferenceSpaceInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
+			createReferenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+			createReferenceSpaceInfo.poseInReferenceSpace = pose_identity;
+            CHECK_XRCMD(xrCreateReferenceSpace(m_session, &createReferenceSpaceInfo, &m_input.localReferenceSpace));
 
             SetEXTEyeTrackerEnabled(true);
         }
@@ -2630,6 +2663,18 @@ struct OpenXrProgram : IOpenXrProgram
 		if(supports_ext_eye_tracking_ && m_instance && m_session)
 		{
             SetEXTEyeTrackerEnabled(false);
+
+			if(m_input.localReferenceSpace)
+			{
+				xrDestroySpace(m_input.localReferenceSpace);
+				m_input.localReferenceSpace = nullptr;
+			}
+
+			if(m_input.gazeActionSpace)
+			{
+				xrDestroySpace(m_input.gazeActionSpace);
+				m_input.gazeActionSpace = nullptr;
+			}
 		}
     }
 
@@ -2648,29 +2693,43 @@ struct OpenXrProgram : IOpenXrProgram
             return;
         }
 
-		XrEyeGazeSampleTimeEXT eye_gaze_sample_time{ XR_TYPE_EYE_GAZE_SAMPLE_TIME_EXT };
-		XrSpaceLocation gaze_location{ XR_TYPE_SPACE_LOCATION, &eye_gaze_sample_time };
-		XrResult gaze_result = xrLocateSpace(m_input.gazeActionSpace, m_appSpace, predicted_display_time, &gaze_location);
+		XrActionStatePose actionStatePose{ XR_TYPE_ACTION_STATE_POSE };
+		XrActionStateGetInfo getActionStateInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
+		getActionStateInfo.action = m_input.gazeAction;
 
-        if (gaze_result == XR_SUCCESS)
-        {
-            ext_gaze_pose_valid_ = (gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) != 0;
-        }
-        else
-        {
-            ext_gaze_pose_valid_ = false;
-        }
+        CHECK_XRCMD(xrGetActionStatePose(m_session, &getActionStateInfo, &actionStatePose));
 
-        if(ext_gaze_pose_valid_)
+        //if(actionStatePose.isActive) 
         {
-            ext_gaze_pose_ = gaze_location.pose;
+			XrEyeGazeSampleTimeEXT eye_gaze_sample_time{ XR_TYPE_EYE_GAZE_SAMPLE_TIME_EXT };
+            eye_gaze_sample_time.time = predicted_display_time;
+
+			XrSpaceLocation gaze_location{ XR_TYPE_SPACE_LOCATION, &eye_gaze_sample_time };
+			XrResult gaze_result = xrLocateSpace(m_input.gazeActionSpace, m_input.localReferenceSpace, predicted_display_time, &gaze_location);
+
+			if(gaze_result == XR_SUCCESS)
+			{
+                ext_gaze_pose_valid_ = (
+                       ((gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 )
+                    && ((gaze_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0));
+
+				//ext_gaze_pose_valid_ = (gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) != 0;
+			}
+			else
+			{
+				ext_gaze_pose_valid_ = false;
+			}
+
+			if(ext_gaze_pose_valid_)
+			{
+				ext_gaze_pose_ = gaze_location.pose;
 
 #if LOG_EYE_TRACKING_DATA
-			Log::Write(Log::Level::Info, Fmt("OPENXR EXT GAZE: X,Y,Z,W => %.2f, %.2f %.2f, %.2f",
-                ext_gaze_pose_.orientation.x, ext_gaze_pose_.orientation.y, ext_gaze_pose_.orientation.z, ext_gaze_pose_.orientation.w));
+				Log::Write(Log::Level::Info, Fmt("OPENXR EXT GAZE: X,Y,Z,W => %.2f, %.2f %.2f, %.2f",
+					ext_gaze_pose_.orientation.x, ext_gaze_pose_.orientation.y, ext_gaze_pose_.orientation.z, ext_gaze_pose_.orientation.w));
 #endif
+			}
         }
-
 	}
 #endif
 
