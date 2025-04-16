@@ -1274,7 +1274,7 @@ struct OpenXrProgram : IOpenXrProgram
         XrAction vibrateAction{XR_NULL_HANDLE};
         XrAction quitAction{XR_NULL_HANDLE};
         std::array<XrPath, Side::COUNT> handSubactionPath;
-        std::array<XrSpace, Side::COUNT> handSpace;
+        std::array<XrSpace, Side::COUNT> handSpace{ XR_NULL_HANDLE, XR_NULL_HANDLE };
         std::array<float, Side::COUNT> handScale = {{1.0f, 1.0f}};
         std::array<XrBool32, Side::COUNT> handActive;
 
@@ -1301,7 +1301,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_EXT_EYE_TRACKING
 		XrAction gazeAction{ XR_NULL_HANDLE };
 		XrSpace gazeActionSpace{ XR_NULL_HANDLE };
-        XrSpace localReferenceSpace{ XR_NULL_HANDLE };
+        //XrSpace localReferenceSpace{ XR_NULL_HANDLE };
 		XrBool32 gazeActive;
 #endif
 
@@ -1906,6 +1906,27 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
+#if ENABLE_EXT_EYE_TRACKING
+        if (supports_ext_eye_tracking_)
+        {
+			XrPath eyeGazeInteractionProfilePath;
+			CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/ext/eye_gaze_interaction", &eyeGazeInteractionProfilePath));
+
+			XrPath gazePosePath;
+			CHECK_XRCMD(xrStringToPath(m_instance, "/user/eyes_ext/input/gaze_ext/pose", &gazePosePath));
+
+			XrActionSuggestedBinding bindings;
+			bindings.action = m_input.gazeAction;
+			bindings.binding = gazePosePath;
+
+			XrInteractionProfileSuggestedBinding suggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
+			suggestedBindings.interactionProfile = eyeGazeInteractionProfilePath;
+			suggestedBindings.suggestedBindings = &bindings;
+			suggestedBindings.countSuggestedBindings = 1;
+			CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
+        }
+#endif
+
         XrActionSpaceCreateInfo actionSpaceInfo{XR_TYPE_ACTION_SPACE_CREATE_INFO};
         actionSpaceInfo.action = m_input.poseAction;
         actionSpaceInfo.poseInActionSpace.orientation.w = 1.f;
@@ -2039,6 +2060,14 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
+#if ENABLE_EXT_EYE_TRACKING
+		if(supports_ext_eye_tracking_)
+		{
+            ext_gaze_interaction_properties_.next = xr_system_properties_.next;
+			xr_system_properties_.next = &ext_gaze_interaction_properties_;
+		}
+#endif
+
 		CHECK_XRCMD(xrGetSystemProperties(m_instance, m_systemId, &xr_system_properties_));
 
 #if ENABLE_OPENXR_META_FULL_BODY_TRACKING
@@ -2047,6 +2076,10 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if ENABLE_OPENXR_FB_SIMULTANEOUS_HANDS_AND_CONTROLLERS
 		supports_simultaneous_hands_and_controllers_ = simultaneous_properties.supportsSimultaneousHandsAndControllers;
+#endif
+
+#if ENABLE_EXT_EYE_TRACKING
+        supports_ext_eye_tracking_ = ext_gaze_interaction_properties_.supportsEyeGazeInteraction;
 #endif
 
 		// Log system properties.
@@ -2590,11 +2623,7 @@ struct OpenXrProgram : IOpenXrProgram
     bool ext_gaze_pose_valid_ = false;
 
     XrEyeGazeSampleTimeEXT last_ext_gaze_pose_time_{ XR_TYPE_EYE_GAZE_SAMPLE_TIME_EXT };
-
-	XrSystemEyeGazeInteractionPropertiesEXT ext_gaze_interaction_properties_ = 
-    {
-	    XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT, nullptr, true 
-    };
+    XrSystemEyeGazeInteractionPropertiesEXT ext_gaze_interaction_properties_{ XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
 	
 	bool GetGazePoseEXT(XrPosef& gaze_pose) override
 	{
@@ -2618,47 +2647,17 @@ struct OpenXrProgram : IOpenXrProgram
 
 			// Create user intent action
 			XrActionCreateInfo actionInfo{ XR_TYPE_ACTION_CREATE_INFO };
-			strcpy(actionInfo.actionName, "user_intent");
+			strcpy(actionInfo.actionName, "gaze_action");
 			actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
-			strcpy(actionInfo.localizedActionName, "User Intent");
+			strcpy(actionInfo.localizedActionName, "Gaze Action");
+
 			CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.gazeAction));
-
-#if 0
-            // Already done by SteamVR or otherwise
-
-			// Create suggested bindings
-			XrPath eyeGazeInteractionProfilePath;
-            CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/ext/eye_gaze_interaction", &eyeGazeInteractionProfilePath));
-
-			XrPath gazePosePath;
-            CHECK_XRCMD(xrStringToPath(m_instance, "/user/eyes_ext/input/gaze_ext/pose", &gazePosePath));
-
-			XrActionSuggestedBinding bindings;
-			bindings.action = m_input.gazeAction;
-			bindings.binding = gazePosePath;
-
-			XrInteractionProfileSuggestedBinding suggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
-			suggestedBindings.interactionProfile = eyeGazeInteractionProfilePath;
-			suggestedBindings.suggestedBindings = &bindings;
-			suggestedBindings.countSuggestedBindings = 1;
-            CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
-
-			XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
-			attachInfo.countActionSets = 1;
-			attachInfo.actionSets = &m_input.actionSet;
-            CHECK_XRCMD(xrAttachSessionActionSets(m_session, &attachInfo));
-#endif
 
 			XrActionSpaceCreateInfo createActionSpaceInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
 			createActionSpaceInfo.action = m_input.gazeAction;
 			createActionSpaceInfo.poseInActionSpace = pose_identity;
 
             CHECK_XRCMD(xrCreateActionSpace(m_session, &createActionSpaceInfo, &m_input.gazeActionSpace));
-
-			XrReferenceSpaceCreateInfo createReferenceSpaceInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
-			createReferenceSpaceInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-			createReferenceSpaceInfo.poseInReferenceSpace = pose_identity;
-            CHECK_XRCMD(xrCreateReferenceSpace(m_session, &createReferenceSpaceInfo, &m_input.localReferenceSpace));
 
             SetEXTEyeTrackerEnabled(true);
         }
@@ -2670,11 +2669,13 @@ struct OpenXrProgram : IOpenXrProgram
 		{
             SetEXTEyeTrackerEnabled(false);
 
+#if 0
 			if(m_input.localReferenceSpace)
 			{
 				xrDestroySpace(m_input.localReferenceSpace);
 				m_input.localReferenceSpace = nullptr;
 			}
+#endif
 
 			if(m_input.gazeActionSpace)
 			{
@@ -2699,42 +2700,19 @@ struct OpenXrProgram : IOpenXrProgram
             return;
         }
 
-		const XrActiveActionSet activeActionSet{ m_input.actionSet, XR_NULL_PATH };
-		XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
-		syncInfo.countActiveActionSets = 1;
-		syncInfo.activeActionSets = &activeActionSet;
-		CHECK_XRCMD(xrSyncActions(m_session, &syncInfo));
+		XrSpaceLocation gaze_location{ XR_TYPE_SPACE_LOCATION };
+		CHECK_XRCMD(xrLocateSpace(m_input.gazeActionSpace, m_appSpace, predicted_display_time, &gaze_location));
 
-		XrActionStatePose actionStatePose{ XR_TYPE_ACTION_STATE_POSE };
-		XrActionStateGetInfo getActionStateInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
-		getActionStateInfo.action = m_input.gazeAction;
+        ext_gaze_pose_valid_ = IsPoseValid(gaze_location.locationFlags);
 
-        CHECK_XRCMD(xrGetActionStatePose(m_session, &getActionStateInfo, &actionStatePose));
-
-        //if(actionStatePose.isActive) 
+		if(ext_gaze_pose_valid_)
         {
-			XrEyeGazeSampleTimeEXT eye_gaze_sample_time{ XR_TYPE_EYE_GAZE_SAMPLE_TIME_EXT };
-			XrSpaceLocation gaze_location{ XR_TYPE_SPACE_LOCATION, &eye_gaze_sample_time };
-			XrResult gaze_result = xrLocateSpace(m_input.gazeActionSpace, m_input.localReferenceSpace, predicted_display_time, &gaze_location);
-
-			if(gaze_result == XR_SUCCESS)
-			{
-                ext_gaze_pose_valid_ = IsPoseValid(gaze_location.locationFlags);
-			}
-			else
-			{
-				ext_gaze_pose_valid_ = false;
-			}
-
-			if(ext_gaze_pose_valid_)
-			{
-				ext_gaze_pose_ = gaze_location.pose;
+			ext_gaze_pose_ = gaze_location.pose;
 
 #if LOG_EYE_TRACKING_DATA
-				Log::Write(Log::Level::Info, Fmt("OPENXR EXT GAZE: X,Y,Z,W => %.2f, %.2f %.2f, %.2f",
-					ext_gaze_pose_.orientation.x, ext_gaze_pose_.orientation.y, ext_gaze_pose_.orientation.z, ext_gaze_pose_.orientation.w));
+			Log::Write(Log::Level::Info, Fmt("OPENXR EXT GAZE: X,Y,Z,W => %.2f, %.2f %.2f, %.2f",
+				ext_gaze_pose_.orientation.x, ext_gaze_pose_.orientation.y, ext_gaze_pose_.orientation.z, ext_gaze_pose_.orientation.w));
 #endif
-			}
         }
 	}
 #endif
