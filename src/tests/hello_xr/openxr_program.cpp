@@ -2654,11 +2654,7 @@ struct OpenXrProgram : IOpenXrProgram
 
         if (gaze_result == XR_SUCCESS)
         {
-            ext_gaze_pose_valid_ = true;
-			//ext_gaze_pose_valid_ = (
-                //(gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
-				//(gaze_location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0);
-
+            ext_gaze_pose_valid_ = (gaze_location.locationFlags & XR_SPACE_LOCATION_POSITION_TRACKED_BIT) != 0;
         }
         else
         {
