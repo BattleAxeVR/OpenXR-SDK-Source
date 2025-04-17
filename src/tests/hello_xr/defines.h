@@ -55,8 +55,7 @@
 // Eye tracking only enabled on PC for now (needs permissions on Android, requires java calls. TODO)
 #define ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL (PLATFORM_PC && 0)  // An OpenXR API layer plugin will be written to expose PSVR 2 independent gazes through this API.
 #define ENABLE_EXT_EYE_TRACKING (PLATFORM_PC && 1) // Quest Pro + API plugin via Meta Link, or PSVR 2 via same plugin -> SteamVR, or directly via SteamVR exposing ET internally
-#define ENABLE_PSVR2_EYE_TRACKING (PLATFORM_PC && 0) // Direct Integration of DriverEx, not via OpenXR. Supports independent / eye gazes this way.
-#define ENABLE_EYE_TRACKING (ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL || ENABLE_EXT_EYE_TRACKING || ENABLE_PSVR2_EYE_TRACKING)
+#define ENABLE_EYE_TRACKING (ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL || ENABLE_EXT_EYE_TRACKING)
 
 #define DRAW_EYE_LASERS (ENABLE_EYE_TRACKING && 1)
 #define DRAW_FIRST_PERSON_EYE_LASERS (DRAW_EYE_LASERS && USE_THUMBSTICKS && 1)
