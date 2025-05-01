@@ -3991,7 +3991,7 @@ struct OpenXrProgram : IOpenXrProgram
                     XrVector3f_Add(&local_eye_laser_pose.position, &local_eye_laser_pose.position, &world_laser_offset);
 
                     // Make a slender laser pointer-like box for gazes
-                    XrVector3f gaze_cube_scale{ 0.001f, 0.001f, laser_length };
+                    XrVector3f gaze_cube_scale{ EYE_LASER_WIDTH, EYE_LASER_WIDTH, laser_length };
 
 #if DRAW_LOCAL_POSES
                     cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, social_laser_colour });
@@ -4087,7 +4087,7 @@ struct OpenXrProgram : IOpenXrProgram
 					XrVector3f_Add(&local_eye_laser_pose.position, &local_eye_laser_pose.position, &world_laser_offset);
 
 					// Make a slender laser pointer-like box for gazes
-					XrVector3f gaze_cube_scale{ 0.001f, 0.001f, laser_length };
+					XrVector3f gaze_cube_scale{ EYE_LASER_WIDTH, EYE_LASER_WIDTH, laser_length };
 
 #if DRAW_EYE_LASERS 
 
@@ -4163,7 +4163,7 @@ struct OpenXrProgram : IOpenXrProgram
 					XrVector3f_Add(&local_eye_laser_pose.position, &local_eye_laser_pose.position, &world_laser_offset);
 
 					// Make a slender laser pointer-like box for gazes
-					XrVector3f gaze_cube_scale{ 0.001f, 0.001f, laser_length };
+					XrVector3f gaze_cube_scale{ EYE_LASER_WIDTH, EYE_LASER_WIDTH, laser_length };
 
 #if DRAW_LOCAL_POSES
 					cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, social_laser_colour });
