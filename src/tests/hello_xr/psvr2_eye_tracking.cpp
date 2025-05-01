@@ -52,7 +52,6 @@ bool PSVR2EyeTracker::connect()
 		{
 			is_connected_ = true;
 		}
-
 	}
 
 	return is_connected_;
@@ -79,8 +78,6 @@ bool PSVR2EyeTracker::are_gazes_available() const
 
 bool PSVR2EyeTracker::update_gazes()
 {
-	connect();
-
 	if(!is_connected_)
 	{
 		return false;
@@ -132,8 +129,6 @@ bool PSVR2EyeTracker::update_gazes()
 
 bool PSVR2EyeTracker::get_combined_gaze(XrVector3f& combined_gaze_vector)
 {
-    update_gazes();
-
     if (previous_combined_gaze_valid_)
     {
 		combined_gaze_vector = valid_combined_gaze_vector_;
@@ -145,11 +140,6 @@ bool PSVR2EyeTracker::get_combined_gaze(XrVector3f& combined_gaze_vector)
 
 bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, XrVector3f& per_eye_gaze_vector)
 {
-    if (eye == LEFT)
-    {
-        update_gazes();
-    }
-
 	if(previous_per_eye_gazes_valid_[eye])
 	{
 		per_eye_gaze_vector = valid_per_eye_gaze_vectors_[eye];

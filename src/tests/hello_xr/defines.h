@@ -5,6 +5,13 @@
 #ifndef DEFINES_H__
 #define DEFINES_H__
 
+namespace BVR
+{
+	const int LEFT = 0;
+	const int RIGHT = 1;
+	const int NUM_EYES = 2;
+}
+
 #define DRAW_FLOOR_AND_CEILING 1
 
 #define SUPPORT_THIRD_PERSON 1

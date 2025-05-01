@@ -32,7 +32,6 @@
 #include "defines.h"
 
 #include "openxr/openxr.h"
-#include "pch.h"
 #include "common.h"
 #include <common/xr_linear.h>
 
@@ -40,10 +39,6 @@
 
 namespace BVR 
 {
-    const int LEFT = 0;
-    const int RIGHT = 1;
-    const int NUM_EYES = 2;
-
     class PSVR2EyeTracker
     {
     public:
