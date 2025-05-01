@@ -74,16 +74,6 @@ void PSVR2EyeTracker::disconnect()
 	}
 }
 
-bool PSVR2EyeTracker::are_gazes_available() const 
-{
-	if(!is_connected() || !is_enabled())
-	{
-		return false;
-	}
-
-	return true;// previous_combined_gaze_valid_ || previous_per_eye_gazes_valid_[LEFT] || valid_per_eye_gaze_vectors_[RIGHT];
-}
-
 bool PSVR2EyeTracker::update_gazes()
 {
 	if(!is_connected_)
@@ -101,32 +91,44 @@ bool PSVR2EyeTracker::update_gazes()
 		if(combined_gaze.bIsValid && combined_gaze.bNormalisedGazeValid)
 		{
 			valid_combined_gaze_vector_.x = combined_gaze.vNormalisedGaze.x;
-			valid_combined_gaze_vector_.y = combined_gaze.vNormalisedGaze.y;
+			valid_combined_gaze_vector_.y = -combined_gaze.vNormalisedGaze.y;
 			valid_combined_gaze_vector_.z = combined_gaze.vNormalisedGaze.z;
 
 			previous_combined_gaze_valid_ = true;
 		}
+		else
+		{
+			previous_combined_gaze_valid_ = false;
+		}
 
 		const EyeGaze_t& left_gaze = gaze_state.packetData.left;
 
-		if(left_gaze.bGazeDirectionValid)// !left_gaze.blink)
+		if(left_gaze.bGazeDirectionValid && !left_gaze.blink)
 		{
 			valid_per_eye_gaze_vectors_[LEFT].x = left_gaze.vGazeDirection.x;
-			valid_per_eye_gaze_vectors_[LEFT].y = left_gaze.vGazeDirection.y;
+			valid_per_eye_gaze_vectors_[LEFT].y = -left_gaze.vGazeDirection.y;
 			valid_per_eye_gaze_vectors_[LEFT].z = left_gaze.vGazeDirection.z;
 
 			previous_per_eye_gazes_valid_[LEFT] = true;
 		}
+		else
+		{
+			previous_per_eye_gazes_valid_[LEFT] = false;
+		}
 
 		const EyeGaze_t& right_gaze = gaze_state.packetData.right;
 
-		if(right_gaze.bGazeDirectionValid)// !right_gaze.blink)
+		if(right_gaze.bGazeDirectionValid && !right_gaze.blink)
 		{
 			valid_per_eye_gaze_vectors_[RIGHT].x = right_gaze.vGazeDirection.x;
-			valid_per_eye_gaze_vectors_[RIGHT].y = right_gaze.vGazeDirection.y;
+			valid_per_eye_gaze_vectors_[RIGHT].y = -right_gaze.vGazeDirection.y;
 			valid_per_eye_gaze_vectors_[RIGHT].z = right_gaze.vGazeDirection.z;
 
 			previous_per_eye_gazes_valid_[RIGHT] = true;
+		}
+		else
+		{
+			previous_per_eye_gazes_valid_[RIGHT] = false;
 		}
 
 		return true;
@@ -134,6 +136,28 @@ bool PSVR2EyeTracker::update_gazes()
 
     return false;
 }
+
+bool PSVR2EyeTracker::is_combined_gaze_available() const
+{
+	if(!is_connected() || !is_enabled())
+	{
+		return false;
+	}
+
+	return previous_combined_gaze_valid_;
+}
+
+
+bool PSVR2EyeTracker::is_gaze_available(const int eye) const
+{
+	if(!is_connected() || !is_enabled())
+	{
+		return false;
+	}
+
+	return previous_per_eye_gazes_valid_[eye];
+}
+
 
 bool PSVR2EyeTracker::get_combined_gaze(XrVector3f& combined_gaze_vector)
 {

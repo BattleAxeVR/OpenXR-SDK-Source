@@ -46,8 +46,11 @@ namespace BVR
 
         bool connect();
         void disconnect();
-        bool are_gazes_available() const;
         bool update_gazes();
+
+        bool is_combined_gaze_available() const;
+        bool is_gaze_available(const int eye) const;
+        
         bool get_combined_gaze(XrVector3f& combined_gaze_vector);
         bool get_per_eye_gaze(const int eye, XrVector3f& per_eye_gaze_vector);
 
