@@ -1801,7 +1801,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
                 XrMatrix4x4f_Multiply(&push.mvp, &vp, &model);
 
                 push.tint = Geometry::White;
-                push.intensity = cube.intensity;
+                push.intensity = cube.intensity_;
 
                 vkCmdPushConstants(m_cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), &push);
 

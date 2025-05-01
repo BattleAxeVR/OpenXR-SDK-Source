@@ -3671,7 +3671,7 @@ struct OpenXrProgram : IOpenXrProgram
                         }
 #endif
 
-                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, enable_blend, intensity });
+                        cubes.push_back(Cube{ world_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, 1.0f}, enable_blend, BOTH_EYE_RELEVANCE, intensity });
 		            }
 #endif // DRAW_FIRST_PERSON_POSES
 
@@ -4135,7 +4135,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 					const float laser_length = 10.0f;
 					const float half_laser_length = laser_length * 0.5f;
-					const float distance_to_eye = 0.1f;
+					const float distance_to_eye = EYE_LASER_DISTANCE_OFFSET;
 
 					// Apply an offset so the lasers aren't overlapping the eye directly
 					XrVector3f local_laser_offset = { 0.0f, 0.0f, (-half_laser_length - distance_to_eye) };
@@ -4166,7 +4166,7 @@ struct OpenXrProgram : IOpenXrProgram
 					XrVector3f gaze_cube_scale{ EYE_LASER_WIDTH, EYE_LASER_WIDTH, laser_length };
 
 #if DRAW_LOCAL_POSES
-					cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+					cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, social_laser_colour, false, BOTH_EYE_RELEVANCE });
 #endif // DRAW_LOCAL_POSES
 
 					const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
@@ -4184,7 +4184,11 @@ struct OpenXrProgram : IOpenXrProgram
 						if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
 #endif
 						{
-							cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+#if USE_CUBE_PER_EYE_RELEVANCE
+                            cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour, false, eye });
+#else
+							cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour, false, BOTH_EYE_RELEVANCE });
+#endif
 						}
 					}
 #endif // DRAW_FIRST_PERSON_EYE_LASERS
@@ -4535,7 +4539,23 @@ struct OpenXrProgram : IOpenXrProgram
             else
 #endif
             {
+#if USE_CUBE_PER_EYE_RELEVANCE
+                {
+                    std::vector<Cube> per_eye_cubes;
+
+                    for (const Cube& cube : cubes)
+                    {
+                        if ((cube.eye_relevance_ == -1) || (cube.eye_relevance_ == current_eye))
+                        {
+                            per_eye_cubes.push_back(cube);
+                        }
+                    }
+                    m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, per_eye_cubes);
+                }
+                
+#else
                 m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+#endif
             }
 
 #if SUPPORT_SCREENSHOTS

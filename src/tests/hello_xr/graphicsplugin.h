@@ -33,12 +33,14 @@ struct Cube {
     XrPosef Pose;
     XrVector3f Scale;
     XrVector4f Colour = {1.0f, 1.0f, 1.0f, 1.0f};
-    bool enable_blend = false;
+    bool enable_blend_ = false;
+
+    int eye_relevance_ = BOTH_EYE_RELEVANCE;
 
 #if ENABLE_HDR_SWAPCHAIN
-    float intensity = HDR_BASE_INTENSITY;
+    float intensity_ = HDR_BASE_INTENSITY;
 #else
-    float intensity = 1.0f;
+    float intensity_ = 1.0f;
 #endif
 };
 

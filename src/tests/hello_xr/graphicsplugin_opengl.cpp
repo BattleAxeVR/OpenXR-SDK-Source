@@ -521,7 +521,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
             glUniform4fv(tint_location_, 1, &cube.Colour.x);
 
 #if ENABLE_BLENDING
-            if (cube.enable_blend)
+            if (cube.enable_blend_)
             {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
