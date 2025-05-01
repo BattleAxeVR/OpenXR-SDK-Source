@@ -29,6 +29,7 @@ set(LOCAL_HEADERS
     platformdata.h
     platformplugin.h
     defines.h
+    psvr2_eye_tracking.h
 )
 set(LOCAL_SOURCE
     d3d_common.cpp
@@ -48,6 +49,7 @@ set(LOCAL_SOURCE
     platformplugin_factory.cpp
     platformplugin_posix.cpp
     platformplugin_win32.cpp
+    psvr2_eye_tracking.cpp
 )
 set(VULKAN_SHADERS vulkan_shaders/frag.glsl vulkan_shaders/vert.glsl)
 

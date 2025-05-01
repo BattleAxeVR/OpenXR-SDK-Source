@@ -30,10 +30,10 @@
 
 #if ENABLE_PSVR2_EYE_TRACKING
 
-// Temp hack until the code upstream is published, to keep this file private / offline
-#include "ipc_client.cpp"
-#include "psvr2_gazes.h"
 #include "psvr2_eye_tracking.h"
+#include "api.h"
+
+#pragma comment(lib, "PSVR2ToolboxSDK.lib")
 
 namespace BVR 
 {
@@ -44,44 +44,37 @@ PSVR2EyeTracker::PSVR2EyeTracker()
 
 bool PSVR2EyeTracker::connect()
 {
-    if (!is_connected_ && ipc_client_.Connect()) 
-    {
-        is_connected_ = true;
-        return true;
-    }
+	if(!is_connected_)
+	{
+		Psvr2ToolboxError eResult = psvr2_toolbox_init();
 
-    return false;
+		if(eResult == Psvr2ToolboxError_None)
+		{
+			is_connected_ = true;
+		}
+
+	}
+
+	return is_connected_;
 }
 
 void PSVR2EyeTracker::disconnect()
 {
-    // No need or even support for this yet
-    if (is_connected_) 
-    {
-        //is_connected_ = false;
-    }
+	if(is_connected_)
+	{
+		Psvr2ToolboxError eResult = psvr2_toolbox_shutdown();
+
+		if(eResult != Psvr2ToolboxError_None)
+		{
+		}
+
+		is_connected_ = false;
+	}
 }
 
 bool PSVR2EyeTracker::are_gazes_available() const 
 {
-#if 0
-    if (!is_connected_)
-    {
-        return false;
-    }
-
-    ipc::Request_t request_gaze_packet(ipc::RequestHandshake);
-    ipc::Response_t response = ipc_client_.SendBlocking(request_gaze_packet);
-
-    if (response.type == ipc::ResponseHandshake) 
-    {
-        return true;
-    }
-
-    return false;
-#else
     return true;
-#endif
 }
 
 bool PSVR2EyeTracker::update_gazes()
@@ -93,45 +86,51 @@ bool PSVR2EyeTracker::update_gazes()
 		return false;
 	}
 
-	ipc::Request_t request_gaze_packet(ipc::RequestUpdateGazeState);
-	ipc::Response_t response = ipc_client_.SendBlocking(request_gaze_packet);
+	Psvr2GazeState_t gaze_state = {};
+	Psvr2ToolboxError eResult = psvr2_toolbox_get_gaze_state(&gaze_state);
 
-	if(response.type == ipc::ResponseSuccess)
+	if(eResult == Psvr2ToolboxError_None)
 	{
-		Psvr2GazeState_t* pLocalGazeState = (Psvr2GazeState_t*)&response.gazeState;
+		const GazeCombined_t& combined_gaze = gaze_state.packetData.combined;
 
-		if(pLocalGazeState)
+		if(combined_gaze.bIsValid && combined_gaze.bNormalisedGazeValid)
 		{
-			const GazeCombined_t& combined_gaze = pLocalGazeState->packetData.combined;
+			valid_combined_gaze_vector_.x = combined_gaze.vNormalisedGaze.x;
+			valid_combined_gaze_vector_.y = combined_gaze.vNormalisedGaze.y;
+			valid_combined_gaze_vector_.z = combined_gaze.vNormalisedGaze.z;
 
-			if(combined_gaze.bIsValid && combined_gaze.bNormalisedGazeValid)
-			{
-				valid_combined_gaze_vector_ = DirectX::XMVectorSet(combined_gaze.vNormalisedGaze.x, combined_gaze.vNormalisedGaze.x, combined_gaze.vNormalisedGaze.x, 1);
-				previous_combined_gaze_valid_ = true;
-			}
-
-			const EyeGaze_t& left_gaze = pLocalGazeState->packetData.left;
-
-			if(left_gaze.bGazeDirectionValid)// !per_eye_gaze.blink)
-			{
-				valid_per_eye_gaze_vectors_[LEFT] = DirectX::XMVectorSet(left_gaze.vGazeDirection.x, left_gaze.vGazeDirection.x, left_gaze.vGazeDirection.x, 1);
-				previous_per_eye_gazes_valid_[LEFT] = true;
-			}
-
-			const EyeGaze_t& right_gaze = pLocalGazeState->packetData.right;
-
-			if(right_gaze.bGazeDirectionValid)// !per_eye_gaze.blink)
-			{
-				valid_per_eye_gaze_vectors_[RIGHT] = DirectX::XMVectorSet(right_gaze.vGazeDirection.x, right_gaze.vGazeDirection.x, right_gaze.vGazeDirection.x, 1);
-				previous_per_eye_gazes_valid_[RIGHT] = true;
-			}
+			previous_combined_gaze_valid_ = true;
 		}
+
+		const EyeGaze_t& left_gaze = gaze_state.packetData.left;
+
+		if(left_gaze.bGazeDirectionValid)// !left_gaze.blink)
+		{
+			valid_per_eye_gaze_vectors_[LEFT].x = left_gaze.vGazeDirection.x;
+			valid_per_eye_gaze_vectors_[LEFT].y = left_gaze.vGazeDirection.y;
+			valid_per_eye_gaze_vectors_[LEFT].z = left_gaze.vGazeDirection.z;
+
+			previous_per_eye_gazes_valid_[LEFT] = true;
+		}
+
+		const EyeGaze_t& right_gaze = gaze_state.packetData.right;
+
+		if(right_gaze.bGazeDirectionValid)// !right_gaze.blink)
+		{
+			valid_per_eye_gaze_vectors_[RIGHT].x = right_gaze.vGazeDirection.x;
+			valid_per_eye_gaze_vectors_[RIGHT].y = right_gaze.vGazeDirection.y;
+			valid_per_eye_gaze_vectors_[RIGHT].z = right_gaze.vGazeDirection.z;
+
+			previous_per_eye_gazes_valid_[RIGHT] = true;
+		}
+
+		return true;
 	}
 
     return false;
 }
 
-bool PSVR2EyeTracker::get_combined_gaze(DirectX::XMVECTOR& combined_gaze_vector) 
+bool PSVR2EyeTracker::get_combined_gaze(XrVector3f& combined_gaze_vector)
 {
     update_gazes();
 
@@ -144,7 +143,7 @@ bool PSVR2EyeTracker::get_combined_gaze(DirectX::XMVECTOR& combined_gaze_vector)
     return false;
 }
 
-bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, DirectX::XMVECTOR& gaze_vector) 
+bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, XrVector3f& per_eye_gaze_vector)
 {
     if (eye == LEFT)
     {
@@ -153,7 +152,7 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, DirectX::XMVECTOR& gaze_ve
 
 	if(previous_per_eye_gazes_valid_[eye])
 	{
-		gaze_vector = valid_per_eye_gaze_vectors_[eye];
+		per_eye_gaze_vector = valid_per_eye_gaze_vectors_[eye];
 		return true;
 	}
 
