@@ -41,7 +41,6 @@ PSVR2EyeTracker::PSVR2EyeTracker()
 {
 }
 
-
 bool PSVR2EyeTracker::connect()
 {
 	if(!is_connected_)
@@ -51,6 +50,10 @@ bool PSVR2EyeTracker::connect()
 		if(eResult == Psvr2ToolboxError_None)
 		{
 			is_connected_ = true;
+
+#if ENABLE_PSVR2_EYE_TRACKING_AUTOMATICALLY
+			set_enabled(true);
+#endif
 		}
 	}
 
@@ -73,7 +76,12 @@ void PSVR2EyeTracker::disconnect()
 
 bool PSVR2EyeTracker::are_gazes_available() const 
 {
-    return true;
+	if(!is_connected() || !is_enabled())
+	{
+		return false;
+	}
+
+	return true;// previous_combined_gaze_valid_ || previous_per_eye_gazes_valid_[LEFT] || valid_per_eye_gaze_vectors_[RIGHT];
 }
 
 bool PSVR2EyeTracker::update_gazes()

@@ -51,8 +51,17 @@ namespace BVR
         bool get_combined_gaze(XrVector3f& combined_gaze_vector);
         bool get_per_eye_gaze(const int eye, XrVector3f& per_eye_gaze_vector);
 
+        const bool is_connected() const { return is_connected_; }
+        const bool is_enabled() const { return is_enabled_; }
+
+        void set_enabled(const bool enabled)
+        {
+            is_enabled_ = is_connected_ && enabled;
+        }
+
     private:
         bool is_connected_ = false;
+        bool is_enabled_ = false;
 
         XrVector3f valid_combined_gaze_vector_ = {};
         bool previous_combined_gaze_valid_ = false;

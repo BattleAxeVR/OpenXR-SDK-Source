@@ -15,6 +15,11 @@
 #include <cmath>
 #include <set>
 
+#if ENABLE_PSVR2_EYE_TRACKING
+#include "psvr2_eye_tracking.h"
+#include "glm/gtx/quaternion.hpp"
+#endif
+
 namespace Side {
     const int LEFT = 0;
     const int RIGHT = 1;
@@ -1985,9 +1990,16 @@ struct OpenXrProgram : IOpenXrProgram
 
         GetSystemProperties();
 
-
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
 		CreateSocialEyeTracker();
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING
+        const bool psvr2_toolkit_connected = psvr2_eye_tracker_.connect();
+        if (psvr2_toolkit_connected)
+        {
+			Log::Write(Log::Level::Info, Fmt("PSVR 2 Toolkit connected, enabling Direct per-gaze Eye Tracking"));
+        }
 #endif
 
 #if ENABLE_OPENXR_META_FOVEATION_EYE_TRACKED
@@ -3390,6 +3402,13 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrRequestExitSession(m_session));
         }
 
+#if ENABLE_PSVR2_EYE_TRACKING
+        if (psvr2_eye_tracker_.is_connected() && psvr2_eye_tracker_.is_enabled())
+        {
+            psvr2_eye_tracker_.update_gazes();
+        }
+#endif
+
     }
 
     void RenderFrame() override 
@@ -4094,6 +4113,107 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
+#if ENABLE_PSVR2_EYE_TRACKING
+		if(psvr2_eye_tracker_.are_gazes_available())
+		{
+			for(int eye : { Side::LEFT, Side::RIGHT })
+			{
+				XrVector3f per_eye_gaze_vector;
+
+				if(psvr2_eye_tracker_.get_per_eye_gaze(eye, per_eye_gaze_vector))
+				{
+                    BVR::GLMPose glm_gaze_pose;
+                    const glm::vec3 gaze_dir = BVR::convert_to_glm(per_eye_gaze_vector);
+
+                    glm_gaze_pose.rotation_ = glm::quatLookAt(gaze_dir, glm::vec3(0.0f, 1.0f, 0.0f));
+
+                    XrPosef gaze_pose = BVR::convert_to_xr(glm_gaze_pose);
+
+#if DRAW_EYE_LASERS
+					XrVector4f social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
+					const XrPosef& eye_pose = m_views[eye].pose;
+
+					const float laser_length = 10.0f;
+					const float half_laser_length = laser_length * 0.5f;
+					const float distance_to_eye = 0.1f;
+
+					// Apply an offset so the lasers aren't overlapping the eye directly
+					XrVector3f local_laser_offset = { 0.0f, 0.0f, (-half_laser_length - distance_to_eye) };
+
+					XrMatrix4x4f gaze_rotation_matrix;
+					XrMatrix4x4f_CreateFromQuaternion(&gaze_rotation_matrix, &gaze_pose.orientation);
+
+					XrMatrix4x4f eye_rotation_matrix;
+					XrMatrix4x4f_CreateFromQuaternion(&eye_rotation_matrix, &eye_pose.orientation);
+
+					XrMatrix4x4f world_eye_gaze_matrix;
+					XrMatrix4x4f_Multiply(&world_eye_gaze_matrix, &gaze_rotation_matrix, &eye_rotation_matrix);
+
+					XrQuaternionf world_orientation;
+					XrMatrix4x4f_GetRotation(&world_orientation, &world_eye_gaze_matrix);
+
+					XrPosef local_eye_laser_pose;
+					local_eye_laser_pose.position = eye_pose.position;
+					//XrVector3f_Add(&final_pose.position, &gaze_pose.position, &eye_pose.position);
+					local_eye_laser_pose.orientation = world_orientation;
+
+					XrVector3f world_laser_offset;
+					XrMatrix4x4f_TransformVector3f(&world_laser_offset, &world_eye_gaze_matrix, &local_laser_offset);
+
+					XrVector3f_Add(&local_eye_laser_pose.position, &local_eye_laser_pose.position, &world_laser_offset);
+
+					// Make a slender laser pointer-like box for gazes
+					XrVector3f gaze_cube_scale{ 0.001f, 0.001f, laser_length };
+
+#if DRAW_LOCAL_POSES
+					cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+#endif // DRAW_LOCAL_POSES
+
+					const BVR::GLMPose glm_local_eye_laser_pose = BVR::convert_to_glm(local_eye_laser_pose);
+
+#if DRAW_FIRST_PERSON_EYE_LASERS
+					{
+						const glm::vec3 world_eye_laser_position = player_pose.translation_ + (player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
+						const glm::fquat world_eye_laser_rotation = glm::normalize(player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
+
+						XrPosef world_eye_laser_pose;
+						world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
+						world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
+
+#if ENABLE_EXT_EYE_TRACKING
+						if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
+#endif
+						{
+							cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+						}
+					}
+#endif // DRAW_FIRST_PERSON_EYE_LASERS
+
+#if DRAW_THIRD_PERSON_EYE_LASERS
+					{
+						const glm::vec3 world_eye_laser_position = third_person_player_pose.translation_ + (third_person_player_pose.rotation_ * glm_local_eye_laser_pose.translation_);
+						const glm::fquat world_eye_laser_rotation = glm::normalize(third_person_player_pose.rotation_ * glm_local_eye_laser_pose.rotation_);
+
+						XrPosef world_eye_laser_pose;
+						world_eye_laser_pose.position = BVR::convert_to_xr(world_eye_laser_position);
+						world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
+
+#if ENABLE_EXT_EYE_TRACKING
+						if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
+#endif
+						{
+							cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
+						}
+					}
+#endif // DRAW_THIRD_PERSON_EYE_LASERS
+
+#endif // DRAW_EYE_LASERS
+
+				}
+			}
+		}
+#endif // ENABLE_PSVR2_EYE_TRACKING
+
 #if ENABLE_OPENXR_FB_BODY_TRACKING
         if (fb_body_tracking_enabled_)
         {
@@ -4646,6 +4766,10 @@ struct OpenXrProgram : IOpenXrProgram
     InputState m_input;
 
     const std::set<XrEnvironmentBlendMode> m_acceptableBlendModes;
+
+#if ENABLE_PSVR2_EYE_TRACKING
+    BVR::PSVR2EyeTracker psvr2_eye_tracker_;
+#endif
 };
 
 }  // namespace
