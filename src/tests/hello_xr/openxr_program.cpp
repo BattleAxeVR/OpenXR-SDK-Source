@@ -666,6 +666,10 @@ struct OpenXrProgram : IOpenXrProgram
 
     ~OpenXrProgram() override 
     {
+#if ENABLE_PSVR2_EYE_TRACKING
+        psvr2_eye_tracker_.disconnect();
+#endif
+
 #if USE_SDL_JOYSTICKS
         ShutdownSDLJoySticks();
 #endif
