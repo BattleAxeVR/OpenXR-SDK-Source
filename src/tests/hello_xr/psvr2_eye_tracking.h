@@ -34,8 +34,6 @@
 #if ENABLE_PSVR2_EYE_TRACKING
 
 #include "openxr/openxr.h"
-#include "common.h"
-#include <common/xr_linear.h>
 
 namespace BVR 
 {
