@@ -31,14 +31,22 @@
 
 #include "defines.h"
 
+#if ENABLE_PSVR2_EYE_TRACKING
+
 #include "openxr/openxr.h"
 #include "common.h"
 #include <common/xr_linear.h>
 
-#if ENABLE_PSVR2_EYE_TRACKING
-
 namespace BVR 
 {
+    typedef XrVector3f GazeVec3Type;
+
+    struct GazeState
+    {
+        GazeVec3Type local_gaze_direction_ = {};
+        bool is_valid_ = false;
+    };
+
     class PSVR2EyeTracker
     {
     public:
@@ -51,8 +59,8 @@ namespace BVR
         bool is_combined_gaze_available() const;
         bool is_gaze_available(const int eye) const;
         
-        bool get_combined_gaze(XrVector3f& combined_gaze_vector);
-        bool get_per_eye_gaze(const int eye, XrVector3f& per_eye_gaze_vector);
+        bool get_combined_gaze(GazeVec3Type& combined_gaze_direction);
+        bool get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze_direction);
 
         const bool is_connected() const { return is_connected_; }
         const bool is_enabled() const { return is_enabled_; }
@@ -66,13 +74,9 @@ namespace BVR
         bool is_connected_ = false;
         bool is_enabled_ = false;
 
-        XrVector3f valid_combined_gaze_vector_ = {};
-        bool previous_combined_gaze_valid_ = false;
-
-        XrVector3f valid_per_eye_gaze_vectors_[NUM_EYES] = {};
-        bool previous_per_eye_gazes_valid_[NUM_EYES] = { false, false };
+        GazeState combined_gaze_;
+        GazeState per_eye_gazes_[NUM_EYES];
     };
-
 }
 
 

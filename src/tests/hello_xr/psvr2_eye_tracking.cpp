@@ -90,45 +90,45 @@ bool PSVR2EyeTracker::update_gazes()
 
 		if(combined_gaze.bIsValid && combined_gaze.bNormalisedGazeValid)
 		{
-			valid_combined_gaze_vector_.x = combined_gaze.vNormalisedGaze.x;
-			valid_combined_gaze_vector_.y = -combined_gaze.vNormalisedGaze.y;
-			valid_combined_gaze_vector_.z = combined_gaze.vNormalisedGaze.z;
+			combined_gaze_.local_gaze_direction_.x = combined_gaze.vNormalisedGaze.x;
+			combined_gaze_.local_gaze_direction_.y = -combined_gaze.vNormalisedGaze.y;
+			combined_gaze_.local_gaze_direction_.z = combined_gaze.vNormalisedGaze.z;
 
-			previous_combined_gaze_valid_ = true;
+			combined_gaze_.is_valid_ = true;
 		}
 		else
 		{
-			previous_combined_gaze_valid_ = false;
+			combined_gaze_.is_valid_ = false;
 		}
 
 		const EyeGaze_t& left_gaze = gaze_state.packetData.left;
 
 		if(left_gaze.bGazeDirectionValid && !left_gaze.blink)
 		{
-			valid_per_eye_gaze_vectors_[LEFT].x = left_gaze.vGazeDirection.x;
-			valid_per_eye_gaze_vectors_[LEFT].y = -left_gaze.vGazeDirection.y;
-			valid_per_eye_gaze_vectors_[LEFT].z = left_gaze.vGazeDirection.z;
+			per_eye_gazes_[LEFT].local_gaze_direction_.x = left_gaze.vGazeDirection.x;
+			per_eye_gazes_[LEFT].local_gaze_direction_.y = -left_gaze.vGazeDirection.y;
+			per_eye_gazes_[LEFT].local_gaze_direction_.z = left_gaze.vGazeDirection.z;
 
-			previous_per_eye_gazes_valid_[LEFT] = true;
+			per_eye_gazes_[LEFT].is_valid_ = true;
 		}
 		else
 		{
-			previous_per_eye_gazes_valid_[LEFT] = false;
+			per_eye_gazes_[LEFT].is_valid_ = false;
 		}
 
 		const EyeGaze_t& right_gaze = gaze_state.packetData.right;
 
 		if(right_gaze.bGazeDirectionValid && !right_gaze.blink)
 		{
-			valid_per_eye_gaze_vectors_[RIGHT].x = right_gaze.vGazeDirection.x;
-			valid_per_eye_gaze_vectors_[RIGHT].y = -right_gaze.vGazeDirection.y;
-			valid_per_eye_gaze_vectors_[RIGHT].z = right_gaze.vGazeDirection.z;
+			per_eye_gazes_[RIGHT].local_gaze_direction_.x = right_gaze.vGazeDirection.x;
+			per_eye_gazes_[RIGHT].local_gaze_direction_.y = -right_gaze.vGazeDirection.y;
+			per_eye_gazes_[RIGHT].local_gaze_direction_.z = right_gaze.vGazeDirection.z;
 
-			previous_per_eye_gazes_valid_[RIGHT] = true;
+			per_eye_gazes_[RIGHT].is_valid_ = true;
 		}
 		else
 		{
-			previous_per_eye_gazes_valid_[RIGHT] = false;
+			per_eye_gazes_[RIGHT].is_valid_ = false;
 		}
 
 		return true;
@@ -144,7 +144,7 @@ bool PSVR2EyeTracker::is_combined_gaze_available() const
 		return false;
 	}
 
-	return previous_combined_gaze_valid_;
+	return combined_gaze_.is_valid_;
 }
 
 
@@ -155,26 +155,26 @@ bool PSVR2EyeTracker::is_gaze_available(const int eye) const
 		return false;
 	}
 
-	return previous_per_eye_gazes_valid_[eye];
+	return per_eye_gazes_[eye].is_valid_;
 }
 
 
-bool PSVR2EyeTracker::get_combined_gaze(XrVector3f& combined_gaze_vector)
+bool PSVR2EyeTracker::get_combined_gaze(GazeVec3Type& combined_gaze_direction)
 {
-    if (previous_combined_gaze_valid_)
+    if (combined_gaze_.is_valid_)
     {
-		combined_gaze_vector = valid_combined_gaze_vector_;
+		combined_gaze_direction = combined_gaze_.local_gaze_direction_;
 		return true;
     }
 
     return false;
 }
 
-bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, XrVector3f& per_eye_gaze_vector)
+bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze_direction)
 {
-	if(previous_per_eye_gazes_valid_[eye])
+	if(per_eye_gazes_[eye].is_valid_)
 	{
-		per_eye_gaze_vector = valid_per_eye_gaze_vectors_[eye];
+		per_eye_gaze_direction = per_eye_gazes_[eye].local_gaze_direction_;
 		return true;
 	}
 
