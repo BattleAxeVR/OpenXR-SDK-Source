@@ -34,6 +34,7 @@
 #include "api.h"
 
 #pragma comment(lib, "PSVR2ToolboxSDK.lib")
+#pragma comment(lib, "SetupAPI.lib")
 
 namespace BVR 
 {
