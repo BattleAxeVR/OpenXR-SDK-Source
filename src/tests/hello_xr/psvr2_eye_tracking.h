@@ -33,8 +33,6 @@
 
 #if ENABLE_PSVR2_EYE_TRACKING
 
-#include "openxr/openxr.h"
-
 namespace BVR 
 {
     typedef XrVector3f GazeVec3Type;
