@@ -12,6 +12,7 @@ namespace BVR
 	const int NUM_EYES = 2;
 }
 
+#define INVALID_INDEX -1
 #define DRAW_FLOOR_AND_CEILING 1
 
 #define SUPPORT_THIRD_PERSON 1
@@ -62,9 +63,14 @@ namespace BVR
 // Eye tracking only enabled on PC for now (needs permissions on Android, requires java calls. TODO)
 #define ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL (PLATFORM_PC && 0)  // An OpenXR API layer plugin will be written to expose PSVR 2 independent gazes through this API.
 #define ENABLE_EXT_EYE_TRACKING (PLATFORM_PC && 0) // Quest Pro + API plugin via Meta Link, or PSVR 2 via same plugin -> SteamVR, or directly via SteamVR exposing ET internally
+
 #define ENABLE_PSVR2_TOOLKIT  (PLATFORM_PC && 1)
-#define ENABLE_PSVR2_EYE_TRACKING  (ENABLE_PSVR2_TOOLKIT && 1)
-#define ENABLE_PSVR2_EYE_TRACKING_CALIBRATION (ENABLE_PSVR2_EYE_TRACKING && 1)
+#define ENABLE_PSVR2_EYE_TRACKING (ENABLE_PSVR2_TOOLKIT && 1)
+
+#define ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE (ENABLE_PSVR2_EYE_TRACKING && 0)
+#define ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES (ENABLE_PSVR2_EYE_TRACKING && 1)
+
+#define ENABLE_PSVR2_EYE_TRACKING_CALIBRATION ((ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE || ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES) && 1)
 
 #define EYE_TRACKING_CALIBRATION_NUM_CELLS_X 18
 #define EYE_TRACKING_CALIBRATION_NUM_CELLS_Y 18

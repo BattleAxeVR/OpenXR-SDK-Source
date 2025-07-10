@@ -3386,12 +3386,20 @@ struct OpenXrProgram : IOpenXrProgram
 
         if (gripping_either_hand)
         {
-            int calibrating_eye = currently_gripping[Side::LEFT] ? Side::LEFT : Side::RIGHT;
-            psvr2_eye_tracker_.start_eye_calibration(calibrating_eye);
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+			int calibrating_eye = currently_gripping[Side::LEFT] ? Side::LEFT : Side::RIGHT;
+			psvr2_eye_tracker_.start_eye_calibration(calibrating_eye);
+#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+			psvr2_eye_tracker_.set_combined_calibration_enabled(true);
+#endif
         }
         else
         {
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
             psvr2_eye_tracker_.stop_eye_calibration();
+#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+            psvr2_eye_tracker_.set_combined_calibration_enabled(false);
+#endif
         }
 #endif
 
@@ -4123,18 +4131,29 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if ENABLE_PSVR2_EYE_TRACKING
-
         for(int eye : { Side::LEFT, Side::RIGHT })
 		{
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
             const int hand = eye; // Use left hand to calibrate left eye, right for right
+
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
             const bool calibrating_now = psvr2_eye_tracker_.is_eye_calibrating(eye) 
                 && glm_local_aim_poses_[hand].is_valid_;
+#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+			const bool calibrating_now = psvr2_eye_tracker_.is_combined_calibrated()
+				&& glm_local_aim_poses_[hand].is_valid_;
 #endif
 
+#endif
 
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
             if(psvr2_eye_tracker_.is_gaze_available(eye))
+#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+            if(psvr2_eye_tracker_.is_combined_gaze_available())
+#else
+            if (false)
+#endif
 			{
 				XrVector3f per_eye_gaze_vector;
 
@@ -4146,7 +4165,11 @@ struct OpenXrProgram : IOpenXrProgram
                 XrVector3f* ref_eye_gaze_vector_ptr = nullptr;
 #endif
 
-				if(psvr2_eye_tracker_.get_per_eye_gaze(eye, per_eye_gaze_vector, ref_eye_gaze_vector_ptr))
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+                if(psvr2_eye_tracker_.get_per_eye_gaze(eye, per_eye_gaze_vector, ref_eye_gaze_vector_ptr))
+#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+                if(psvr2_eye_tracker_.get_combined_gaze(per_eye_gaze_vector, ref_eye_gaze_vector_ptr))
+#endif
 				{
                     BVR::GLMPose glm_gaze_pose;
                     const glm::vec3 gaze_dir = BVR::convert_to_glm(per_eye_gaze_vector);
@@ -4479,12 +4502,12 @@ struct OpenXrProgram : IOpenXrProgram
         const int num_frames = 120 * 10;
         if ((frame_index % num_frames) >= (num_frames / 2 )) 
         {
-            eye_to_skip = -1;
+            eye_to_skip = INVALID_INDEX;
         }
 #endif
         
 #if DEBUG_ALTERNATE_EYE_RENDERING_ALT
-        eye_to_skip = ((frame_index % 2) == 0) ?  1 : -1;
+        eye_to_skip = ((frame_index % 2) == 0) ?  1 : INVALID_INDEX;
 #endif
         
 #endif
@@ -4578,16 +4601,21 @@ struct OpenXrProgram : IOpenXrProgram
                             continue;
                         }
 #endif
-                        if ((cube.eye_relevance_ == -1) || (cube.eye_relevance_ == current_eye))
+                        if ((cube.eye_relevance_ == INVALID_INDEX) || (cube.eye_relevance_ == current_eye))
                         {
                             per_eye_cubes.push_back(cube);
                         }
                     }
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
-                    const int calibrating_eye_index = psvr2_eye_tracker_.get_calibrating_eye_index();
 
-					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != -1))
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+                    const int calibrating_eye_index = psvr2_eye_tracker_.get_calibrating_eye_index();
+#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+                    const int calibrating_eye_index = Side::RIGHT; // Only calibrate with the Right hand grip for now
+#endif 
+
+					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
 					{
                         XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_aim_poses_[calibrating_eye_index]);
 
@@ -4814,7 +4842,7 @@ struct OpenXrProgram : IOpenXrProgram
     std::vector<Swapchain> m_swapchains;
     std::map<XrSwapchain, std::vector<XrSwapchainImageBaseHeader*>> m_swapchainImages;
     std::vector<XrView> m_views;
-    int64_t m_colorSwapchainFormat{-1};
+    int64_t m_colorSwapchainFormat{INVALID_INDEX};
 
 #if USE_DUAL_LAYERS
 	std::vector<Swapchain> m_second_swapchains;

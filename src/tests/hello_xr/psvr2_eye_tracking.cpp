@@ -92,6 +92,7 @@ bool PSVR2EyeTracker::update_gazes()
 
 	if(eResult == Psvr2ToolboxError_None)
 	{
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 		const GazeCombined_t& combined_gaze = gaze_state.packetData.combined;
 
 		if(combined_gaze.bIsValid && combined_gaze.bNormalisedGazeValid)
@@ -106,7 +107,9 @@ bool PSVR2EyeTracker::update_gazes()
 		{
 			combined_gaze_.is_valid_ = false;
 		}
+#endif
 
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 		const EyeGaze_t& left_gaze = gaze_state.packetData.left;
 
 		if(left_gaze.bGazeDirectionValid && !left_gaze.blink)
@@ -136,6 +139,7 @@ bool PSVR2EyeTracker::update_gazes()
 		{
 			per_eye_gazes_[RIGHT].is_valid_ = false;
 		}
+#endif
 
 		return true;
 	}
@@ -143,6 +147,7 @@ bool PSVR2EyeTracker::update_gazes()
     return false;
 }
 
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 bool PSVR2EyeTracker::is_combined_gaze_available() const
 {
 	if(!is_connected() || !is_enabled())
@@ -152,8 +157,10 @@ bool PSVR2EyeTracker::is_combined_gaze_available() const
 
 	return combined_gaze_.is_valid_;
 }
+#endif
 
 
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 bool PSVR2EyeTracker::is_gaze_available(const int eye) const
 {
 	if(!is_connected() || !is_enabled())
@@ -163,8 +170,9 @@ bool PSVR2EyeTracker::is_gaze_available(const int eye) const
 
 	return per_eye_gazes_[eye].is_valid_;
 }
+#endif
 
-
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 bool PSVR2EyeTracker::get_combined_gaze(GazeVec3Type& combined_gaze_direction, GazeVec3Type* ref_gaze_direction_ptr)
 {
 #if !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
@@ -189,7 +197,7 @@ bool PSVR2EyeTracker::get_combined_gaze(GazeVec3Type& combined_gaze_direction, G
 			EyeTrackingCalibrationData& calibration_data = combined_calibration_;
 			CalibrationPoint& calibration_point = calibration_data.points_[x_index][y_index];
 
-			if(is_combined_calibrating() && ref_gaze_direction_ptr)
+			if(is_combined_calibrating() && !calibration_point.is_valid_ && ref_gaze_direction_ptr)
 			{
 				GazeVec3Type& ref_gaze_direction = *ref_gaze_direction_ptr;
 				const glm::vec3 ref_gaze_dir_glm = convert_to_glm(ref_gaze_direction);
@@ -198,6 +206,16 @@ bool PSVR2EyeTracker::get_combined_gaze(GazeVec3Type& combined_gaze_direction, G
 				calibration_point.gaze_direction_ = combined_gaze_direction_glm;
 				calibration_point.rotation_correction_ = rotation_correction;
 				calibration_point.is_valid_ = true;
+
+				calibration_data.valid_count_++;
+			}
+
+			if(calibration_data.valid_count_ == EYE_TRACKING_CALIBRATION_TOTAL_CELLS)
+			{
+				// Completed! Disable calibration now
+				is_combined_calibrating_ = false;
+				is_combined_calibrated_ = true;
+				apply_calibration_ = true;
 			}
 
 			if(apply_calibration_ && calibration_point.is_valid_)
@@ -215,7 +233,9 @@ bool PSVR2EyeTracker::get_combined_gaze(GazeVec3Type& combined_gaze_direction, G
 
     return false;
 }
+#endif // ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze_direction, GazeVec3Type* ref_gaze_direction_ptr)
 {
 #if !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
@@ -240,7 +260,7 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze
 			EyeTrackingCalibrationData& calibration_data = per_eye_calibration_[eye];
 			CalibrationPoint& calibration_point = calibration_data.points_[x_index][y_index];
 
-			if(is_eye_calibrating(eye) && ref_gaze_direction_ptr)
+			if(is_eye_calibrating(eye) && !calibration_point.is_valid_ && ref_gaze_direction_ptr)
 			{
 				GazeVec3Type& ref_gaze_direction = *ref_gaze_direction_ptr;
 				const glm::vec3 ref_gaze_dir_glm = convert_to_glm(ref_gaze_direction);
@@ -249,6 +269,16 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze
 				calibration_point.gaze_direction_ = per_eye_gaze_direction_glm;
 				calibration_point.rotation_correction_ = rotation_correction;
 				calibration_point.is_valid_ = true;
+
+				calibration_data.valid_count_++;
+			}
+
+			if(calibration_data.valid_count_ == EYE_TRACKING_CALIBRATION_TOTAL_CELLS)
+			{
+				// Completed! Disable calibration now
+				calibrating_eye_index_ = INVALID_INDEX;
+				is_eye_calibrated_[eye] = true;
+				apply_calibration_ = true;
 			}
 
 			if(apply_calibration_ && calibration_point.is_valid_)
@@ -266,20 +296,25 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze
 
     return false;
 }
+#endif // ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 void PSVR2EyeTracker::reset_calibrations()
 {
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 	is_combined_calibrating_ = false;
 	is_combined_calibrated_ = false;
 	combined_calibration_ = {};
+#endif
 
-	calibrating_eye_index_ = -1;
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+	calibrating_eye_index_ = INVALID_INDEX;
 	is_eye_calibrated_[LEFT] = false;
 	is_eye_calibrated_[RIGHT] = false;
 
 	per_eye_calibration_[LEFT] = {};
 	per_eye_calibration_[RIGHT] = {};
+#endif
 
 	apply_calibration_ = false;
 }
