@@ -20,6 +20,8 @@
 #include "glm/gtx/quaternion.hpp"
 #endif
 
+BVR::GLMPose glm_local_aim_poses_[2];
+
 namespace Side {
     const int LEFT = 0;
     const int RIGHT = 1;
@@ -3214,25 +3216,6 @@ struct OpenXrProgram : IOpenXrProgram
                     CHECK_XRCMD(xrApplyHapticFeedback(m_session, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
                 }
 
-#if TAKE_SCREENSHOT_WITH_LEFT_GRAB
-                if (hand == Side::LEFT) 
-                {
-                    m_input.handScale[hand] = 1.0f;
-                    
-                    static bool currently_gripping = false;
-
-                    if (!currently_gripping && grabValue.currentState > 0.9f) 
-                    {
-                        TakeScreenShot();
-                        currently_gripping = true;
-                    } 
-                    else if (currently_gripping && grabValue.currentState < 0.5f) 
-                    {
-                        currently_gripping = false;
-                    }
-                }
-#endif
-
 #if ENABLE_LOCAL_DIMMING_WITH_RIGHT_GRAB
                 if (hand == Side::RIGHT)
                 {
@@ -3358,9 +3341,17 @@ struct OpenXrProgram : IOpenXrProgram
                         toggle_snap_turning();
 #endif
                     }
+
+#if TOGGLE_APPLY_CALIBRATION
+                    psvr2_eye_tracker_.toggle_apply_calibration();
+#endif
                 }
 
 #endif // USE_THUMBSTICKS
+            }
+            else
+            {
+                currently_gripping[hand] = false;
             }
 
             getInfo.action = m_input.poseAction;
@@ -3390,12 +3381,20 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
         }
 
-#if TOGGLE_3RD_PERSON_AUTO_LEFT_STICK_CLICK
-        if (is_third_person_view_auto_enabled())
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+        const bool gripping_either_hand = currently_gripping[Side::LEFT] || currently_gripping[Side::RIGHT];
+
+        if (gripping_either_hand)
         {
-            set_third_person_view_enabled(should_third_person_be_enabled);
+            int calibrating_eye = currently_gripping[Side::LEFT] ? Side::LEFT : Side::RIGHT;
+            psvr2_eye_tracker_.start_eye_calibration(calibrating_eye);
+        }
+        else
+        {
+            psvr2_eye_tracker_.stop_eye_calibration();
         }
 #endif
+
         // There were no subaction paths specified for the quit action, because we don't care which hand did it.
         XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO, nullptr, m_input.quitAction, XR_NULL_PATH};
         XrActionStateBoolean quitValue{XR_TYPE_ACTION_STATE_BOOLEAN};
@@ -3757,6 +3756,8 @@ struct OpenXrProgram : IOpenXrProgram
                         const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
                         glm_local_pose.translation_ += grip_offset_world;
 #endif // APPLY_AIM_OFFSET
+
+                        glm_local_aim_poses_[hand] = glm_local_pose;
                         
 #if DRAW_FIRST_PERSON_POSES
                         
@@ -3791,6 +3792,10 @@ struct OpenXrProgram : IOpenXrProgram
                             cubes.push_back(Cube{ world_xr_pose, {width, width, length}});
                         }
 #endif // DRAW_THIRD_PERSON_POSES
+                    }
+                    else
+                    {
+                        glm_local_aim_poses_[hand].is_valid_ = false;
                     }
                 } 
             }
@@ -4118,13 +4123,30 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 
 #if ENABLE_PSVR2_EYE_TRACKING
+
         for(int eye : { Side::LEFT, Side::RIGHT })
 		{
+
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+            const int hand = eye; // Use left hand to calibrate left eye, right for right
+            const bool calibrating_now = psvr2_eye_tracker_.is_eye_calibrating(eye) 
+                && glm_local_aim_poses_[hand].is_valid_;
+#endif
+
+
             if(psvr2_eye_tracker_.is_gaze_available(eye))
 			{
 				XrVector3f per_eye_gaze_vector;
 
-				if(psvr2_eye_tracker_.get_per_eye_gaze(eye, per_eye_gaze_vector))
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+                const glm::vec3 eye_to_hand_local_dir = glm_local_aim_poses_[hand].translation_;
+                XrVector3f eye_to_hand_local_dir_xr = BVR::convert_to_xr(eye_to_hand_local_dir);
+                XrVector3f* ref_eye_gaze_vector_ptr = calibrating_now ? &eye_to_hand_local_dir_xr : nullptr;
+#else
+                XrVector3f* ref_eye_gaze_vector_ptr = nullptr;
+#endif
+
+				if(psvr2_eye_tracker_.get_per_eye_gaze(eye, per_eye_gaze_vector, ref_eye_gaze_vector_ptr))
 				{
                     BVR::GLMPose glm_gaze_pose;
                     const glm::vec3 gaze_dir = BVR::convert_to_glm(per_eye_gaze_vector);
@@ -4549,11 +4571,35 @@ struct OpenXrProgram : IOpenXrProgram
 
                     for (const Cube& cube : cubes)
                     {
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+                        if (psvr2_eye_tracker_.is_calibrating())
+                        {
+                            // Draw nothing onscreen except the one cube that's currently gripping
+                            continue;
+                        }
+#endif
                         if ((cube.eye_relevance_ == -1) || (cube.eye_relevance_ == current_eye))
                         {
                             per_eye_cubes.push_back(cube);
                         }
                     }
+
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+                    const int calibrating_eye_index = psvr2_eye_tracker_.get_calibrating_eye_index();
+
+					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != -1))
+					{
+                        XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_aim_poses_[calibrating_eye_index]);
+
+                        Cube calibration_cube;
+                        calibration_cube.Pose = local_xr_pose;
+                        calibration_cube.Scale = { CALIBRATION_CUBE_SIZE, CALIBRATION_CUBE_SIZE, CALIBRATION_CUBE_SIZE };
+                        calibration_cube.Colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+                        per_eye_cubes.push_back(calibration_cube);
+					}
+#endif
+
                     m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, per_eye_cubes);
                 }
                 

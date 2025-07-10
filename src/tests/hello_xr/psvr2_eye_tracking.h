@@ -33,6 +33,12 @@
 
 #if ENABLE_PSVR2_EYE_TRACKING
 
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+#include "utils.h"
+#include "glm/gtx/quaternion.hpp"
+const glm::vec3 forward_gaze_dir(0.0f, 0.0f, 1.0f);
+#endif
+
 namespace BVR 
 {
     typedef XrVector3f GazeVec3Type;
@@ -42,6 +48,20 @@ namespace BVR
         GazeVec3Type local_gaze_direction_ = {};
         bool is_valid_ = false;
     };
+
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+	struct CalibrationPoint
+	{
+        glm::vec3 gaze_direction_ = glm::vec3(0.0f, 0.0f, 0.0f);
+        glm::fquat rotation_correction_ = BVR::default_rotation;
+		bool is_valid_ = false;
+	};
+
+	struct EyeTrackingCalibrationData
+	{
+        CalibrationPoint points_[EYE_TRACKING_CALIBRATION_NUM_CELLS_X][EYE_TRACKING_CALIBRATION_NUM_CELLS_Y];
+	};
+#endif
 
     class PSVR2EyeTracker
     {
@@ -55,8 +75,8 @@ namespace BVR
         bool is_combined_gaze_available() const;
         bool is_gaze_available(const int eye) const;
         
-        bool get_combined_gaze(GazeVec3Type& combined_gaze_direction);
-        bool get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze_direction);
+        bool get_combined_gaze(GazeVec3Type& combined_gaze_direction, GazeVec3Type* ref_gaze_direction_ptr);
+        bool get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze_direction, GazeVec3Type* ref_gaze_direction_ptr);
 
         const bool is_connected() const { return is_connected_; }
         const bool is_enabled() const { return is_enabled_; }
@@ -66,12 +86,86 @@ namespace BVR
             is_enabled_ = is_connected_ && enabled;
         }
 
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+        void reset_calibrations();
+
+		bool is_calibrating() const
+		{
+			return (is_combined_calibrating_ || (calibrating_eye_index_ != -1));
+		}
+
+        // Combined calibration
+		bool is_combined_calibrated() const
+		{
+			return is_combined_calibrated_;
+		}
+
+		bool is_combined_calibrating() const
+		{
+			return is_combined_calibrating_;
+		}
+
+		void set_combined_calibration_enabled(const bool enable)
+		{
+            is_combined_calibrating_ = enable;
+		}
+
+        // Per eye calibration
+
+        bool is_eye_calibrated(const int eye) const
+        {
+            return is_eye_calibrated_[eye];
+        }
+
+		bool is_eye_calibrating(const int eye) const
+		{
+			return (calibrating_eye_index_ == eye);
+		}
+
+		int get_calibrating_eye_index() const
+		{
+			return calibrating_eye_index_;
+		}
+
+        void start_eye_calibration(const int eye)
+        {
+            calibrating_eye_index_ = eye;
+        }
+
+		void stop_eye_calibration()
+		{
+            calibrating_eye_index_ = -1;
+		}
+
+		void set_apply_calibration(const bool enabled)
+		{
+            apply_calibration_ = enabled;
+		}
+
+		void toggle_apply_calibration()
+		{
+			apply_calibration_ = !apply_calibration_;
+		}
+#endif
+
     private:
         bool is_connected_ = false;
         bool is_enabled_ = false;
 
         GazeState combined_gaze_;
         GazeState per_eye_gazes_[NUM_EYES];
+
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+        bool is_combined_calibrating_ = false;
+        bool is_combined_calibrated_ = false;
+        EyeTrackingCalibrationData combined_calibration_;
+
+        int calibrating_eye_index_ = -1;
+        bool is_eye_calibrated_[NUM_EYES] = { false, false };
+        EyeTrackingCalibrationData per_eye_calibration_[NUM_EYES];
+
+        bool apply_calibration_ = false;
+#endif
     };
 }
 
