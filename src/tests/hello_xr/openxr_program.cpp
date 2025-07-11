@@ -4176,7 +4176,7 @@ struct OpenXrProgram : IOpenXrProgram
                     BVR::GLMPose glm_gaze_pose;
                     const glm::vec3 gaze_dir = BVR::convert_to_glm(per_eye_gaze_vector);
 
-                    glm_gaze_pose.rotation_ = glm::quatLookAt(-gaze_dir, glm::vec3(0.0f, 1.0f, 0.0f));
+                    glm_gaze_pose.rotation_ = glm::quatLookAt(gaze_dir, glm::vec3(0.0f, 1.0f, 0.0f));
 
                     XrPosef gaze_pose = BVR::convert_to_xr(glm_gaze_pose);
 
