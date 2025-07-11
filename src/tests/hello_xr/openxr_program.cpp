@@ -3748,7 +3748,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                 if (XR_UNQUALIFIED_SUCCESS(res)) 
                 {
-                    if (IsPoseValid(aimSpaceLocation.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT)) 
+                    if (IsPoseValid(aimSpaceLocation.locationFlags)) 
                     {
                         float width = AIM_CUBE_WIDTH;
                         float length = AIM_CUBE_LENGTH;
