@@ -20,7 +20,8 @@
 #include "glm/gtx/quaternion.hpp"
 #endif
 
-BVR::GLMPose glm_local_aim_poses_[2];
+BVR::GLMPose glm_local_grip_poses_[2];
+BVR::GLMPose glm_local_eye_poses_[2];
 
 namespace Side {
     const int LEFT = 0;
@@ -3616,6 +3617,8 @@ struct OpenXrProgram : IOpenXrProgram
 
                     BVR::GLMPose glm_local_pose = BVR::convert_to_glm(gripSpaceLocation.pose);
 
+					glm_local_grip_poses_[hand] = glm_local_pose;
+
 #if APPLY_GRIP_OFFSET
 					const glm::vec3 grip_offset_local = glm::vec3{ 0.0f, 0.0f, length * -0.5f };
 					const glm::vec3 grip_offset_world = (glm_local_pose.rotation_ * grip_offset_local);
@@ -3627,8 +3630,6 @@ struct OpenXrProgram : IOpenXrProgram
 					XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_pose);
                     cubes.push_back(Cube{ local_xr_pose, {width, width, length}, {tint_colour.x, tint_colour.y, tint_colour.z, tint_colour.w}, (tint_colour.w < 1.0f)});
 #endif // DRAW_LOCAL_POSES
-
-                   
 
 #if DRAW_FIRST_PERSON_POSES
 
@@ -3765,8 +3766,6 @@ struct OpenXrProgram : IOpenXrProgram
                         glm_local_pose.translation_ += grip_offset_world;
 #endif // APPLY_AIM_OFFSET
 
-                        glm_local_aim_poses_[hand] = glm_local_pose;
-                        
 #if DRAW_FIRST_PERSON_POSES
                         
 #if AUTO_HIDE_OTHER_BODY
@@ -3803,7 +3802,7 @@ struct OpenXrProgram : IOpenXrProgram
                     }
                     else
                     {
-                        glm_local_aim_poses_[hand].is_valid_ = false;
+                        //glm_local_aim_poses_[hand].is_valid_ = false;
                     }
                 } 
             }
@@ -4139,10 +4138,10 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
             const bool calibrating_now = psvr2_eye_tracker_.is_eye_calibrating(eye) 
-                && glm_local_aim_poses_[hand].is_valid_;
+                && glm_local_grip_poses_[hand].is_valid_;
 #elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 			const bool calibrating_now = psvr2_eye_tracker_.is_combined_calibrated()
-				&& glm_local_aim_poses_[hand].is_valid_;
+				&& glm_local_grip_poses_[hand].is_valid_;
 #endif
 
 #endif
@@ -4158,7 +4157,10 @@ struct OpenXrProgram : IOpenXrProgram
 				XrVector3f per_eye_gaze_vector;
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
-                const glm::vec3 eye_to_hand_local_dir = glm_local_aim_poses_[hand].translation_;
+				const XrPosef& hand_eye_pose = m_views[hand].pose;
+				const glm::vec3 eye_position_glm = BVR::convert_to_glm(hand_eye_pose.position);
+
+                const glm::vec3 eye_to_hand_local_dir = glm::normalize(glm_local_grip_poses_[hand].translation_ - eye_position_glm);
                 XrVector3f eye_to_hand_local_dir_xr = BVR::convert_to_xr(eye_to_hand_local_dir);
                 XrVector3f* ref_eye_gaze_vector_ptr = calibrating_now ? &eye_to_hand_local_dir_xr : nullptr;
 #else
@@ -4617,7 +4619,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
 					{
-                        XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_aim_poses_[calibrating_eye_index]);
+                        XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_grip_poses_[calibrating_eye_index]);
 
                         Cube calibration_cube;
                         calibration_cube.Pose = local_xr_pose;

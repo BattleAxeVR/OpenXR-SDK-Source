@@ -191,8 +191,11 @@ bool PSVR2EyeTracker::get_combined_gaze(GazeVec3Type& combined_gaze_direction, G
 			const float x_deg = rad2deg(gaze_euler_angles.x) + 90.0f;
 			const float y_deg = rad2deg(gaze_euler_angles.y) + 90.0f;
 
-			const int x_index = (int)(bvr_clamp<int>((int)x_deg, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)));
-			const int y_index = (int)(bvr_clamp<int>((int)y_deg, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)));
+			const float x_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_X * x_deg) / 180.0f;
+			const float y_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_Y * y_deg) / 180.0f;
+
+			const int x_index = (int)(bvr_clamp<int>((int)x_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)));
+			const int y_index = (int)(bvr_clamp<int>((int)y_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)));
 
 			EyeTrackingCalibrationData& calibration_data = combined_calibration_;
 			CalibrationPoint& calibration_point = calibration_data.points_[x_index][y_index];
@@ -248,14 +251,20 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze
 		if (apply_calibration_ || (is_eye_calibrating(eye) && ref_gaze_direction_ptr))
 		{
 			const glm::vec3 per_eye_gaze_direction_glm = convert_to_glm(per_eye_gazes_[eye].local_gaze_direction_);
+
+			//const glm::vec3 per_eye_gaze_direction_glm2 = glm::rotate(glm_gaze_pose.rotation_, forward_gaze_dir);
+
 			const glm::fquat gaze_orientation = glm::rotation(forward_gaze_dir, per_eye_gaze_direction_glm);
 			const glm::vec3 gaze_euler_angles = glm::eulerAngles(gaze_orientation);
 
 			const float x_deg = rad2deg(gaze_euler_angles.x) + 90.0f;
 			const float y_deg = rad2deg(gaze_euler_angles.y) + 90.0f;
 
-			const int x_index = (int)(bvr_clamp<int>((int)x_deg, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)));
-			const int y_index = (int)(bvr_clamp<int>((int)y_deg, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)));
+			const float x_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_X * x_deg) / 180.0f;
+			const float y_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_Y * y_deg) / 180.0f;
+
+			const int x_index = (int)(bvr_clamp<int>((int)x_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)));
+			const int y_index = (int)(bvr_clamp<int>((int)y_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)));
 
 			EyeTrackingCalibrationData& calibration_data = per_eye_calibration_[eye];
 			CalibrationPoint& calibration_point = calibration_data.points_[x_index][y_index];
@@ -263,14 +272,33 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze
 			if(is_eye_calibrating(eye) && !calibration_point.is_valid_ && ref_gaze_direction_ptr)
 			{
 				GazeVec3Type& ref_gaze_direction = *ref_gaze_direction_ptr;
-				const glm::vec3 ref_gaze_dir_glm = convert_to_glm(ref_gaze_direction);
-				const glm::fquat rotation_correction = glm::rotation(ref_gaze_dir_glm, per_eye_gaze_direction_glm);
+				glm::vec3 ref_gaze_dir_glm = -convert_to_glm(ref_gaze_direction);
+
+				//std::swap(ref_gaze_dir_glm.y, ref_gaze_dir_glm.z);
+				//ref_gaze_dir_glm.z *= -1.0f;
+
+				//BVR::GLMPose glm_gaze_pose;
+				//glm_gaze_pose.rotation_ = glm::quatLookAt(-ref_gaze_dir_glm, glm::vec3(0.0f, 1.0f, 0.0f));
+
+				//ref_gaze_dir_glm.z *= -1.0f;
+				glm::fquat rotation_correction = glm::rotation(ref_gaze_dir_glm, per_eye_gaze_direction_glm);
+				rotation_correction = glm::normalize(rotation_correction);
+				//const glm::fquat rotation_correction = glm::rotation(ref_gaze_dir_glm, per_eye_gaze_direction_glm);
 
 				calibration_point.gaze_direction_ = per_eye_gaze_direction_glm;
 				calibration_point.rotation_correction_ = rotation_correction;
 				calibration_point.is_valid_ = true;
 
 				calibration_data.valid_count_++;
+
+				const glm::vec3 corrected_gaze_glm = glm::rotate(calibration_point.rotation_correction_, per_eye_gaze_direction_glm);
+				const glm::vec3 corrected_gaze_delta = corrected_gaze_glm - ref_gaze_dir_glm;
+				const float error = glm::length(corrected_gaze_delta);
+
+				if (error > 0.01f)
+				{
+					int i = 0;
+				}
 			}
 
 			if(calibration_data.valid_count_ == EYE_TRACKING_CALIBRATION_TOTAL_CELLS)
@@ -283,8 +311,10 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze
 
 			if(apply_calibration_ && calibration_point.is_valid_)
 			{
-				const glm::vec3 corrected_gaze_glm = glm::rotate(calibration_point.rotation_correction_, per_eye_gaze_direction_glm);
+				glm::vec3 corrected_gaze_glm = glm::rotate(calibration_point.rotation_correction_, per_eye_gaze_direction_glm);
+				corrected_gaze_glm = glm::normalize(corrected_gaze_glm);
 				per_eye_gaze_direction = convert_to_xr(corrected_gaze_glm);
+				//per_eye_gaze_direction.z *= -1.0f;
 				return true;
 			}
 		}
