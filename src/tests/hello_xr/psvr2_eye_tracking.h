@@ -50,9 +50,9 @@ namespace BVR
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 	struct CalibrationPoint
 	{
-		glm::vec3 final_correction_ = {0.0f, 0.0f, 0.0f};
-		std::array<glm::vec3, EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL> corrections_;
-		int sample_count_ = 0;
+		glm::vec3 euler_angle_offset_deg = {0.0f, 0.0f, 0.0f};
+		//std::array<glm::vec3, EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL> corrections_;
+		//int sample_count_ = 0;
 	};
 
 	struct EyeTrackingCalibrationData
@@ -159,6 +159,11 @@ namespace BVR
 
 #endif // ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 
+#if OFFSET_GAZES_BY_THUMBSTICK
+		void set_thumbstick_values(const int hand, const glm::vec2& thumbstick_values);
+		void toggle_apply_thumbstick_gaze_offsets();
+#endif
+
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
         void reset_calibrations();
 
@@ -229,6 +234,11 @@ namespace BVR
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
         bool apply_calibration_ = true;
+#endif
+
+#if OFFSET_GAZES_BY_THUMBSTICK
+		glm::vec2 thumbstick_values_[2];
+		bool apply_thumbstick_gaze_offsets_ = true;// !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION;
 #endif
     };
 }

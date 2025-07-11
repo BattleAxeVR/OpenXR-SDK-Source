@@ -181,6 +181,18 @@ bool PSVR2EyeTracker::get_combined_gaze(glm::vec3& combined_gaze_direction, glm:
 
     if (combined_gaze_.is_valid_)
     {
+#if OFFSET_GAZES_BY_THUMBSTICK
+		if(apply_thumbstick_gaze_offsets_)
+		{
+			const glm::vec3 euler_angles_deg = glm::vec3(thumbstick_values_[Side::LEFT].y, -thumbstick_values_[Side::LEFT].x, 0.0f) * OFFSET_GAZES_BY_THUMBSTICK_RANGE_DEG;
+			const glm::vec3 euler_angles_rad = deg2rad(euler_angles_deg);
+			const glm::fquat joystick_rotation = glm::fquat(euler_angles_rad);
+
+			combined_gaze_direction = glm::rotate(joystick_rotation, combined_gaze_.local_gaze_direction_);
+			return true;
+		}
+#endif
+
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 		if(apply_calibration_ || (is_combined_calibrating() && ref_gaze_direction_ptr))
 		{
@@ -256,9 +268,22 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 
 	if(per_eye_gazes_[eye].is_valid_)
 	{
+#if OFFSET_GAZES_BY_THUMBSTICK
+		if(apply_thumbstick_gaze_offsets_)
+		{
+			const glm::vec3 euler_angles_deg = glm::vec3(thumbstick_values_[eye].y, -thumbstick_values_[eye].x, 0.0f) * OFFSET_GAZES_BY_THUMBSTICK_RANGE_DEG;
+			const glm::vec3 euler_angles_rad = deg2rad(euler_angles_deg);
+			const glm::fquat joystick_rotation = glm::fquat(euler_angles_rad);
+
+			per_eye_gaze_direction = glm::rotate(joystick_rotation, per_eye_gazes_[eye].local_gaze_direction_);
+			return true;
+		}
+#endif
+
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 		if (apply_calibration_ || (is_eye_calibrating(eye) && ref_gaze_direction_ptr))
 		{
+#if 0
 			const glm::fquat gaze_orientation = glm::rotation(forward_gaze_dir, per_eye_gazes_[eye].local_gaze_direction_);
 			const glm::vec3 gaze_euler_angles = glm::eulerAngles(gaze_orientation);
 
@@ -309,6 +334,7 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 				per_eye_gaze_direction = glm::normalize(corrected_gaze);
 				return true;
 			}
+#endif
 		}
 #endif
 		
@@ -339,6 +365,18 @@ void PSVR2EyeTracker::reset_calibrations()
 #endif
 
 	apply_calibration_ = false;
+}
+#endif
+
+#if OFFSET_GAZES_BY_THUMBSTICK
+void PSVR2EyeTracker::set_thumbstick_values(const int hand, const glm::vec2& thumbstick_values)
+{
+	thumbstick_values_[hand] = thumbstick_values;
+}
+
+void PSVR2EyeTracker::toggle_apply_thumbstick_gaze_offsets()
+{
+	apply_thumbstick_gaze_offsets_ = !apply_thumbstick_gaze_offsets_;
 }
 #endif
 

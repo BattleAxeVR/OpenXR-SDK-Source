@@ -3233,6 +3233,17 @@ struct OpenXrProgram : IOpenXrProgram
 
 				action_get_info.action = m_input.thumbstickYAction;
 				CHECK_XRCMD(xrGetActionStateFloat(m_session, &action_get_info, &axis_state_y));
+
+#if OFFSET_GAZES_BY_THUMBSTICK
+                if(axis_state_x.isActive && (fabs(axis_state_x.currentState) > left_deadzone_x) && axis_state_y.isActive && (fabs(axis_state_y.currentState) > left_deadzone_y))
+                {
+                    psvr2_eye_tracker_.set_thumbstick_values((int)hand, glm::vec2(axis_state_x.currentState, axis_state_y.currentState));
+                }
+                else
+                {
+                    psvr2_eye_tracker_.set_thumbstick_values((int)hand, glm::vec2(0.0f, 0.0f));
+                }
+#endif
                 
                 if (hand == Side::LEFT)
                 {
@@ -3337,9 +3348,15 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
                     }
 
+#if OFFSET_GAZES_BY_THUMBSTICK
+					psvr2_eye_tracker_.toggle_apply_thumbstick_gaze_offsets();
+#endif
+
 #if TOGGLE_APPLY_CALIBRATION
                     psvr2_eye_tracker_.toggle_apply_calibration();
 #endif
+
+
                 }
 
 #endif // USE_THUMBSTICKS
