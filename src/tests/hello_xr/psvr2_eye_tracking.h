@@ -36,31 +36,29 @@
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 #include "utils.h"
 #include "glm/gtx/quaternion.hpp"
-const glm::vec3 forward_gaze_dir(0.0f, 0.0f, 1.0f);
+const glm::vec3 forward_gaze_dir(0.0f, 0.0f, -1.0f);
 #endif
 
 namespace BVR 
 {
-    typedef XrVector3f GazeVec3Type;
-
     struct GazeState
     {
-        GazeVec3Type local_gaze_direction_ = {};
+		glm::vec3 local_gaze_direction_ = {};
         bool is_valid_ = false;
     };
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 	struct CalibrationPoint
 	{
-        glm::vec3 gaze_direction_ = glm::vec3(0.0f, 0.0f, 0.0f);
-        glm::fquat rotation_correction_ = BVR::default_rotation;
-		bool is_valid_ = false;
+		glm::vec3 final_correction_ = {0.0f, 0.0f, 0.0f};
+		std::array<glm::vec3, EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL> corrections_;
+		int sample_count_ = 0;
 	};
 
 	struct EyeTrackingCalibrationData
 	{
         CalibrationPoint points_[EYE_TRACKING_CALIBRATION_NUM_CELLS_X][EYE_TRACKING_CALIBRATION_NUM_CELLS_Y];
-        int valid_count_ = 0;
+        int completed_count_ = 0;
 	};
 #endif
 
@@ -83,7 +81,7 @@ namespace BVR
 
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
         bool is_combined_gaze_available() const;
-        bool get_combined_gaze(GazeVec3Type& combined_gaze_direction, GazeVec3Type* ref_gaze_direction_ptr);
+        bool get_combined_gaze(glm::vec3& combined_gaze_direction, glm::vec3* ref_gaze_direction_ptr);
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 		bool is_combined_calibrated() const
@@ -118,7 +116,7 @@ namespace BVR
         
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
         bool is_gaze_available(const int eye) const;
-        bool get_per_eye_gaze(const int eye, GazeVec3Type& per_eye_gaze_direction, GazeVec3Type* ref_gaze_direction_ptr);
+        bool get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_direction, glm::vec3* ref_gaze_direction_ptr);
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 		bool is_eye_calibrated(const int eye) const
@@ -230,7 +228,7 @@ namespace BVR
 #endif // ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
-        bool apply_calibration_ = false;
+        bool apply_calibration_ = true;
 #endif
     };
 }

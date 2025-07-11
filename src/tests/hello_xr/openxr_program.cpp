@@ -321,12 +321,6 @@ bool is_third_person_view_enabled()
 {
     return false;
 }
-
-bool is_first_person_view_enabled()
-{
-    return true;
-}
-
 #endif // SUPPORT_THIRD_PERSON
 
 #if USE_THUMBSTICKS
@@ -4154,17 +4148,16 @@ struct OpenXrProgram : IOpenXrProgram
             if (false)
 #endif
 			{
-				XrVector3f per_eye_gaze_vector;
+                glm::vec3 per_eye_gaze_vector;
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
 				const XrPosef& hand_eye_pose = m_views[hand].pose;
 				const glm::vec3 eye_position_glm = BVR::convert_to_glm(hand_eye_pose.position);
 
-                const glm::vec3 eye_to_hand_local_dir = glm::normalize(glm_local_grip_poses_[hand].translation_ - eye_position_glm);
-                XrVector3f eye_to_hand_local_dir_xr = BVR::convert_to_xr(eye_to_hand_local_dir);
-                XrVector3f* ref_eye_gaze_vector_ptr = calibrating_now ? &eye_to_hand_local_dir_xr : nullptr;
+                glm::vec3 eye_to_hand_local_dir = glm::normalize(glm_local_grip_poses_[hand].translation_ - eye_position_glm);
+                glm::vec3* ref_eye_gaze_vector_ptr = calibrating_now ? &eye_to_hand_local_dir : nullptr;
 #else
-                XrVector3f* ref_eye_gaze_vector_ptr = nullptr;
+                glm::vec3* ref_eye_gaze_vector_ptr = nullptr;
 #endif
 
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
@@ -4174,9 +4167,7 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
 				{
                     BVR::GLMPose glm_gaze_pose;
-                    const glm::vec3 gaze_dir = BVR::convert_to_glm(per_eye_gaze_vector);
-
-                    glm_gaze_pose.rotation_ = glm::quatLookAt(gaze_dir, glm::vec3(0.0f, 1.0f, 0.0f));
+                    glm_gaze_pose.rotation_ = glm::quatLookAt(per_eye_gaze_vector, glm::vec3(0.0f, 1.0f, 0.0f));
 
                     XrPosef gaze_pose = BVR::convert_to_xr(glm_gaze_pose);
 
@@ -4617,9 +4608,9 @@ struct OpenXrProgram : IOpenXrProgram
                     const int calibrating_eye_index = Side::RIGHT; // Only calibrate with the Right hand grip for now
 #endif 
 
-					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
+					//if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
 					{
-                        XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_grip_poses_[calibrating_eye_index]);
+                        XrPosef local_xr_pose = BVR::convert_to_xr(glm_local_grip_poses_[Side::LEFT]);// calibrating_eye_index]);
 
                         Cube calibration_cube;
                         calibration_cube.Pose = local_xr_pose;
