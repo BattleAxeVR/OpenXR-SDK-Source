@@ -124,6 +124,9 @@ if(XR_USE_GRAPHICS_API_VULKAN)
     target_include_directories(
         XrApiLayer_api_dump PRIVATE ${Vulkan_INCLUDE_DIRS}
     )
+
+    target_include_directories(XrApiLayer_api_dump PRIVATE $ENV{VULKAN_SDK}/Include)
+    target_link_directories(XrApiLayer_api_dump PRIVATE $ENV{VULKAN_SDK}/Lib)
 endif()
 if(BUILD_WITH_WAYLAND_HEADERS)
     target_include_directories(
@@ -201,6 +204,9 @@ if(XR_USE_GRAPHICS_API_VULKAN)
     target_include_directories(
         XrApiLayer_core_validation PRIVATE ${Vulkan_INCLUDE_DIRS}
     )
+
+    target_include_directories(XrApiLayer_core_validation PRIVATE $ENV{VULKAN_SDK}/Include)
+    target_link_directories(XrApiLayer_core_validation PRIVATE $ENV{VULKAN_SDK}/Lib)
 endif()
 if(BUILD_WITH_WAYLAND_HEADERS)
     target_include_directories(

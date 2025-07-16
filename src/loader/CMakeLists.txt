@@ -97,6 +97,8 @@ set_target_properties(
 # TODO remove once we get rid of add_definitions()
 if(Vulkan_FOUND)
     target_include_directories(openxr_loader PRIVATE ${Vulkan_INCLUDE_DIR})
+    target_include_directories(openxr_loader PRIVATE $ENV{VULKAN_SDK}/Include)
+    target_link_directories(openxr_loader PRIVATE $ENV{VULKAN_SDK}/Lib)
 endif()
 
 # Get jsoncpp externally or internally

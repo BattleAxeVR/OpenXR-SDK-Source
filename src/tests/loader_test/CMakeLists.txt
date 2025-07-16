@@ -51,6 +51,8 @@ target_include_directories(
 )
 if(XR_USE_GRAPHICS_API_VULKAN)
     target_include_directories(loader_test PRIVATE ${Vulkan_INCLUDE_DIRS})
+    target_include_directories(loader_test PRIVATE $ENV{VULKAN_SDK}/Include)
+    target_link_directories(loader_test PRIVATE $ENV{VULKAN_SDK}/Lib)
 endif()
 
 if(WIN32)

@@ -109,7 +109,8 @@ target_link_libraries(hello_xr PRIVATE OpenXR::openxr_loader)
 target_include_directories(hello_xr PUBLIC $ENV{OCULUS_OPENXR_MOBILE_SDK}/OpenXR)
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
-target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/Streamline/include)
+target_include_directories(hello_xr PUBLIC /Git/PSVR2Toolbox/projects/PSVR2ToolboxSDK)
+target_link_directories(hello_xr PUBLIC /Git/PSVR2Toolbox/x64/$(Configuration))
 
 compile_glsl(run_hello_xr_glsl_compiles ${VULKAN_SHADERS})
 
@@ -134,6 +135,9 @@ endif()
 if(XR_USE_GRAPHICS_API_VULKAN)
     target_include_directories(hello_xr PRIVATE ${Vulkan_INCLUDE_DIRS})
     target_link_libraries(hello_xr PRIVATE ${Vulkan_LIBRARY})
+
+    target_include_directories(hello_xr PRIVATE $ENV{VULKAN_SDK}/Include)
+    target_link_directories(hello_xr PRIVATE $ENV{VULKAN_SDK}/Lib)
 endif()
 
 if(TARGET openxr-gfxwrapper)
