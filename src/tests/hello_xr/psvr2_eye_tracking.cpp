@@ -386,12 +386,12 @@ void PSVR2EyeTracker::reset_calibrations()
 }
 #endif
 
-#if 1//OFFSET_GAZES_BY_THUMBSTICK
 void PSVR2EyeTracker::set_thumbstick_values(const int hand, const glm::vec2& thumbstick_values)
 {
 	thumbstick_values_[hand] = thumbstick_values;
 }
 
+#if OFFSET_GAZES_BY_THUMBSTICK
 void PSVR2EyeTracker::toggle_apply_thumbstick_gaze_offsets()
 {
 	apply_thumbstick_gaze_offsets_ = !apply_thumbstick_gaze_offsets_;

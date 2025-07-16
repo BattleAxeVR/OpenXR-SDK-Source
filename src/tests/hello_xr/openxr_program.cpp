@@ -3234,7 +3234,7 @@ struct OpenXrProgram : IOpenXrProgram
 				action_get_info.action = m_input.thumbstickYAction;
 				CHECK_XRCMD(xrGetActionStateFloat(m_session, &action_get_info, &axis_state_y));
 
-#if 1//OFFSET_GAZES_BY_THUMBSTICK
+#if (OFFSET_GAZES_BY_THUMBSTICK || ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_HARDCODED)
                 if(axis_state_x.isActive && (fabs(axis_state_x.currentState) > left_deadzone_x) && axis_state_y.isActive && (fabs(axis_state_y.currentState) > left_deadzone_y))
                 {
                     psvr2_eye_tracker_.set_thumbstick_values((int)hand, glm::vec2(axis_state_x.currentState, axis_state_y.currentState));

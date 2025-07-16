@@ -159,8 +159,9 @@ namespace BVR
 
 #endif // ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 
-#if 1//OFFSET_GAZES_BY_THUMBSTICK
 		void set_thumbstick_values(const int hand, const glm::vec2& thumbstick_values);
+
+#if OFFSET_GAZES_BY_THUMBSTICK
 		void toggle_apply_thumbstick_gaze_offsets();
 #endif
 
@@ -236,9 +237,10 @@ namespace BVR
         bool apply_calibration_ = true;
 #endif
 
-#if 1//OFFSET_GAZES_BY_THUMBSTICK
 		glm::vec2 thumbstick_values_[2];
-		bool apply_thumbstick_gaze_offsets_ = true;// !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION;
+
+#if OFFSET_GAZES_BY_THUMBSTICK
+		bool apply_thumbstick_gaze_offsets_ = true;
 #endif
     };
 }
