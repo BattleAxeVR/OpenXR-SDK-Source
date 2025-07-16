@@ -3234,7 +3234,7 @@ struct OpenXrProgram : IOpenXrProgram
 				action_get_info.action = m_input.thumbstickYAction;
 				CHECK_XRCMD(xrGetActionStateFloat(m_session, &action_get_info, &axis_state_y));
 
-#if OFFSET_GAZES_BY_THUMBSTICK
+#if 1//OFFSET_GAZES_BY_THUMBSTICK
                 if(axis_state_x.isActive && (fabs(axis_state_x.currentState) > left_deadzone_x) && axis_state_y.isActive && (fabs(axis_state_y.currentState) > left_deadzone_y))
                 {
                     psvr2_eye_tracker_.set_thumbstick_values((int)hand, glm::vec2(axis_state_x.currentState, axis_state_y.currentState));
@@ -3393,7 +3393,7 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
         }
 
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+#if (ENABLE_PSVR2_EYE_TRACKING_CALIBRATION && !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_HARDCODED)
         const bool gripping_either_hand = currently_gripping[Side::LEFT] || currently_gripping[Side::RIGHT];
 
         if (gripping_either_hand)
@@ -4167,7 +4167,7 @@ struct OpenXrProgram : IOpenXrProgram
 			{
                 glm::vec3 per_eye_gaze_vector;
 
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+#if (ENABLE_PSVR2_EYE_TRACKING_CALIBRATION && !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_HARDCODED)
 				const XrPosef& hand_eye_pose = m_views[hand].pose;
 				const glm::vec3 eye_position_glm = BVR::convert_to_glm(hand_eye_pose.position);
 
@@ -4604,7 +4604,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                     for (const Cube& cube : cubes)
                     {
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+#if (ENABLE_PSVR2_EYE_TRACKING_CALIBRATION && !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_HARDCODED)
                         if (psvr2_eye_tracker_.is_calibrating())
                         {
                             // Draw nothing onscreen except the one cube that's currently gripping

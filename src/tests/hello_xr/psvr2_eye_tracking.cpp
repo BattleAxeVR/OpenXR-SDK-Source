@@ -268,6 +268,24 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 
 	if(per_eye_gazes_[eye].is_valid_)
 	{
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_HARDCODED
+		if(apply_calibration_)
+		{
+			const glm::fquat gaze_rotation = glm::rotation(forward_gaze_dir, per_eye_gazes_[eye].local_gaze_direction_);
+			const glm::vec3 euler_angles_rad_orig = glm::eulerAngles(gaze_rotation);
+			const glm::vec3 euler_angles_deg_orig = glm::vec3(rad2deg(euler_angles_rad_orig.x), rad2deg(euler_angles_rad_orig.y), 0.0f);
+
+			float x_scaled = euler_angles_deg_orig.x * thumbstick_values_[eye].x * EYE_TRACKING_CALIBRATION_HARDCODED_X_DEG_SCALE;
+			float y_scaled = euler_angles_deg_orig.y * thumbstick_values_[eye].y * EYE_TRACKING_CALIBRATION_HARDCODED_Y_DEG_SCALE;
+
+			const glm::vec3 euler_angles_rad = glm::vec3(deg2rad(y_scaled), deg2rad(-x_scaled), 0.0f);
+			const glm::fquat hardcoded_deflection = glm::fquat(euler_angles_rad);
+
+			per_eye_gaze_direction = glm::rotate(hardcoded_deflection, per_eye_gazes_[eye].local_gaze_direction_);
+			return true;
+		}
+#endif
+
 #if OFFSET_GAZES_BY_THUMBSTICK
 		if(apply_thumbstick_gaze_offsets_)
 		{
@@ -368,7 +386,7 @@ void PSVR2EyeTracker::reset_calibrations()
 }
 #endif
 
-#if OFFSET_GAZES_BY_THUMBSTICK
+#if 1//OFFSET_GAZES_BY_THUMBSTICK
 void PSVR2EyeTracker::set_thumbstick_values(const int hand, const glm::vec2& thumbstick_values)
 {
 	thumbstick_values_[hand] = thumbstick_values;
