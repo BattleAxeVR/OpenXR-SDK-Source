@@ -48,11 +48,20 @@ namespace BVR
     };
 
 #if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+	const glm::vec3 base_cube_position_ = { 0.0f, 0.0f, 1.0f };
+
 	struct CalibrationPoint
 	{
-		glm::vec3 euler_angle_offset_deg = {0.0f, 0.0f, 0.0f};
+		glm::vec3 euler_angles_deg_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 euler_angles_rad_ = { 0.0f, 0.0f, 0.0f };
+		glm::fquat rotation_ = default_rotation;
+		glm::vec3 local_position_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 local_position_with_offset_ = { 0.0f, 0.0f, 0.0f };
+
 		//std::array<glm::vec3, EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL> corrections_;
 		//int sample_count_ = 0;
+
+		bool is_calibrated_ = false;
 	};
 
 	struct EyeTrackingCalibrationData
@@ -77,6 +86,16 @@ namespace BVR
 		void set_enabled(const bool enabled)
 		{
 			is_enabled_ = is_connected_ && enabled;
+		}
+
+		float get_ipd_meters() const
+		{
+			return ipd_meters_;
+		}
+
+		void set_ipd_meters(const float ipd_meters)
+		{
+			ipd_meters_ = ipd_meters;
 		}
 
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
@@ -207,9 +226,35 @@ namespace BVR
 		}
 #endif
 
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_RASTER_SCAN
+		int get_raster_x() const
+		{
+			return raster_x_;
+		}
+
+		int get_raster_y() const
+		{
+			return raster_y_;
+		}
+
+		int get_raster_eye() const
+		{
+			return raster_eye_;
+		}
+
+		void switch_eyes();
+		void increment_raster();
+		const glm::vec3 get_raster_position();
+		CalibrationPoint& get_raster_point();
+		const CalibrationPoint& get_raster_point() const;
+		bool is_current_raster_cell_calibrated() const;
+#endif
+
     private:
         bool is_connected_ = false;
         bool is_enabled_ = false;
+
+		float ipd_meters_ = 0.0f;// 0.067f;
 
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 		GazeState combined_gaze_;
@@ -241,6 +286,12 @@ namespace BVR
 
 #if OFFSET_GAZES_BY_THUMBSTICK
 		bool apply_thumbstick_gaze_offsets_ = true;
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_RASTER_SCAN
+		int raster_x_ = EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
+		int raster_y_ = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
+		int raster_eye_ = LEFT;
 #endif
     };
 }

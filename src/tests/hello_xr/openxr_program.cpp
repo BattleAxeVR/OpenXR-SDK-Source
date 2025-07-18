@@ -3582,10 +3582,13 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRRESULT(res, "xrLocateSpace");
             if (XR_UNQUALIFIED_SUCCESS(res)) 
             {
-                if (IsPoseValid(spaceLocation.locationFlags) {
+                if (IsPoseValid(spaceLocation.locationFlags)) 
+                {
                     cubes.push_back(Cube{spaceLocation.pose, {0.25f, 0.25f, 0.25f}});
                 }
-            } else {
+            } 
+            else 
+            {
                 Log::Write(Log::Level::Verbose, Fmt("Unable to locate a visualized reference space in app space: %d", res));
             }
         }

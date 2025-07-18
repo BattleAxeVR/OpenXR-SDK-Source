@@ -382,6 +382,49 @@ void PSVR2EyeTracker::reset_calibrations()
 	per_eye_calibration_[RIGHT] = {};
 #endif
 
+	const float half_ipd_meters_ = ipd_meters_ * 0.5f;
+
+	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
+	{
+		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
+		{
+			CalibrationPoint point;
+
+			if (x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
+			{
+				const int x_delta = EYE_TRACKING_CALIBRATION_CELL_X_CENTER - x_index;
+				const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
+				const float x_degrees = x_frac * EYE_TRACKING_CALIBRATION_MAX_DEGREES;
+				point.euler_angles_deg_.x = x_degrees;
+			}
+
+			if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
+			{
+				const int y_delta = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER - y_index;
+				const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
+				const float y_degrees = y_frac * EYE_TRACKING_CALIBRATION_MAX_DEGREES;
+				point.euler_angles_deg_.y = y_degrees;
+			}
+
+			point.euler_angles_rad_ = deg2rad(point.euler_angles_deg_);
+			point.rotation_ = glm::fquat(point.euler_angles_rad_);
+			point.local_position_ = glm::rotate(point.rotation_, base_cube_position_);
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+			combined_calibration_.points_[x_index][y_index] = point;
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+			for (int eye = LEFT; eye < RIGHT; eye++)
+			{
+				point.local_position_with_offset_ = point.local_position_;
+				point.local_position_with_offset_.x += (eye == LEFT) ? -half_ipd_meters_ : half_ipd_meters_;
+				per_eye_calibration_[eye].points_[x_index][y_index] = point;
+			}
+#endif
+		}
+	}
+	
 	apply_calibration_ = false;
 }
 #endif
@@ -396,6 +439,57 @@ void PSVR2EyeTracker::toggle_apply_thumbstick_gaze_offsets()
 {
 	apply_thumbstick_gaze_offsets_ = !apply_thumbstick_gaze_offsets_;
 }
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_RASTER_SCAN
+void PSVR2EyeTracker::switch_eyes()
+{
+	raster_eye_ = 1 - raster_eye_;
+}
+
+void PSVR2EyeTracker::increment_raster()
+{
+	if (raster_x_ == EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)
+	{
+		raster_x_ = 0;
+
+		if(raster_y_ == EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)
+		{
+			raster_y_ = 0;
+		}
+		else
+		{
+			raster_y_++;
+		}
+	}
+	else
+	{
+		raster_x_++;
+	}
+}
+
+const glm::vec3 PSVR2EyeTracker::get_raster_position()
+{
+	const CalibrationPoint& point = get_raster_point();
+	return point.local_position_with_offset_;
+}
+
+CalibrationPoint& PSVR2EyeTracker::get_raster_point()
+{
+	return per_eye_calibration_[raster_eye_].points_[raster_x_][raster_y_];
+}
+
+const CalibrationPoint& PSVR2EyeTracker::get_raster_point() const
+{
+	return per_eye_calibration_[raster_eye_].points_[raster_x_][raster_y_];
+}
+
+bool PSVR2EyeTracker::is_current_raster_cell_calibrated() const
+{
+	const CalibrationPoint& point = get_raster_point();
+	return point.is_calibrated_;
+}
+
 #endif
 
 } // BVH
