@@ -175,85 +175,23 @@ bool PSVR2EyeTracker::is_gaze_available(const int eye) const
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 bool PSVR2EyeTracker::get_combined_gaze(glm::vec3& combined_gaze_direction, glm::vec3* ref_gaze_direction_ptr)
 {
-#if !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+#if !ENABLE_GAZE_CALIBRATION
 	(void)ref_gaze_direction_ptr;
 #endif
 
     if (combined_gaze_.is_valid_)
     {
-#if OFFSET_GAZES_BY_THUMBSTICK
-		if(apply_thumbstick_gaze_offsets_)
+#if ENABLE_GAZE_CALIBRATION
+		if(apply_calibration_ && calibrations_[2].is_calibrated())
 		{
-			const glm::vec3 euler_angles_deg = glm::vec3(thumbstick_values_[Side::LEFT].y, -thumbstick_values_[Side::LEFT].x, 0.0f) * OFFSET_GAZES_BY_THUMBSTICK_RANGE_DEG;
-			const glm::vec3 euler_angles_rad = deg2rad(euler_angles_deg);
-			const glm::fquat joystick_rotation = glm::fquat(euler_angles_rad);
-
-			combined_gaze_direction = glm::rotate(joystick_rotation, combined_gaze_.local_gaze_direction_);
+			combined_gaze_direction = calibrations_[2].apply_calibration(combined_gaze_.local_gaze_direction_);
 			return true;
-		}
-#endif
-
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
-		if(apply_calibration_ || (is_combined_calibrating() && ref_gaze_direction_ptr))
-		{
-			const glm::fquat gaze_orientation = glm::rotation(forward_gaze_dir, combined_gaze_.local_gaze_direction_);
-			const glm::vec3 gaze_euler_angles = glm::eulerAngles(gaze_orientation);
-
-			const float x_deg = rad2deg(gaze_euler_angles.x) + 90.0f;
-			const float y_deg = rad2deg(gaze_euler_angles.y) + 90.0f;
-
-			const float x_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_X * x_deg) / 180.0f;
-			const float y_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_Y * y_deg) / 180.0f;
-
-			const int x_index = (int)(bvr_clamp<int>((int)x_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)));
-			const int y_index = (int)(bvr_clamp<int>((int)y_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)));
-
-			EyeTrackingCalibrationData& calibration_data = combined_calibration_;
-			CalibrationPoint& calibration_point = calibration_data.points_[x_index][y_index];
-
-			if(is_combined_calibrating() && (calibration_point.sample_count_ < EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL) && ref_gaze_direction_ptr)
-			{
-				glm::vec3& ref_gaze_direction = *ref_gaze_direction_ptr;
-
-				glm::vec3& correction_ref = calibration_point.corrections_[calibration_point.sample_count_++];
-				correction_ref = ref_gaze_direction - combined_gaze_.local_gaze_direction_;
-
-				if(calibration_point.sample_count_ == EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL)
-				{
-					calibration_point.final_correction_ = glm::vec3(0.0f, 0.0f, 0.0f);
-
-					for(int correction_index = 0; correction_index < EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL; correction_index++)
-					{
-						const glm::vec3& current_correction = calibration_point.corrections_[correction_index];
-						calibration_point.final_correction_ += current_correction;
-					}
-
-					calibration_point.final_correction_ /= (float)EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL;
-					calibration_data.completed_count_++;
-				}
-			}
-
-			if(calibration_data.completed_count_ == EYE_TRACKING_CALIBRATION_TOTAL_CELLS)
-			{
-				// Completed! Disable calibration now
-				is_combined_calibrating_ = false;
-				is_combined_calibrated_ = true;
-				apply_calibration_ = true;
-			}
-
-			if(apply_calibration_ && (calibration_point.sample_count_ == EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL))
-			{
-				glm::vec3 corrected_gaze = combined_gaze_.local_gaze_direction_ + calibration_point.final_correction_;
-				combined_gaze_direction = glm::normalize(corrected_gaze);
-				return true;
-			}
-
 		}
 #endif
 
 		combined_gaze_direction = combined_gaze_.local_gaze_direction_;
 		return true;
-    }
+	}
 
     return false;
 }
@@ -262,97 +200,17 @@ bool PSVR2EyeTracker::get_combined_gaze(glm::vec3& combined_gaze_direction, glm:
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_direction, glm::vec3* ref_gaze_direction_ptr)
 {
-#if !ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+#if !ENABLE_GAZE_CALIBRATION
 	(void)ref_gaze_direction_ptr;
 #endif
 
 	if(per_eye_gazes_[eye].is_valid_)
 	{
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_HARDCODED
-		if(apply_calibration_)
+#if ENABLE_GAZE_CALIBRATION
+		if (apply_calibration_ && calibrations_[eye].is_calibrated())
 		{
-			const glm::fquat gaze_rotation = glm::rotation(forward_gaze_dir, per_eye_gazes_[eye].local_gaze_direction_);
-			const glm::vec3 euler_angles_rad_orig = glm::eulerAngles(gaze_rotation);
-			const glm::vec3 euler_angles_deg_orig = glm::vec3(rad2deg(euler_angles_rad_orig.x), rad2deg(euler_angles_rad_orig.y), 0.0f);
-
-			float x_scaled = euler_angles_deg_orig.x * thumbstick_values_[eye].x * EYE_TRACKING_CALIBRATION_HARDCODED_X_DEG_SCALE;
-			float y_scaled = euler_angles_deg_orig.y * thumbstick_values_[eye].y * EYE_TRACKING_CALIBRATION_HARDCODED_Y_DEG_SCALE;
-
-			const glm::vec3 euler_angles_rad = glm::vec3(deg2rad(y_scaled), deg2rad(-x_scaled), 0.0f);
-			const glm::fquat hardcoded_deflection = glm::fquat(euler_angles_rad);
-
-			per_eye_gaze_direction = glm::rotate(hardcoded_deflection, per_eye_gazes_[eye].local_gaze_direction_);
+			per_eye_gaze_direction = calibrations_[eye].apply_calibration(per_eye_gazes_[eye].local_gaze_direction_);
 			return true;
-		}
-#endif
-
-#if OFFSET_GAZES_BY_THUMBSTICK
-		if(apply_thumbstick_gaze_offsets_)
-		{
-			const glm::vec3 euler_angles_deg = glm::vec3(thumbstick_values_[eye].y, -thumbstick_values_[eye].x, 0.0f) * OFFSET_GAZES_BY_THUMBSTICK_RANGE_DEG;
-			const glm::vec3 euler_angles_rad = deg2rad(euler_angles_deg);
-			const glm::fquat joystick_rotation = glm::fquat(euler_angles_rad);
-
-			per_eye_gaze_direction = glm::rotate(joystick_rotation, per_eye_gazes_[eye].local_gaze_direction_);
-			return true;
-		}
-#endif
-
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
-		if (apply_calibration_ || (is_eye_calibrating(eye) && ref_gaze_direction_ptr))
-		{
-#if 0
-			const glm::fquat gaze_orientation = glm::rotation(forward_gaze_dir, per_eye_gazes_[eye].local_gaze_direction_);
-			const glm::vec3 gaze_euler_angles = glm::eulerAngles(gaze_orientation);
-
-			const float x_deg = rad2deg(gaze_euler_angles.x) + 90.0f;
-			const float y_deg = rad2deg(gaze_euler_angles.y) + 90.0f;
-
-			const float x_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_X * x_deg) / 180.0f;
-			const float y_frac = (EYE_TRACKING_CALIBRATION_NUM_CELLS_Y * y_deg) / 180.0f;
-
-			const int x_index = (int)(bvr_clamp<int>((int)x_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)));
-			const int y_index = (int)(bvr_clamp<int>((int)y_frac, 0, (int)(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)));
-
-			EyeTrackingCalibrationData& calibration_data = per_eye_calibration_[eye];
-			CalibrationPoint& calibration_point = calibration_data.points_[x_index][y_index];
-
-			if(is_eye_calibrating(eye) && (calibration_point.sample_count_ < EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL) && ref_gaze_direction_ptr)
-			{
-				glm::vec3& ref_gaze_direction = *ref_gaze_direction_ptr;
-				glm::vec3& correction_ref = calibration_point.corrections_[calibration_point.sample_count_++];
-				correction_ref = per_eye_gazes_[eye].local_gaze_direction_ - ref_gaze_direction;
-				
-				if (calibration_point.sample_count_ == EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL)
-				{
-					calibration_point.final_correction_ = glm::vec3(0.0f, 0.0f, 0.0f);
-
-					for(int correction_index = 0; correction_index < EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL; correction_index++)
-					{
-						const glm::vec3& current_correction = calibration_point.corrections_[correction_index];
-						calibration_point.final_correction_ += current_correction;
-					}
-
-					calibration_point.final_correction_ /= (float)EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL;
-					calibration_data.completed_count_++;
-				}
-			}
-
-			if(calibration_data.completed_count_ == EYE_TRACKING_CALIBRATION_TOTAL_CELLS)
-			{
-				// Completed! Disable calibration now
-				calibrating_eye_index_ = INVALID_INDEX;
-				is_eye_calibrated_[eye] = true;
-				apply_calibration_ = true;
-			}
-
-			if(apply_calibration_ && (calibration_point.sample_count_ == EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL))
-			{
-				glm::vec3 corrected_gaze = per_eye_gazes_[eye].local_gaze_direction_ + calibration_point.final_correction_;
-				per_eye_gaze_direction = glm::normalize(corrected_gaze);
-				return true;
-			}
-#endif
 		}
 #endif
 		
@@ -364,130 +222,40 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 }
 #endif // ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION
+#if ENABLE_GAZE_CALIBRATION
 void PSVR2EyeTracker::reset_calibrations()
 {
-#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-	is_combined_calibrating_ = false;
-	is_combined_calibrated_ = false;
-	combined_calibration_ = {};
-#endif
-
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 	calibrating_eye_index_ = INVALID_INDEX;
-	is_eye_calibrated_[LEFT] = false;
-	is_eye_calibrated_[RIGHT] = false;
-
-	per_eye_calibration_[LEFT] = {};
-	per_eye_calibration_[RIGHT] = {};
+	calibrations_[LEFT_CALIBRATION_INDEX].reset_calibration();
+	calibrations_[RIGHT_CALIBRATION_INDEX].reset_calibration();
 #endif
-
-	const float half_ipd_meters_ = ipd_meters_ * 0.5f;
-
-	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
-	{
-		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
-		{
-			CalibrationPoint point;
-
-			if (x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
-			{
-				const int x_delta = EYE_TRACKING_CALIBRATION_CELL_X_CENTER - x_index;
-				const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-				const float x_degrees = x_frac * EYE_TRACKING_CALIBRATION_MAX_DEGREES;
-				point.euler_angles_deg_.x = x_degrees;
-			}
-
-			if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
-			{
-				const int y_delta = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER - y_index;
-				const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-				const float y_degrees = y_frac * EYE_TRACKING_CALIBRATION_MAX_DEGREES;
-				point.euler_angles_deg_.y = y_degrees;
-			}
-
-			point.euler_angles_rad_ = deg2rad(point.euler_angles_deg_);
-			point.rotation_ = glm::fquat(point.euler_angles_rad_);
-			point.local_position_ = glm::rotate(point.rotation_, base_cube_position_);
 
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-			combined_calibration_.points_[x_index][y_index] = point;
+	calibrations_[COMBINED_CALIBRATION_INDEX].reset_calibration();
 #endif
+}
 
+bool PSVR2EyeTracker::is_calibrating() const
+{
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-			for (int eye = LEFT; eye < RIGHT; eye++)
-			{
-				point.local_position_with_offset_ = point.local_position_;
-				point.local_position_with_offset_.x += (eye == LEFT) ? -half_ipd_meters_ : half_ipd_meters_;
-				per_eye_calibration_[eye].points_[x_index][y_index] = point;
-			}
-#endif
-		}
-	}
-	
-	apply_calibration_ = false;
-}
-#endif
-
-void PSVR2EyeTracker::set_thumbstick_values(const int hand, const glm::vec2& thumbstick_values)
-{
-	thumbstick_values_[hand] = thumbstick_values;
-}
-
-#if OFFSET_GAZES_BY_THUMBSTICK
-void PSVR2EyeTracker::toggle_apply_thumbstick_gaze_offsets()
-{
-	apply_thumbstick_gaze_offsets_ = !apply_thumbstick_gaze_offsets_;
-}
-#endif
-
-#if ENABLE_PSVR2_EYE_TRACKING_CALIBRATION_RASTER_SCAN
-void PSVR2EyeTracker::switch_eyes()
-{
-	raster_eye_ = 1 - raster_eye_;
-}
-
-void PSVR2EyeTracker::increment_raster()
-{
-	if (raster_x_ == EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)
+	if (calibrating_eye_index_ != INVALID_INDEX)
 	{
-		raster_x_ = 0;
-
-		if(raster_y_ == EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)
+		if(calibrations_[calibrating_eye_index_].is_calibrating())
 		{
-			raster_y_ = 0;
-		}
-		else
-		{
-			raster_y_++;
+			return true;
 		}
 	}
-	else
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+	if(calibrations_[COMBINED_CALIBRATION_INDEX].is_calibrating())
 	{
-		raster_x_++;
+		return true;
 	}
-}
+#endif
 
-const glm::vec3 PSVR2EyeTracker::get_raster_position()
-{
-	const CalibrationPoint& point = get_raster_point();
-	return point.local_position_with_offset_;
-}
-
-CalibrationPoint& PSVR2EyeTracker::get_raster_point()
-{
-	return per_eye_calibration_[raster_eye_].points_[raster_x_][raster_y_];
-}
-
-const CalibrationPoint& PSVR2EyeTracker::get_raster_point() const
-{
-	return per_eye_calibration_[raster_eye_].points_[raster_x_][raster_y_];
-}
-
-bool PSVR2EyeTracker::is_current_raster_cell_calibrated() const
-{
-	const CalibrationPoint& point = get_raster_point();
-	return point.is_calibrated_;
+	return false;
 }
 
 #endif

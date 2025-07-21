@@ -30,6 +30,7 @@ set(LOCAL_HEADERS
     platformplugin.h
     defines.h
     psvr2_eye_tracking.h
+    gaze_calibration.h
 )
 set(LOCAL_SOURCE
     d3d_common.cpp
@@ -50,6 +51,7 @@ set(LOCAL_SOURCE
     platformplugin_posix.cpp
     platformplugin_win32.cpp
     psvr2_eye_tracking.cpp
+    gaze_calibration.cpp
 )
 set(VULKAN_SHADERS vulkan_shaders/frag.glsl vulkan_shaders/vert.glsl)
 
