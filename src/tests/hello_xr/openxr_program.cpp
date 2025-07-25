@@ -3592,8 +3592,11 @@ struct OpenXrProgram : IOpenXrProgram
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
 #if DRAW_EXTRA_VIEW_CUBES
-                    const float x_scale = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
-                    const float y_scale = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
+                    const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
+                    const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
+
+					const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
+					const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
 
 					const XrVector3f view_space_cube_scale = { x_scale, y_scale, 0.0f };
 					const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
@@ -3624,7 +3627,7 @@ struct OpenXrProgram : IOpenXrProgram
                                 const int x_delta = EYE_TRACKING_CALIBRATION_CELL_X_CENTER - x_index;
                                 const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
 
-                                cube_offset_local.x = x_frac * x_scale;
+                                cube_offset_local.x = x_frac * x_cell_offset;
                             }
 
                             if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
@@ -3632,7 +3635,7 @@ struct OpenXrProgram : IOpenXrProgram
                                 const int y_delta = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER - y_index;
                                 const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
 
-                                cube_offset_local.y = y_frac * y_scale;
+                                cube_offset_local.y = y_frac * y_cell_offset;
                             }
 
 
