@@ -28,8 +28,8 @@ const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
 const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
 #endif
 
-
-struct Cube {
+struct Cube 
+{
     XrPosef Pose;
     XrVector3f Scale;
     XrVector4f Colour = {1.0f, 1.0f, 1.0f, 1.0f};

@@ -3591,7 +3591,7 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
-                    const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.25f };
+                    const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
                     Cube view_space_cube{ spaceLocation.pose, view_space_cube_scale };
 					cubes.push_back(view_space_cube);
 
