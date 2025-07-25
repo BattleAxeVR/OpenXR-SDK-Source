@@ -32,8 +32,6 @@
 #include "defines.h"
 
 #if ENABLE_GAZE_CALIBRATION
-
-#include "utils.h"
 #include "glm/gtx/quaternion.hpp"
 const glm::vec3 forward_gaze_dir(0.0f, 0.0f, -1.0f);
 

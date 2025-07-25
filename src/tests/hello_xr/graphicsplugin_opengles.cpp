@@ -484,7 +484,7 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
 #if USE_THUMBSTICKS
 		const XrPosef xr_local_eye_pose = layerView.pose;
-		const BVR::GLMPose local_eye_pose = BVR::convert_to_glm(xr_local_eye_pose);
+		const BVR::GLMPose local_eye_pose = BVR::convert_to_glm_pose(xr_local_eye_pose);
 
 		const glm::vec3 local_hmd_to_eye = local_eye_pose.translation_ - local_hmd_pose.translation_;
 		const glm::vec3 world_hmd_to_eye = player_pose.rotation_ * local_hmd_to_eye;
@@ -502,7 +502,7 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 		const glm::mat4 inverse_view_glm = world_eye_pose.to_matrix();
 		const glm::mat4 view_glm = glm::inverse(inverse_view_glm);
 
-		view = BVR::convert_to_xr(view_glm);
+		view = BVR::convert_to_xr_pose(view_glm);
 #endif
 
 		XrMatrix4x4f vp;

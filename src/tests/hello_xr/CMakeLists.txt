@@ -31,6 +31,7 @@ set(LOCAL_HEADERS
     defines.h
     psvr2_eye_tracking.h
     gaze_calibration.h
+    GLMPose.h
 )
 set(LOCAL_SOURCE
     d3d_common.cpp
@@ -44,7 +45,6 @@ set(LOCAL_SOURCE
     logger.cpp
     main.cpp
     openxr_program.cpp
-    utils.cpp
     pch.cpp
     platformplugin_android.cpp
     platformplugin_factory.cpp
@@ -52,6 +52,7 @@ set(LOCAL_SOURCE
     platformplugin_win32.cpp
     psvr2_eye_tracking.cpp
     gaze_calibration.cpp
+    GLMPose.cpp
 )
 set(VULKAN_SHADERS vulkan_shaders/frag.glsl vulkan_shaders/vert.glsl)
 
