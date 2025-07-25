@@ -3591,7 +3591,28 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
-					cubes.push_back(Cube{ spaceLocation.pose, {0.25f, 0.25f, 0.25f} });
+                    const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.25f };
+                    Cube view_space_cube{ spaceLocation.pose, view_space_cube_scale };
+					cubes.push_back(view_space_cube);
+
+#if DRAW_EXTRA_VIEW_CUBES
+                    const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
+
+                    {
+                        BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
+
+                        const glm::vec3 cube_offset_local(-0.5f, 0.0f, 0.0f);
+                        const glm::vec3 cube_offset_world = cube_pose_glm.rotation_ * cube_offset_local;
+
+                        cube_pose_glm.translation_ += cube_offset_world;
+
+                        const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
+
+						Cube extra_cube = view_space_cube;
+                        extra_cube.Pose = cube_pose_xr;
+						cubes.push_back(extra_cube);
+                    }
+#endif
 				}
 			}
 			else
