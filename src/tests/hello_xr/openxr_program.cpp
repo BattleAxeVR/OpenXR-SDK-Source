@@ -3591,12 +3591,12 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
-                    const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
-                    const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
-
 #if DRAW_EXTRA_VIEW_CUBES
-                    const float x_scale = view_space_cube_scale.x;
-                    const float y_scale = view_space_cube_scale.y;
+                    const float x_scale = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
+                    const float y_scale = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
+
+					const XrVector3f view_space_cube_scale = { x_scale, y_scale, 0.0f };
+					const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
 
 #if ANIMATE_VIEW_RASTER_CUBES
                     static int cube_index_to_show = INVALID_INDEX;
@@ -3649,6 +3649,8 @@ struct OpenXrProgram : IOpenXrProgram
                         }
                     }
 #else
+					const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
+					const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
 					cubes.push_back(view_space_cube_center);
 #endif
 				}
