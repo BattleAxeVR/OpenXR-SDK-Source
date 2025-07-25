@@ -191,7 +191,8 @@ namespace BVR
 
 #define USE_BUTTONS_TRIGGERS 1
 
-#define DRAW_VISUALIZED_SPACES 1
+#define DRAW_VISUALIZED_SPACES 0
+#define DRAW_VIEW_SPACE 1
 
 // Draw / debug
 #define DRAW_LOCAL_POSES (USE_THUMBSTICKS && 0)

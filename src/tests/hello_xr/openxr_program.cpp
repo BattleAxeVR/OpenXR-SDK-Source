@@ -3579,6 +3579,28 @@ struct OpenXrProgram : IOpenXrProgram
         }
 #endif
 
+#if DRAW_VIEW_SPACE
+        if(!m_visualizedSpaces.empty())
+        {
+            XrSpace& visualizedSpace = m_visualizedSpaces[0];
+			XrSpaceLocation spaceLocation{ XR_TYPE_SPACE_LOCATION };
+			res = xrLocateSpace(visualizedSpace, m_appSpace, predictedDisplayTime, &spaceLocation);
+
+			CHECK_XRRESULT(res, "xrLocateSpace");
+			if(XR_UNQUALIFIED_SUCCESS(res))
+			{
+				if(IsPoseValid(spaceLocation.locationFlags))
+				{
+					cubes.push_back(Cube{ spaceLocation.pose, {0.25f, 0.25f, 0.25f} });
+				}
+			}
+			else
+			{
+				Log::Write(Log::Level::Verbose, Fmt("Unable to locate a visualized reference space in app space: %d", res));
+			}
+		}
+#endif
+
 #if (DRAW_GRIP_POSE || DRAW_AIM_POSE)
         // Render a 10cm cube scaled by grabAction for each hand. Note renderHand will only be
         // true when the application has focus.
