@@ -82,12 +82,14 @@ bool GazeCalibration::load_calibration()
 			const stbi_uc& red_val   = read_buf[byte_offset];
 			const stbi_uc& green_val = read_buf[byte_offset + 1];
 
-			const float x_offset = (127 - (int)red_val) / EYE_TRACKING_CALIBRATION_CELL_RANGE_X;
-			const float y_offset = (127 - (int)green_val) / EYE_TRACKING_CALIBRATION_CELL_RANGE_Y;
+			const int clamped_red = bvr_clamp<int>((int)red_val, -127, 127);
+			const int clamped_green = bvr_clamp<int>((int)green_val, -127, 127);
+
+			const float x_offset = (127 - clamped_red) * EYE_TRACKING_CALIBRATION_CELL_RANGE_X / 127.0f;
+			const float y_offset = (127 - clamped_green) * EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / 127.0f;
 
 			CalibrationPoint& point = calibration_.points_[x_index][y_index];
-			point.local_offset_ = glm::vec3(x_offset, y_offset, 0.0f);
-			point.local_position_with_offset_ = point.local_position_ + point.local_offset_;
+			point.average_offset_ = glm::vec3(x_offset, y_offset, 0.0f);
 		}
 	}
 
@@ -130,8 +132,15 @@ bool GazeCalibration::save_calibration()
 
 #if 0
 			const CalibrationPoint& point = calibration_.points_[x_index][y_index];
-			red_val = point.local_position_with_offset_;
-			green_val = 0;
+
+			const float normalized_red = point.average_offset_.x / EYE_TRACKING_CALIBRATION_CELL_RANGE_X;
+			const float normalized_green = point.average_offset_.y / EYE_TRACKING_CALIBRATION_CELL_RANGE_Y;
+
+			const int red_int   = bvr_clamp<int>(int(normalized_red * 127.0f), -127, 127) + 127;
+			const int green_int = bvr_clamp<int>(int(normalized_green * 127.0f), -127, 127) + 127;
+
+			red_val = (stbi_uc)red_int;
+			green_val = (stbi_uc)green_int;
 			blue_val = 0;
 #else
 			red_val = 127;
@@ -152,42 +161,83 @@ bool GazeCalibration::save_calibration()
 	return calibration_was_saved_;
 }
 
+bool CalibrationPoint::compute_average_offset()
+{
+	if (is_calibrated_ || (samples_.size() < EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL))
+	{
+		return false;
+	}
+
+	glm::vec3 average_offset = zero_vec3;
+
+	for(const CalibrationMapping& sample : samples_)
+	{
+		const glm::vec3 offset = sample.output_ - sample.input_;
+		average_offset += offset;
+	}
+
+	average_offset /= (float)EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL;
+
+	is_calibrated_ = true;
+
+	return true;
+}
+
 
 void GazeCalibration::reset_calibration()
 {
 	is_calibrating_ = false;
 	is_calibrated_ = false;
 	calibration_ = {};
+	num_calibrated_ = 0;
+
+	const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
+	const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
+
+	const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
+	const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
 
 	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
 	{
 		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
 		{
-			CalibrationPoint point;
+			CalibrationPoint& point = calibration_.points_[x_index][y_index];
 
 			if (x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
 			{
 				const int x_delta = EYE_TRACKING_CALIBRATION_CELL_X_CENTER - x_index;
 				const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-				const float x_degrees = x_frac * EYE_TRACKING_CALIBRATION_MAX_DEGREES;
-				point.euler_angles_deg_.x = x_degrees;
+				point.local_position_.x = x_frac * x_cell_offset;
 			}
 
 			if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
 			{
 				const int y_delta = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER - y_index;
 				const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-				const float y_degrees = y_frac * EYE_TRACKING_CALIBRATION_MAX_DEGREES;
-				point.euler_angles_deg_.y = y_degrees;
+				point.local_position_.y = y_frac * y_cell_offset;
 			}
-
-			point.euler_angles_rad_ = deg2rad(point.euler_angles_deg_);
-			point.rotation_ = glm::fquat(point.euler_angles_rad_);
-			point.local_position_ = glm::rotate(point.rotation_, base_cube_position_);
-
-			calibration_.points_[x_index][y_index] = point;
 		}
 	}
+}
+
+bool GazeCalibration::compute_calibration()
+{
+	if(is_calibrated_ || (num_calibrated_ < EYE_TRACKING_CALIBRATION_NUM_CELLS))
+	{
+		return false;
+	}
+
+	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
+	{
+		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
+		{
+			const CalibrationPoint& point = calibration_.points_[x_index][y_index];
+		}
+	}
+
+	is_calibrated_ = true;
+
+	return true;
 }
 
 void GazeCalibration::increment_raster()
@@ -214,7 +264,7 @@ void GazeCalibration::increment_raster()
 const glm::vec3 GazeCalibration::get_raster_position()
 {
 	const CalibrationPoint& point = get_raster_point();
-	return point.local_position_with_offset_;
+	return point.local_position_;
 }
 
 CalibrationPoint& GazeCalibration::get_raster_point()
