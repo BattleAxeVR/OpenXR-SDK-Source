@@ -45,6 +45,7 @@ namespace BVR
 		glm::vec3 euler_angles_rad_ = { 0.0f, 0.0f, 0.0f };
 		glm::fquat rotation_ = default_rotation;
 		glm::vec3 local_position_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 local_offset_ = { 0.0f, 0.0f, 0.0f };
 		glm::vec3 local_position_with_offset_ = { 0.0f, 0.0f, 0.0f };
 
 		//std::array<glm::vec3, EYE_TRACKING_CALIBRATION_SAMPLES_PER_CELL> corrections_;
@@ -63,6 +64,9 @@ namespace BVR
     {
     public:
         GazeCalibration();
+
+		bool load_calibration();
+		bool save_calibration();
 		
 		bool is_calibrating() const
 		{
@@ -115,6 +119,7 @@ namespace BVR
         
 		bool is_calibrating_ = false;
 		bool is_calibrated_ = false;
+		bool calibration_was_saved_ = false;
 		EyeTrackingCalibrationData calibration_;
 
 		int raster_x_ = EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
