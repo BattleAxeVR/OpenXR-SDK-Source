@@ -2000,6 +2000,11 @@ struct OpenXrProgram : IOpenXrProgram
         if (psvr2_toolkit_connected)
         {
 			Log::Write(Log::Level::Info, Fmt("PSVR 2 Toolkit connected, enabling Direct per-gaze Eye Tracking"));
+
+#if ENABLE_GAZE_CALIBRATION
+            const bool save_ok = psvr2_eye_tracker_.save_calibrations();
+            const bool load_ok = psvr2_eye_tracker_.load_calibrations();
+#endif
         }
 #endif
 
@@ -3591,12 +3596,11 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
-
 #if (ENABLE_GAZE_CALIBRATION && 1)
 					if(psvr2_eye_tracker_.is_calibrating())
 					{
 						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
-                        const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_next_calibration_cube();
+                        const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
 
                         const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
                         const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);

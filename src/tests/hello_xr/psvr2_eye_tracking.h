@@ -170,11 +170,14 @@ namespace BVR
 		{
 			apply_calibration_ = !apply_calibration_;
 		}
-
 		void reset_calibrations();
+		bool load_calibrations();
+		bool save_calibrations();
+
 		bool is_calibrating() const;
 
-		GLMPose get_next_calibration_cube();
+		void increment_raster();
+		GLMPose get_calibration_cube() const;
 #endif
 
     private:

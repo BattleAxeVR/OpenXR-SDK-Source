@@ -207,6 +207,20 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 	if(per_eye_gazes_[eye].is_valid_)
 	{
 #if ENABLE_GAZE_CALIBRATION
+		if (calibrations_[eye].is_calibrating())
+		{
+			CalibrationPoint& point = calibrations_[eye].get_raster_point();
+
+			if (point.is_calibrated_)
+			{
+				increment_raster();
+			}
+			else if (ref_gaze_direction_ptr)
+			{
+				point.add_sample(per_eye_gazes_[eye].local_gaze_direction_, *ref_gaze_direction_ptr);
+			}
+		}
+
 		if (apply_calibration_ && calibrations_[eye].is_calibrated())
 		{
 			per_eye_gaze_direction = calibrations_[eye].apply_calibration(per_eye_gazes_[eye].local_gaze_direction_);
@@ -236,6 +250,38 @@ void PSVR2EyeTracker::reset_calibrations()
 #endif
 }
 
+bool PSVR2EyeTracker::load_calibrations()
+{
+	bool success = true;
+
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+	success &= calibrations_[LEFT_CALIBRATION_INDEX].load_calibration();
+	success &= calibrations_[RIGHT_CALIBRATION_INDEX].load_calibration();
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+	success &= calibrations_[COMBINED_CALIBRATION_INDEX].reset_calibration();
+#endif
+
+	return success;
+}
+
+bool PSVR2EyeTracker::save_calibrations()
+{
+	bool success = true;
+
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+	success &= calibrations_[LEFT_CALIBRATION_INDEX].save_calibration();
+	success &= calibrations_[RIGHT_CALIBRATION_INDEX].save_calibration();
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+	success &= calibrations_[COMBINED_CALIBRATION_INDEX].save_calibration();
+#endif
+
+	return success;
+}
+
 bool PSVR2EyeTracker::is_calibrating() const
 {
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
@@ -258,14 +304,14 @@ bool PSVR2EyeTracker::is_calibrating() const
 	return false;
 }
 
-GLMPose PSVR2EyeTracker::get_next_calibration_cube()
+void PSVR2EyeTracker::increment_raster()
 {
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 	if(calibrating_eye_index_ != INVALID_INDEX)
 	{
 		if(calibrations_[calibrating_eye_index_].is_calibrating())
 		{
-			return calibrations_[calibrating_eye_index_].get_next_calibration_cube();
+			return calibrations_[calibrating_eye_index_].increment_raster();
 		}
 	}
 #endif
@@ -273,7 +319,27 @@ GLMPose PSVR2EyeTracker::get_next_calibration_cube()
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 	if(calibrations_[COMBINED_CALIBRATION_INDEX].is_calibrating())
 	{
-		return calibrations_[COMBINED_CALIBRATION_INDEX].get_next_calibration_cube();
+		return calibrations_[COMBINED_CALIBRATION_INDEX].increment_raster();
+	}
+#endif
+}
+
+GLMPose PSVR2EyeTracker::get_calibration_cube() const
+{
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+	if(calibrating_eye_index_ != INVALID_INDEX)
+	{
+		if(calibrations_[calibrating_eye_index_].is_calibrating())
+		{
+			return calibrations_[calibrating_eye_index_].get_calibration_cube();
+		}
+	}
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+	if(calibrations_[COMBINED_CALIBRATION_INDEX].is_calibrating())
+	{
+		return calibrations_[COMBINED_CALIBRATION_INDEX].get_calibration_cube();
 	}
 #endif
 

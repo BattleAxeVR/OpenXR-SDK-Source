@@ -43,7 +43,7 @@ namespace BVR
 	{
 		glm::vec3 input_ = { 0.0f, 0.0f, 0.0f };
 		glm::vec3 output_ = { 0.0f, 0.0f, 0.0f };
-		glm::vec3 delta_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 euler_deg_ = { 0.0f, 0.0f, 0.0f };
 	};
 
 	struct CalibrationPoint
@@ -51,7 +51,8 @@ namespace BVR
 		GLMPose local_pose_;
 		std::array<CalibrationMapping, EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL> samples_;
 		int num_samples_ = 0;
-		glm::vec3 average_offset_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 average_euler_deg_ = { 0.0f, 0.0f, 0.0f };
+		glm::fquat calibrated_rotation_correction_ = default_rotation;
 		bool is_calibrated_ = false;
 
 		bool add_sample(const glm::vec3& input, const glm::vec3& output);
@@ -121,7 +122,7 @@ namespace BVR
 
 		glm::vec3 apply_calibration(const glm::vec3& raw_gaze_direction);
 
-		GLMPose	get_next_calibration_cube();
+		GLMPose	get_calibration_cube() const;
 
     private:
         
