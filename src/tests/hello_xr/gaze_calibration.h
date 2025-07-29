@@ -43,15 +43,18 @@ namespace BVR
 	{
 		glm::vec3 input_ = { 0.0f, 0.0f, 0.0f };
 		glm::vec3 output_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 delta_ = { 0.0f, 0.0f, 0.0f };
 	};
 
 	struct CalibrationPoint
 	{
-		glm::vec3 local_position_ = { 0.0f, 0.0f, 0.0f };
+		GLMPose local_pose_;
 		std::array<CalibrationMapping, EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL> samples_;
+		int num_samples_ = 0;
 		glm::vec3 average_offset_ = { 0.0f, 0.0f, 0.0f };
 		bool is_calibrated_ = false;
 
+		bool add_sample(const glm::vec3& input, const glm::vec3& output);
 		bool compute_average_offset();
 	};
 
@@ -110,12 +113,15 @@ namespace BVR
 		}
 
 		void increment_raster();
-		const glm::vec3 get_raster_position();
+		
 		CalibrationPoint& get_raster_point();
 		const CalibrationPoint& get_raster_point() const;
+
 		bool is_current_raster_cell_calibrated() const;
 
 		glm::vec3 apply_calibration(const glm::vec3& raw_gaze_direction);
+
+		GLMPose	get_next_calibration_cube();
 
     private:
         
@@ -124,8 +130,8 @@ namespace BVR
 		bool calibration_was_saved_ = false;
 		EyeTrackingCalibrationData calibration_;
 
-		int raster_x_ = EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-		int raster_y_ = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
+		int raster_x_ = 0;
+		int raster_y_ = 0;
 		int num_calibrated_ = 0;
     };
 }

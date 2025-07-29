@@ -161,9 +161,37 @@ bool GazeCalibration::save_calibration()
 	return calibration_was_saved_;
 }
 
+bool CalibrationPoint::add_sample(const glm::vec3& input, const glm::vec3& output)
+{
+	if(is_calibrated_)
+	{
+		return false;
+	}
+
+	const glm::vec3 delta = output - input;
+	const float delta_mag = delta.length();
+
+	if (delta_mag < EYE_TRACKING_CALIBRATION_TOLERANCE)
+	{
+		CalibrationMapping& sample = samples_[num_samples_++];
+		sample.input_ = input;
+		sample.output_ = output;
+		sample.delta_ = delta;
+
+		if(num_samples_ == EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL)
+		{
+			is_calibrated_ = true;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 bool CalibrationPoint::compute_average_offset()
 {
-	if (is_calibrated_ || (samples_.size() < EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL))
+	if (is_calibrated_ || (num_samples_ < EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL))
 	{
 		return false;
 	}
@@ -172,8 +200,7 @@ bool CalibrationPoint::compute_average_offset()
 
 	for(const CalibrationMapping& sample : samples_)
 	{
-		const glm::vec3 offset = sample.output_ - sample.input_;
-		average_offset += offset;
+		average_offset += sample.delta_;
 	}
 
 	average_offset /= (float)EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL;
@@ -197,24 +224,27 @@ void GazeCalibration::reset_calibration()
 	const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
 	const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
 
+	const glm::vec3 local_scale(x_scale, y_scale, 0.0f);
+
 	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
 	{
 		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
 		{
 			CalibrationPoint& point = calibration_.points_[x_index][y_index];
+			point.local_pose_.scale_ = local_scale;
 
 			if (x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
 			{
 				const int x_delta = EYE_TRACKING_CALIBRATION_CELL_X_CENTER - x_index;
 				const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-				point.local_position_.x = x_frac * x_cell_offset;
+				point.local_pose_.translation_.x = x_frac * x_cell_offset;
 			}
 
 			if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
 			{
 				const int y_delta = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER - y_index;
 				const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-				point.local_position_.y = y_frac * y_cell_offset;
+				point.local_pose_.translation_.y = y_frac * y_cell_offset;
 			}
 		}
 	}
@@ -242,6 +272,11 @@ bool GazeCalibration::compute_calibration()
 
 void GazeCalibration::increment_raster()
 {
+	if (is_calibrated_)
+	{
+		return;
+	}
+
 	if (raster_x_ == EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1)
 	{
 		raster_x_ = 0;
@@ -259,12 +294,6 @@ void GazeCalibration::increment_raster()
 	{
 		raster_x_++;
 	}
-}
-
-const glm::vec3 GazeCalibration::get_raster_position()
-{
-	const CalibrationPoint& point = get_raster_point();
-	return point.local_position_;
 }
 
 CalibrationPoint& GazeCalibration::get_raster_point()
@@ -293,6 +322,13 @@ glm::vec3 GazeCalibration::apply_calibration(const glm::vec3& raw_gaze_direction
 	//Passthrough for now until implementation
 	glm::vec3 calibrated_gaze_direction = raw_gaze_direction;
 	return calibrated_gaze_direction;
+}
+
+GLMPose	GazeCalibration::get_next_calibration_cube()
+{
+	increment_raster();
+	const CalibrationPoint& point = calibration_.points_[raster_x_][raster_y_];
+	return point.local_pose_;
 }
 
 } // BVH

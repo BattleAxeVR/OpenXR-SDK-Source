@@ -258,6 +258,28 @@ bool PSVR2EyeTracker::is_calibrating() const
 	return false;
 }
 
+GLMPose PSVR2EyeTracker::get_next_calibration_cube()
+{
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+	if(calibrating_eye_index_ != INVALID_INDEX)
+	{
+		if(calibrations_[calibrating_eye_index_].is_calibrating())
+		{
+			return calibrations_[calibrating_eye_index_].get_next_calibration_cube();
+		}
+	}
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+	if(calibrations_[COMBINED_CALIBRATION_INDEX].is_calibrating())
+	{
+		return calibrations_[COMBINED_CALIBRATION_INDEX].get_next_calibration_cube();
+	}
+#endif
+
+	return {};
+}
+
 #endif
 
 } // BVH

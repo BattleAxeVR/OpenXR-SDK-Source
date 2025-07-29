@@ -3591,6 +3591,27 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
+
+#if (ENABLE_GAZE_CALIBRATION && 1)
+					if(psvr2_eye_tracker_.is_calibrating())
+					{
+						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
+                        const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_next_calibration_cube();
+
+                        const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
+                        const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);
+
+						BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
+						cube_pose_glm.translation_ += cube_offset_world;
+
+						const XrPosef calibration_cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
+
+						Cube calibration_cube = { calibration_cube_pose_xr, xr_cube_scale };;
+                        calibration_cube.Pose = calibration_cube_pose_xr;
+						cubes.push_back(calibration_cube);
+					}
+#else
+
 #if DRAW_EXTRA_VIEW_CUBES
                     const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
                     const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
@@ -3638,7 +3659,6 @@ struct OpenXrProgram : IOpenXrProgram
                                 cube_offset_local.y = y_frac * y_cell_offset;
                             }
 
-
                             BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
 							const glm::vec3 cube_offset_world = cube_pose_glm.rotation_ * cube_offset_local;
 
@@ -3655,6 +3675,8 @@ struct OpenXrProgram : IOpenXrProgram
 					const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
 					const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
 					cubes.push_back(view_space_cube_center);
+#endif
+
 #endif
 				}
 			}

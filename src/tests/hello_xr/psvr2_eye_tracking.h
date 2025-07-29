@@ -173,6 +173,8 @@ namespace BVR
 
 		void reset_calibrations();
 		bool is_calibrating() const;
+
+		GLMPose get_next_calibration_cube();
 #endif
 
     private:
