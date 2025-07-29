@@ -197,7 +197,7 @@ namespace BVR
 #if ENABLE_GAZE_CALIBRATION
 		GazeCalibration calibrations_[NUM_CALIBRATIONS];
 		int calibrating_eye_index_ = INVALID_INDEX;
-		bool apply_calibration_ = true;
+		bool apply_calibration_ = false;
 #endif
 
     };

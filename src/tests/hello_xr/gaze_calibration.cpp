@@ -277,6 +277,7 @@ bool GazeCalibration::compute_calibration()
 
 void GazeCalibration::increment_raster()
 {
+	return;
 	if (is_calibrated_)
 	{
 		return;
