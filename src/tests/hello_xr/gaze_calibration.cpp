@@ -235,7 +235,6 @@ void GazeCalibration::reset_calibration()
 			CalibrationPoint& point = calibration_.points_[x_index][y_index];
 			point.local_pose_.scale_ = local_scale;
 
-#if 1
 			if (x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
 			{
 				const int x_delta = x_index - EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
@@ -247,26 +246,8 @@ void GazeCalibration::reset_calibration()
 			{
 				const int y_delta = y_index - EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
 				const float y_deg = y_delta * EYE_TRACKING_CALIBRATION_CELLS_PER_DEGREE_Y;
-				point.local_pose_.translation_.y = tanf(y_deg);
+				point.local_pose_.translation_.y = -tanf(y_deg);
 			}
-
-#else
-			//if (x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
-			{
-				const int x_delta = x_index - EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-				const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-				const float x_deg = x_frac * EYE_TRACKING_CALIBRATION_HALF_DEGREES_X;
-				point.local_pose_.translation_.x = tanf(x_deg);
-			}
-
-			//if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
-			{
-				const int y_delta = y_index - EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-				const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-				const float y_deg = y_frac * EYE_TRACKING_CALIBRATION_HALF_DEGREES_Y;
-				point.local_pose_.translation_.y = tanf(y_deg);
-			}
-#endif
 		}
 	}
 }
@@ -304,11 +285,11 @@ void GazeCalibration::increment_raster()
 
 		if(raster_y_ == EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1)
 		{
-			//raster_y_ = 0;
+			raster_y_ = 0;
 		}
 		else
 		{
-			//raster_y_++;
+			raster_y_++;
 		}
 	}
 	else
