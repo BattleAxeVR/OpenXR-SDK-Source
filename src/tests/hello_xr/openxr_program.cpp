@@ -2001,7 +2001,7 @@ struct OpenXrProgram : IOpenXrProgram
         {
 			Log::Write(Log::Level::Info, Fmt("PSVR 2 Toolkit connected, enabling Direct per-gaze Eye Tracking"));
 
-#if ENABLE_GAZE_CALIBRATION
+#if (ENABLE_GAZE_CALIBRATION && 0)
             const bool save_ok = psvr2_eye_tracker_.save_calibrations();
             const bool load_ok = psvr2_eye_tracker_.load_calibrations();
 #endif
@@ -3584,7 +3584,6 @@ struct OpenXrProgram : IOpenXrProgram
         }
 #endif
 
-#if DRAW_VIEW_SPACE
         if(!m_visualizedSpaces.empty())
         {
             XrSpace& visualizedSpace = m_visualizedSpaces[0];
@@ -3596,7 +3595,7 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
-#if (ENABLE_GAZE_CALIBRATION && 1)
+#if (ENABLE_GAZE_CALIBRATION && 0)
 					if(psvr2_eye_tracker_.is_calibrating())
 					{
 						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
@@ -3614,9 +3613,7 @@ struct OpenXrProgram : IOpenXrProgram
                         calibration_cube.Pose = calibration_cube_pose_xr;
 						cubes.push_back(calibration_cube);
 					}
-#else
-
-#if DRAW_EXTRA_VIEW_CUBES
+#elif DRAW_EXTRA_VIEW_CUBES
                     const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
                     const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
 
@@ -3675,12 +3672,10 @@ struct OpenXrProgram : IOpenXrProgram
 							cubes.push_back(extra_cube);
                         }
                     }
-#else
+#elif DRAW_VIEW_SPACE
 					const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
 					const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
 					cubes.push_back(view_space_cube_center);
-#endif
-
 #endif
 				}
 			}
@@ -3689,7 +3684,6 @@ struct OpenXrProgram : IOpenXrProgram
 				Log::Write(Log::Level::Verbose, Fmt("Unable to locate a visualized reference space in app space: %d", res));
 			}
 		}
-#endif
 
 #if (DRAW_GRIP_POSE || DRAW_AIM_POSE)
         // Render a 10cm cube scaled by grabAction for each hand. Note renderHand will only be

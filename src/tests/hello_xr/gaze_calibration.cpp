@@ -173,7 +173,7 @@ bool CalibrationPoint::add_sample(const glm::vec3& input, const glm::vec3& outpu
 	const glm::fquat rotation = glm::rotation(glm::normalize(input), glm::normalize(output));
 	const glm::vec3 euler_rad = glm::eulerAngles(rotation);
 	const glm::vec3 euler_deg = rad2deg(euler_rad);
-	const float euler_mag = euler_deg.length();
+	const float euler_mag = glm::length(euler_deg);
 
 	if (euler_mag < EYE_TRACKING_CALIBRATION_TOLERANCE_DEG)
 	{
