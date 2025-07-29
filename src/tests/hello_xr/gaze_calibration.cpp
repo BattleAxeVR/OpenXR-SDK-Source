@@ -50,6 +50,7 @@ template<typename T> static inline T bvr_clamp(T v, T mn, T mx)
 
 GazeCalibration::GazeCalibration()
 {
+	reset_calibration();
 }
 
 

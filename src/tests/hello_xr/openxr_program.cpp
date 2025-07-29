@@ -3595,7 +3595,7 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
-#if (ENABLE_GAZE_CALIBRATION && 0)
+#if (ENABLE_GAZE_CALIBRATION && 1)
 					if(psvr2_eye_tracker_.is_calibrating())
 					{
 						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
