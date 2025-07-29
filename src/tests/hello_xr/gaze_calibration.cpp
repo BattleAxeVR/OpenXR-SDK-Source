@@ -277,7 +277,6 @@ bool GazeCalibration::compute_calibration()
 
 void GazeCalibration::increment_raster()
 {
-	return;
 	if (is_calibrated_)
 	{
 		return;
@@ -325,13 +324,21 @@ glm::vec3 GazeCalibration::apply_calibration(const glm::vec3& raw_gaze_direction
 		return raw_gaze_direction;
 	}
 	
-	int x_index = 0;
-	int y_index = 0;
+	int x_index = INVALID_INDEX;
+	int y_index = INVALID_INDEX;
 
-	CalibrationPoint& point = calibration_.points_[x_index][y_index];
+	if ((x_index != INVALID_INDEX) && (y_index != INVALID_INDEX))
+	{
+		CalibrationPoint& point = calibration_.points_[x_index][y_index];
 
-	const glm::vec3 calibrated_gaze_direction = glm::normalize(point.calibrated_rotation_correction_ * raw_gaze_direction);
-	return calibrated_gaze_direction;
+		if (point.is_calibrated_)
+		{
+			const glm::vec3 calibrated_gaze_direction = glm::normalize(point.calibrated_rotation_correction_ * raw_gaze_direction);
+			return calibrated_gaze_direction;
+		}
+	}
+
+	return raw_gaze_direction;
 }
 
 GLMPose	GazeCalibration::get_calibration_cube() const

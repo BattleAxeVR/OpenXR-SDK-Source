@@ -3596,48 +3596,18 @@ struct OpenXrProgram : IOpenXrProgram
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
 #if (ENABLE_GAZE_CALIBRATION && 1)
-
-
-					//const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
-					//const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
-					//cubes.push_back(view_space_cube_center);
-
 					if(psvr2_eye_tracker_.is_calibrating())
 					{
-#if 1
 						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
                         const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
 
-                        const glm::vec3 cube_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
+                        const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
                         const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);
 
-						//BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
-						//cube_pose_glm.translation_ = cube_world;
-                        //cube_pose_glm.translation_ += cube_offset_world;
-
-						//const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
-#endif
-						const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
-						const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
-
-						const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
-						const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
-
-						const XrVector3f view_space_cube_scale = { x_scale, y_scale, 0.0f };
-						const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
-
-						//Cube calibration_cube = view_space_cube_center;
-						//calibration_cube.Pose = cube_pose_xr;
-						//Cube calibration_cube = { cube_pose_xr, view_space_cube_scale };;
-						//cubes.push_back(calibration_cube);
-
-						//const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
-						//const Cube calibration_cube{ cube_pose_xr, view_space_cube_scale };
-						//cubes.push_back(calibration_cube);
-
-						BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
-						//const glm::vec3 cube_offset_world = cube_pose_glm.rotation_ * cube_offset_local;
-						//cube_pose_glm.translation_ += cube_offset_world;
+						const Cube view_space_cube_center{ spaceLocation.pose, xr_cube_scale };
+						
+                        BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
+						cube_pose_glm.translation_ += cube_offset_world;
 
 						const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
 
