@@ -3598,6 +3598,10 @@ struct OpenXrProgram : IOpenXrProgram
 #if (ENABLE_GAZE_CALIBRATION && 1)
 					if(psvr2_eye_tracker_.is_calibrating())
 					{
+#if ANIMATE_VIEW_RASTER_CUBES
+                        psvr2_eye_tracker_.increment_raster();
+#endif
+
 						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
                         const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
 
@@ -3614,6 +3618,7 @@ struct OpenXrProgram : IOpenXrProgram
 						Cube extra_cube = view_space_cube_center;
 						extra_cube.Pose = cube_pose_xr;
 						cubes.push_back(extra_cube);
+
 					}
 #elif DRAW_EXTRA_VIEW_CUBES
                     const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;

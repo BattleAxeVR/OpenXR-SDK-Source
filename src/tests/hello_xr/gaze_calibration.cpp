@@ -222,12 +222,9 @@ void GazeCalibration::reset_calibration()
 	is_calibrated_ = false;
 	calibration_ = {};
 	num_calibrated_ = 0;
-
-	const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
-	const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
-
-	const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
-	const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
+	
+	const float x_scale = EYE_TRACKING_CALIBRATION_CELL_SCALE;
+	const float y_scale = EYE_TRACKING_CALIBRATION_CELL_SCALE;
 
 	const glm::vec3 local_scale(x_scale, y_scale, 0.0f);
 
@@ -242,14 +239,16 @@ void GazeCalibration::reset_calibration()
 			{
 				const int x_delta = EYE_TRACKING_CALIBRATION_CELL_X_CENTER - x_index;
 				const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-				point.local_pose_.translation_.x = x_frac * x_cell_offset;
+				const float x_deg = x_frac * EYE_TRACKING_CALIBRATION_HALF_DEGREES_X;
+				point.local_pose_.translation_.x = sinf(x_deg);
 			}
 
 			if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
 			{
 				const int y_delta = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER - y_index;
 				const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-				point.local_pose_.translation_.y = y_frac * y_cell_offset;
+				const float y_deg = y_frac * EYE_TRACKING_CALIBRATION_HALF_DEGREES_Y;
+				point.local_pose_.translation_.y = sinf(y_deg);
 			}
 		}
 	}
@@ -323,19 +322,23 @@ glm::vec3 GazeCalibration::apply_calibration(const glm::vec3& raw_gaze_direction
 	{
 		return raw_gaze_direction;
 	}
-	
-	int x_index = INVALID_INDEX;
-	int y_index = INVALID_INDEX;
 
-	if ((x_index != INVALID_INDEX) && (y_index != INVALID_INDEX))
+	const glm::fquat raw_rotation(forward_gaze_dir, glm::normalize(raw_gaze_direction));
+	const glm::vec3& raw_gaze_euler_rad = glm::eulerAngles(raw_rotation);
+	const glm::vec3& raw_gaze_euler_deg = rad2deg(raw_gaze_euler_rad);
+
+	const float x_frac = bvr_clamp<float>(raw_gaze_euler_deg.x / EYE_TRACKING_CALIBRATION_HALF_DEGREES_X, -1.0f, 1.0f);
+	const float y_frac = bvr_clamp<float>(raw_gaze_euler_deg.y / EYE_TRACKING_CALIBRATION_HALF_DEGREES_Y, -1.0f, 1.0f);
+
+	int x_index = bvr_clamp<int>((int)(x_frac * EYE_TRACKING_CALIBRATION_CELL_X_CENTER), 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1);
+	int y_index = bvr_clamp<int>((int)(y_frac * EYE_TRACKING_CALIBRATION_CELL_Y_CENTER), 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
+
+	CalibrationPoint& point = calibration_.points_[x_index][y_index];
+
+	if (point.is_calibrated_)
 	{
-		CalibrationPoint& point = calibration_.points_[x_index][y_index];
-
-		if (point.is_calibrated_)
-		{
-			const glm::vec3 calibrated_gaze_direction = glm::normalize(point.calibrated_rotation_correction_ * raw_gaze_direction);
-			return calibrated_gaze_direction;
-		}
+		const glm::vec3 calibrated_gaze_direction = glm::normalize(point.calibrated_rotation_correction_ * raw_gaze_direction);
+		return calibrated_gaze_direction;
 	}
 
 	return raw_gaze_direction;
