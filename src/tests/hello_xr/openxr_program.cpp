@@ -3599,7 +3599,12 @@ struct OpenXrProgram : IOpenXrProgram
 					if(psvr2_eye_tracker_.is_calibrating())
 					{
 #if ANIMATE_VIEW_RASTER_CUBES
-                        psvr2_eye_tracker_.increment_raster();
+                        static int frame_index = 0;
+                        if (frame_index++ % ANIMATE_VIEW_RASTER_CUBES_EVERY_N == 0)
+                        {
+                            psvr2_eye_tracker_.increment_raster();
+                        }
+                        
 #endif
 
 						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
