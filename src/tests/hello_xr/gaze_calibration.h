@@ -137,8 +137,8 @@ namespace BVR
 		bool calibration_was_saved_ = false;
 		EyeTrackingCalibrationData calibration_;
 
-		int raster_x_ = EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
-		int raster_y_ = EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
+		int raster_x_ = 0;// EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
+		int raster_y_ = 0;;// EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
 		int num_calibrated_ = 0;
     };
 }
