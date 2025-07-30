@@ -3598,9 +3598,9 @@ struct OpenXrProgram : IOpenXrProgram
 #if (ENABLE_GAZE_CALIBRATION && 1)
 					if(psvr2_eye_tracker_.is_calibrating())
 					{
-#if ANIMATE_VIEW_RASTER_CUBES
+#if ANIMATE_CALIBRATION_CUBES
                         static int frame_index = 0;
-                        if (frame_index++ % ANIMATE_VIEW_RASTER_CUBES_EVERY_N == 0)
+                        if (frame_index++ % ANIMATE_CALIBRATION_CUBES_EVERY_N == 0)
                         {
                             psvr2_eye_tracker_.increment_raster();
                         }
@@ -3625,69 +3625,6 @@ struct OpenXrProgram : IOpenXrProgram
 						cubes.push_back(extra_cube);
 
 					}
-#elif DRAW_EXTRA_VIEW_CUBES
-                    const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
-                    const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
-
-					const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
-					const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
-
-					const XrVector3f view_space_cube_scale = { x_scale, y_scale, 0.0f };
-					const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
-
-#if ANIMATE_VIEW_RASTER_CUBES
-                    static int cube_index_to_show = INVALID_INDEX;
-                    cube_index_to_show = (cube_index_to_show + 1) % (EYE_TRACKING_CALIBRATION_NUM_CELLS);
-#endif
-
-                    const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
-
-                    for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
-                    {
-                        for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
-                        {
-#if ANIMATE_VIEW_RASTER_CUBES
-							const int cube_index = (y_index * EYE_TRACKING_CALIBRATION_NUM_CELLS_X) + x_index;
-
-							if(cube_index != cube_index_to_show)
-							{
-								continue;
-							}
-#endif
-                            glm::vec3 cube_offset_local(0.0f, 0.0f, 0.0f);
-
-                            if(x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
-                            {
-                                const int x_delta = EYE_TRACKING_CALIBRATION_CELL_X_CENTER - x_index;
-                                const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-
-                                cube_offset_local.x = x_frac * x_cell_offset;
-                            }
-
-                            if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
-                            {
-                                const int y_delta = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER - y_index;
-                                const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-
-                                cube_offset_local.y = y_frac * y_cell_offset;
-                            }
-
-                            BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
-							const glm::vec3 cube_offset_world = cube_pose_glm.rotation_ * cube_offset_local;
-
-							cube_pose_glm.translation_ += cube_offset_world;
-
-							const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
-
-							Cube extra_cube = view_space_cube_center;
-							extra_cube.Pose = cube_pose_xr;
-							cubes.push_back(extra_cube);
-                        }
-                    }
-#elif DRAW_VIEW_SPACE
-					const XrVector3f view_space_cube_scale = { 0.25f, 0.25f, 0.0f };
-					const Cube view_space_cube_center{ spaceLocation.pose, view_space_cube_scale };
-					cubes.push_back(view_space_cube_center);
 #endif
 				}
 			}
