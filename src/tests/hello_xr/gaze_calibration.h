@@ -99,6 +99,12 @@ namespace BVR
 		{
 			is_calibrating_ = false;
 		}
+
+		float get_x_position_from_index(const int x_index);
+		int get_x_index_from_position(const float x_position);
+
+		float get_y_position_from_index(const int y_index);
+		int get_y_index_from_position(const float y_position);
 		
 		void reset_calibration();
 		bool compute_calibration();
@@ -131,8 +137,8 @@ namespace BVR
 		bool calibration_was_saved_ = false;
 		EyeTrackingCalibrationData calibration_;
 
-		int raster_x_ = EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-		int raster_y_ = EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
+		int raster_x_ = EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
+		int raster_y_ = EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
 		int num_calibrated_ = 0;
     };
 }

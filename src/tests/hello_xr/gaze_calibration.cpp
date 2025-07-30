@@ -215,6 +215,57 @@ bool CalibrationPoint::compute_average_offset()
 	return true;
 }
 
+float GazeCalibration::get_x_position_from_index(const int x_index)
+{
+	if(x_index != EYE_TRACKING_CALIBRATION_CELL_CENTER_X)
+	{
+		const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
+		const int x_delta = x_index - EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
+		const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
+		const float x_position = x_frac * x_cell_offset;
+		return x_position;
+	}
+
+	return 0.0f;
+}
+
+int GazeCalibration::get_x_index_from_position(const float x_position)
+{
+	const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
+	const float x_frac = x_position / x_cell_offset;
+	const int x_delta = int(x_frac * EYE_TRACKING_CALIBRATION_CELL_CENTER_X);
+	int x_index = x_delta + EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
+	x_index = bvr_clamp<int>(x_index, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1);
+
+	return x_index;
+}
+
+
+float GazeCalibration::get_y_position_from_index(const int y_index)
+{
+	if(y_index != EYE_TRACKING_CALIBRATION_CELL_CENTER_Y)
+	{
+		const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
+		const int y_delta = y_index - EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
+		const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
+		const float y_position = y_frac * y_cell_offset;
+		return y_position;
+	}
+
+	return 0.0f;
+}
+
+int GazeCalibration::get_y_index_from_position(const float y_position)
+{
+	const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
+	const float y_frac = y_position / y_cell_offset;
+	const int y_delta = int(y_frac * EYE_TRACKING_CALIBRATION_CELL_CENTER_Y);
+	int y_index = y_delta + EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
+	y_index = bvr_clamp<int>(y_index, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
+
+	return y_index;
+}
+
 
 void GazeCalibration::reset_calibration()
 {
@@ -222,32 +273,18 @@ void GazeCalibration::reset_calibration()
 	is_calibrated_ = false;
 	calibration_ = {};
 	num_calibrated_ = 0;
-	
-	const float x_scale = EYE_TRACKING_CALIBRATION_CELL_SCALE;
-	const float y_scale = EYE_TRACKING_CALIBRATION_CELL_SCALE;
 
-	const glm::vec3 local_scale(x_scale, y_scale, 0.0f);
+	const glm::vec3 local_scale(EYE_TRACKING_CALIBRATION_CELL_SCALE, EYE_TRACKING_CALIBRATION_CELL_SCALE, 0.0f);
 
 	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
 	{
 		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
 		{
 			CalibrationPoint& point = calibration_.points_[x_index][y_index];
+
+			point.local_pose_.translation_.x = get_x_position_from_index(x_index);
+			point.local_pose_.translation_.y = get_y_position_from_index(y_index);
 			point.local_pose_.scale_ = local_scale;
-
-			if (x_index != EYE_TRACKING_CALIBRATION_CELL_X_CENTER)
-			{
-				const int x_delta = x_index - EYE_TRACKING_CALIBRATION_CELL_X_CENTER;
-				const float x_deg = x_delta * EYE_TRACKING_CALIBRATION_CELLS_PER_DEGREE_X;
-				point.local_pose_.translation_.x = tanf(x_deg);
-			}
-
-			if(y_index != EYE_TRACKING_CALIBRATION_CELL_Y_CENTER)
-			{
-				const int y_delta = y_index - EYE_TRACKING_CALIBRATION_CELL_Y_CENTER;
-				const float y_deg = y_delta * EYE_TRACKING_CALIBRATION_CELLS_PER_DEGREE_Y;
-				point.local_pose_.translation_.y = -tanf(y_deg);
-			}
 		}
 	}
 }
@@ -321,15 +358,8 @@ glm::vec3 GazeCalibration::apply_calibration(const glm::vec3& raw_gaze_direction
 		return raw_gaze_direction;
 	}
 
-	const glm::fquat raw_rotation(forward_gaze_dir, glm::normalize(raw_gaze_direction));
-	const glm::vec3& raw_gaze_euler_rad = glm::eulerAngles(raw_rotation);
-	const glm::vec3& raw_gaze_euler_deg = rad2deg(raw_gaze_euler_rad);
-
-	const float x_frac = bvr_clamp<float>(raw_gaze_euler_deg.x / EYE_TRACKING_CALIBRATION_HALF_DEGREES_X, -1.0f, 1.0f);
-	const float y_frac = bvr_clamp<float>(raw_gaze_euler_deg.y / EYE_TRACKING_CALIBRATION_HALF_DEGREES_Y, -1.0f, 1.0f);
-
-	int x_index = bvr_clamp<int>((int)(x_frac * EYE_TRACKING_CALIBRATION_CELL_X_CENTER), 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1);
-	int y_index = bvr_clamp<int>((int)(y_frac * EYE_TRACKING_CALIBRATION_CELL_Y_CENTER), 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
+	int x_index = get_x_index_from_position(raw_gaze_direction.x);
+	int y_index = get_y_index_from_position(raw_gaze_direction.y);
 
 	CalibrationPoint& point = calibration_.points_[x_index][y_index];
 
