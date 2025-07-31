@@ -213,7 +213,7 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 
 			if (point.is_calibrated_)
 			{
-#if !ANIMATE_CALIBRATION_CUBES
+#if (!ANIMATE_CALIBRATION_CUBES && !DRAW_ALL_CALIBRATION_CUBES)
 				increment_raster();
 #endif
 			}

@@ -32,7 +32,7 @@ struct Cube
 {
     XrPosef Pose;
     XrVector3f Scale;
-    XrVector4f Colour = {1.0f, 1.0f, 1.0f, 1.0f};
+    Colour colour_ = white;
     bool enable_blend_ = false;
 
     int eye_relevance_ = BOTH_EYE_RELEVANCE;

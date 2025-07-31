@@ -159,156 +159,156 @@ GLMPose convert_to_glm_pose(const XrPosef &xr_pose);
 
 XrPosef convert_to_xr_pose(const GLMPose &glm_pose);
 
-    typedef uint32_t IndexType;
+typedef uint32_t IndexType;
 
-    typedef glm::vec2 Vector2;
-    typedef glm::vec3 Vector3;
-    typedef glm::vec4 Vector4;
+typedef glm::vec2 Vector2;
+typedef glm::vec3 Vector3;
+typedef glm::vec4 Vector4;
 
-    typedef Vector3 Position;
-    typedef Vector3 Normal;
-    typedef Vector4 Colour;
-    typedef Vector2 TexCoord;
+typedef Vector3 Position;
+typedef Vector3 Normal;
+typedef Vector4 Colour;
+typedef Vector2 TexCoord;
 
-    const Colour white(1.0f, 1.0f, 1.0f, 1.0f);
-    const Colour black(0.0f, 0.0f, 0.0f, 1.0f);
-    const Colour transparent_white(1.0f, 1.0f, 1.0f, 0.0f);
-    const Colour transparent_black(0.0f, 0.0f, 0.0f, 0.0f);
+const Colour white(1.0f, 1.0f, 1.0f, 1.0f);
+const Colour black(0.0f, 0.0f, 0.0f, 1.0f);
+const Colour transparent_white(1.0f, 1.0f, 1.0f, 0.0f);
+const Colour transparent_black(0.0f, 0.0f, 0.0f, 0.0f);
 
-    const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
-    const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
-    const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
+const Colour red(1.0f, 0.0f, 0.0f, 1.0f);
+const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
+const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
 
-    const Colour pluto_purple(0.224f, 0.196f, 0.502f, 1.0f);
+const Colour pluto_purple(0.224f, 0.196f, 0.502f, 1.0f);
 
-    static inline Colour apply_gamma_correction(const Colour& input, const float gamma)
-    {
-        Colour output(powf(input.x, gamma), powf(input.y, gamma), powf(input.z, gamma), input.w);
-        return output;
-    }
+static inline Colour apply_gamma_correction(const Colour& input, const float gamma)
+{
+	Colour output(powf(input.x, gamma), powf(input.y, gamma), powf(input.z, gamma), input.w);
+	return output;
+}
 
-    const Position default_position = zero_vec3;
-    const Normal default_normal = back_direction;
-    const Colour default_colour = white;
-    const TexCoord default_texcoord = zero_vec2;
+const Position default_position = zero_vec3;
+const Normal default_normal = back_direction;
+const Colour default_colour = white;
+const TexCoord default_texcoord = zero_vec2;
 
-    typedef Position Vertex;
+typedef Position Vertex;
 
-    struct HitLocation
-    {
-        float distance_ = FLT_MAX;
-        glm::vec2 barycentric_;
-        glm::vec2 uv_;
-        glm::vec3 position_;
-        glm::vec3 normal_;
-    };
+struct HitLocation
+{
+	float distance_ = FLT_MAX;
+	glm::vec2 barycentric_;
+	glm::vec2 uv_;
+	glm::vec3 position_;
+	glm::vec3 normal_;
+};
 
-    struct IntersectionResult
-    {
-        bool was_hit_ = false;
-        HitLocation hit_;
-    };
+struct IntersectionResult
+{
+	bool was_hit_ = false;
+	HitLocation hit_;
+};
 
-    struct Ray
-    {
-        glm::vec3 origin_;
-        glm::vec3 direction_;
-    };
+struct Ray
+{
+	glm::vec3 origin_;
+	glm::vec3 direction_;
+};
 
-    struct ColouredVertex
-    {
-        Position position_;
-        Colour colour_;
+struct ColouredVertex
+{
+	Position position_;
+	Colour colour_;
 
-        ColouredVertex()
-        {
-            position_ = default_position;
-            colour_ = default_colour;
-        };
+	ColouredVertex()
+	{
+		position_ = default_position;
+		colour_ = default_colour;
+	};
 
-        ColouredVertex(const Position& position)
-        {
-            position_ = position;
-            colour_ = default_colour;
-        };
+	ColouredVertex(const Position& position)
+	{
+		position_ = position;
+		colour_ = default_colour;
+	};
 
-        ColouredVertex(const Position& position, const Colour& colour)
-        {
-            position_ = position;
-            colour_ = colour;
-        };
-    };
+	ColouredVertex(const Position& position, const Colour& colour)
+	{
+		position_ = position;
+		colour_ = colour;
+	};
+};
 
-    struct TexturedVertex
-    {
-        Position position_;
-        TexCoord texcoord_;
+struct TexturedVertex
+{
+	Position position_;
+	TexCoord texcoord_;
 
-        TexturedVertex()
-        {
-            position_ = default_position;
-            texcoord_ = default_texcoord;
-        };
+	TexturedVertex()
+	{
+		position_ = default_position;
+		texcoord_ = default_texcoord;
+	};
 
-        TexturedVertex(const Position& position, const TexCoord& texcoord)
-        {
-            position_ = position;
-            texcoord_ = texcoord;
-        };
-    };
+	TexturedVertex(const Position& position, const TexCoord& texcoord)
+	{
+		position_ = position;
+		texcoord_ = texcoord;
+	};
+};
 
-    struct ColouredTexturedVertex
-    {
-        Position position_;
-        Colour colour_;
-        TexCoord texcoord_;
+struct ColouredTexturedVertex
+{
+	Position position_;
+	Colour colour_;
+	TexCoord texcoord_;
 
-        ColouredTexturedVertex()
-        {
-            position_ = default_position;
-            colour_ = default_colour;
-            texcoord_ = default_texcoord;
-        };
+	ColouredTexturedVertex()
+	{
+		position_ = default_position;
+		colour_ = default_colour;
+		texcoord_ = default_texcoord;
+	};
 
-        ColouredTexturedVertex(const Position& position, const TexCoord& texcoord)
-        {
-            position_ = position;
-            colour_ = default_colour;
-            texcoord_ = texcoord;
-        };
+	ColouredTexturedVertex(const Position& position, const TexCoord& texcoord)
+	{
+		position_ = position;
+		colour_ = default_colour;
+		texcoord_ = texcoord;
+	};
 
-        ColouredTexturedVertex(const Position& position, const Colour& colour, const TexCoord& texcoord)
-        {
-            position_ = position;
-            colour_ = colour;
-            texcoord_ = texcoord;
-        };
-    };
+	ColouredTexturedVertex(const Position& position, const Colour& colour, const TexCoord& texcoord)
+	{
+		position_ = position;
+		colour_ = colour;
+		texcoord_ = texcoord;
+	};
+};
 
-    struct ColouredTexturedNormalVertex
-    {
-        Position position_;
-        Normal normal_;
-        Colour colour_;
-        TexCoord texcoord_;
+struct ColouredTexturedNormalVertex
+{
+	Position position_;
+	Normal normal_;
+	Colour colour_;
+	TexCoord texcoord_;
 
-        ColouredTexturedNormalVertex()
-        {
-            position_ = default_position;
-            normal_ = default_normal;
-            colour_ = default_colour;
-            texcoord_ = default_texcoord;
-        };
+	ColouredTexturedNormalVertex()
+	{
+		position_ = default_position;
+		normal_ = default_normal;
+		colour_ = default_colour;
+		texcoord_ = default_texcoord;
+	};
 
-        ColouredTexturedNormalVertex(const Position& position, const Normal& normal, const Colour& colour,
-                                     const TexCoord& texcoord)
-        {
-            position_ = position;
-            normal_ = normal;
-            colour_ = colour;
-            texcoord_ = texcoord;
-        };
-    };
+	ColouredTexturedNormalVertex(const Position& position, const Normal& normal, const Colour& colour,
+		const TexCoord& texcoord)
+	{
+		position_ = position;
+		normal_ = normal;
+		colour_ = colour;
+		texcoord_ = texcoord;
+	};
+};
 
 const glm::vec2 UV00(0.0f, 0.0f);
 const glm::vec2 UV01(0.0f, 1.0f);

@@ -3596,33 +3596,58 @@ struct OpenXrProgram : IOpenXrProgram
 				if(IsPoseValid(spaceLocation.locationFlags))
 				{
 #if (ENABLE_GAZE_CALIBRATION && 1)
+
+#if (!DRAW_ALL_CALIBRATION_CUBES)
 					if(psvr2_eye_tracker_.is_calibrating())
+#endif
 					{
-#if ANIMATE_CALIBRATION_CUBES
-                        static int frame_index = 0;
-                        if (frame_index++ % ANIMATE_CALIBRATION_CUBES_EVERY_N == 0)
+                        const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
+
+#if DRAW_ALL_CALIBRATION_CUBES
+                        for(int calibration_cube_index = 0; calibration_cube_index < EYE_TRACKING_CALIBRATION_TOTAL_CELLS; calibration_cube_index++)
+#endif
                         {
+							const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
+							const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
+							const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);
+
+							const Cube view_space_cube_center{ spaceLocation.pose, xr_cube_scale, red };
+							BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
+							cube_pose_glm.translation_ += cube_offset_world;
+
+							const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
+
+							Cube calibration_cube = view_space_cube_center;
+                            calibration_cube.Pose = cube_pose_xr;
+
+#if DRAW_ALL_CALIBRATION_CUBES
+                            if (calibration_cube_index % 2 == 0)
+                            {
+                                calibration_cube.colour_ = BVR::white;
+                            }
+                            else
+                            {
+                                calibration_cube.colour_ = BVR::green;
+                            }
+                            
                             psvr2_eye_tracker_.increment_raster();
-                        }
-                        
+
+#if DRAW_ONLY_EVEN_CALIBRATION_CUBES
+                            psvr2_eye_tracker_.increment_raster();
+                            calibration_cube_index++;
 #endif
 
-						const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
-                        const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
+#elif ANIMATE_CALIBRATION_CUBES
+							static int frame_index = 0;
+							if(frame_index++ % ANIMATE_CALIBRATION_CUBES_EVERY_N == 0)
+							{
+								psvr2_eye_tracker_.increment_raster();
+							}
+#endif
 
-                        const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
-                        const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);
-
-						const Cube view_space_cube_center{ spaceLocation.pose, xr_cube_scale };
-						
-                        BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
-						cube_pose_glm.translation_ += cube_offset_world;
-
-						const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
-
-						Cube extra_cube = view_space_cube_center;
-						extra_cube.Pose = cube_pose_xr;
-						cubes.push_back(extra_cube);
+                            cubes.push_back(calibration_cube);
+                        }
+                        
 
 					}
 #endif
@@ -4232,7 +4257,7 @@ struct OpenXrProgram : IOpenXrProgram
                     XrPosef gaze_pose = BVR::convert_to_xr_pose(glm_gaze_pose);
 
 #if DRAW_EYE_LASERS
-					XrVector4f social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
+					Colour social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
 					const XrPosef& eye_pose = m_views[eye].pose;
 
 					const float laser_length = 10.0f;
@@ -4668,14 +4693,14 @@ struct OpenXrProgram : IOpenXrProgram
                     const int calibrating_eye_index = Side::RIGHT; // Only calibrate with the Right hand grip for now
 #endif 
 
-					//if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
+					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
 					{
                         XrPosef local_xr_pose = BVR::convert_to_xr_pose(glm_local_grip_poses_[Side::LEFT]);// calibrating_eye_index]);
 
                         Cube calibration_cube;
                         calibration_cube.Pose = local_xr_pose;
                         calibration_cube.Scale = { CALIBRATION_CUBE_SIZE, CALIBRATION_CUBE_SIZE, CALIBRATION_CUBE_SIZE };
-                        calibration_cube.Colour = { 1.0f, 1.0f, 1.0f, 1.0f };
+                        calibration_cube.colour_ = BVR::white;
 
                         per_eye_cubes.push_back(calibration_cube);
 					}
