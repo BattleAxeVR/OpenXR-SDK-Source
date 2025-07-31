@@ -20,6 +20,14 @@
 #include "glm/gtx/quaternion.hpp"
 #endif
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+#include "stb_image_write.c"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#include "stb_image.c"
+
 BVR::GLMPose glm_local_grip_poses_[2];
 BVR::GLMPose glm_local_eye_poses_[2];
 

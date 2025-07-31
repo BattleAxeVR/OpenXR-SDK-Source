@@ -13,9 +13,8 @@
 #include "common/gfxwrapper_opengl.h"
 #include <common/xr_linear.h>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image.h"
 #include "stb_image_write.h"
-#include "stb_image_write.c"
 
 #define EGL_EGLEXT_PROTOTYPES
 #include "EGL/egl.h"

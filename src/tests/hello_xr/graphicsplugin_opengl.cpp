@@ -15,12 +15,8 @@
 
 #define HARDCODE_VIEW_FOR_CUBES 0
 
-//#define STB_IMAGE_IMPLEMENTATION
-//#include "stb_image.h"
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image.h"
 #include "stb_image_write.h"
-#include "stb_image_write.c"
 
 extern int current_eye;
 extern float IPD;
@@ -505,7 +501,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
 		const glm::mat4 inverse_view_glm = world_eye_pose.to_matrix();
 		const glm::mat4 view_glm = glm::inverse(inverse_view_glm);
 
-        view = BVR::convert_to_xr_pose(view_glm);
+        view = BVR::convert_to_xr(view_glm);
 #endif
 
         XrMatrix4x4f vp;
@@ -518,7 +514,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         for (const Cube& cube : cubes) 
         {
 #if ENABLE_TINT
-            glUniform4fv(tint_location_, 1, &cube.Colour.x);
+            glUniform4fv(tint_location_, 1, &cube.colour_.x);
 
 #if ENABLE_BLENDING
             if (cube.enable_blend_)
