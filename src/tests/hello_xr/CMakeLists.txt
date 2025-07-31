@@ -96,6 +96,7 @@ if(ANDROID)
 
 else()
     add_executable(hello_xr ${LOCAL_SOURCE} ${LOCAL_HEADERS} ${VULKAN_SHADERS})
+    add_sanitizers(hello_xr)
 endif()
 
 if(APPLE)
