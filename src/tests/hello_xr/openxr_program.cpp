@@ -37,7 +37,7 @@ namespace Side {
     const int COUNT = 2;
 }  // namespace Side
 
-constexpr bool IsPoseValid(XrSpaceLocationFlags locationFlags) 
+constexpr bool is_pose_valid(XrSpaceLocationFlags locationFlags) 
 {
 	constexpr XrSpaceLocationFlags PoseValidFlags = XR_SPACE_LOCATION_POSITION_VALID_BIT | XR_SPACE_LOCATION_ORIENTATION_VALID_BIT;
 	return (locationFlags & PoseValidFlags) == PoseValidFlags;
@@ -2707,7 +2707,7 @@ struct OpenXrProgram : IOpenXrProgram
 		XrSpaceLocation gaze_location{ XR_TYPE_SPACE_LOCATION };
 		CHECK_XRCMD(xrLocateSpace(m_input.gazeActionSpace, m_appSpace, predicted_display_time, &gaze_location));
 
-        ext_gaze_pose_valid_ = IsPoseValid(gaze_location.locationFlags);
+        ext_gaze_pose_valid_ = is_pose_valid(gaze_location.locationFlags);
 
 		if(ext_gaze_pose_valid_)
         {
@@ -3580,7 +3580,7 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRRESULT(res, "xrLocateSpace");
             if (XR_UNQUALIFIED_SUCCESS(res)) 
             {
-                if (IsPoseValid(spaceLocation.locationFlags)) 
+                if (is_pose_valid(spaceLocation.locationFlags)) 
                 {
                     cubes.push_back(Cube{spaceLocation.pose, {0.25f, 0.25f, 0.25f}});
                 }
@@ -3601,7 +3601,7 @@ struct OpenXrProgram : IOpenXrProgram
 			CHECK_XRRESULT(res, "xrLocateSpace");
 			if(XR_UNQUALIFIED_SUCCESS(res))
 			{
-				if(IsPoseValid(spaceLocation.locationFlags))
+				if(is_pose_valid(spaceLocation.locationFlags))
 				{
 #if (ENABLE_GAZE_CALIBRATION && 1)
 
@@ -3679,7 +3679,7 @@ struct OpenXrProgram : IOpenXrProgram
             
             if (XR_UNQUALIFIED_SUCCESS(res)) 
             {
-                if (IsPoseValid(gripSpaceLocation.locationFlags)) {
+                if (is_pose_valid(gripSpaceLocation.locationFlags)) {
 
 #if ENABLE_CONTROLLER_MOTION_BLUR
                     const bool motion_blur_enabled = currently_gripping[hand];
@@ -3835,7 +3835,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                 if (XR_UNQUALIFIED_SUCCESS(res)) 
                 {
-                    if (IsPoseValid(aimSpaceLocation.locationFlags)) 
+                    if (is_pose_valid(aimSpaceLocation.locationFlags)) 
                     {
                         float width = AIM_CUBE_WIDTH;
                         float length = AIM_CUBE_LENGTH;
@@ -3925,7 +3925,7 @@ struct OpenXrProgram : IOpenXrProgram
 
 				if(XR_UNQUALIFIED_SUCCESS(res))
 				{
-					if(IsPoseValid(tracker_space_location.locationFlags))
+					if(is_pose_valid(tracker_space_location.locationFlags))
 					{
 #if ADAPT_VIVE_TRACKER_POSES
 						{
@@ -4374,9 +4374,9 @@ struct OpenXrProgram : IOpenXrProgram
                 {
 
 #if ENABLE_OPENXR_META_FULL_BODY_TRACKING
-                    const bool is_joint_valid = supports_meta_full_body_tracking_ ? IsPoseValid(full_body_joints_[joint_id].locationFlags) : IsPoseValid(body_joints_[joint_id].locationFlags);
+                    const bool is_joint_valid = supports_meta_full_body_tracking_ ? is_pose_valid(full_body_joints_[joint_id].locationFlags) : is_pose_valid(body_joints_[joint_id].locationFlags);
 #else
-                    const bool is_joint_valid = IsPoseValid(body_joints_[joint_id].locationFlags);
+                    const bool is_joint_valid = is_pose_valid(body_joints_[joint_id].locationFlags);
 #endif
 					if (is_joint_valid)
                     {
