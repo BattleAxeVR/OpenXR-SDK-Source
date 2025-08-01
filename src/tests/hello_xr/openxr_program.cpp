@@ -3542,48 +3542,58 @@ struct OpenXrProgram : IOpenXrProgram
                         const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
 
 #if DRAW_ALL_CALIBRATION_CUBES
-                        for(int calibration_cube_index = 0; calibration_cube_index < EYE_TRACKING_CALIBRATION_TOTAL_CELLS; calibration_cube_index++)
+                        for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
 #endif
                         {
-							const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
-							const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
-							const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);
-
-							const Cube view_space_cube_center{ spaceLocation.pose, xr_cube_scale, red };
-							BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
-							cube_pose_glm.translation_ += cube_offset_world;
-
-							const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
-
-							Cube calibration_cube = view_space_cube_center;
-                            calibration_cube.Pose = cube_pose_xr;
 
 #if DRAW_ALL_CALIBRATION_CUBES
-                            if (calibration_cube_index % 2 == 0)
+                            // on odd rows, switch the start colour so it's a checkerboard pattern
+							const int checkerboard_parity = (y_index % 2 == 0) ? 1 : 0; 
+
+                            for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
+#endif
                             {
-                                calibration_cube.colour_ = BVR::white;
-                            }
-                            else
-                            {
-                                calibration_cube.colour_ = BVR::green;
-                            }
-                            
-                            psvr2_eye_tracker_.increment_raster();
+
+                                const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
+                                const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
+                                const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);
+
+                                const Cube view_space_cube_center{ spaceLocation.pose, xr_cube_scale, red };
+                                BVR::GLMPose cube_pose_glm = base_cube_pose_glm;
+                                cube_pose_glm.translation_ += cube_offset_world;
+
+                                const XrPosef cube_pose_xr = BVR::convert_to_xr_pose(cube_pose_glm);
+
+                                Cube calibration_cube = view_space_cube_center;
+                                calibration_cube.Pose = cube_pose_xr;
+
+#if DRAW_ALL_CALIBRATION_CUBES
+                                if(x_index % 2 == checkerboard_parity)
+                                {
+                                    calibration_cube.colour_ = BVR::white;
+                                }
+                                else
+                                {
+                                    calibration_cube.colour_ = BVR::green;
+                                }
+
+                                psvr2_eye_tracker_.increment_raster();
 
 #if DRAW_ONLY_EVEN_CALIBRATION_CUBES
-                            psvr2_eye_tracker_.increment_raster();
-                            calibration_cube_index++;
+                                psvr2_eye_tracker_.increment_raster();
+                                x_index++;
 #endif
 
 #elif ANIMATE_CALIBRATION_CUBES
-							static int frame_index = 0;
-							if(frame_index++ % ANIMATE_CALIBRATION_CUBES_EVERY_N == 0)
-							{
-								psvr2_eye_tracker_.increment_raster();
-							}
+                                static int frame_index = 0;
+                                if(frame_index++ % ANIMATE_CALIBRATION_CUBES_EVERY_N == 0)
+                                {
+                                    psvr2_eye_tracker_.increment_raster();
+                                }
 #endif
 
-                            cubes.push_back(calibration_cube);
+                                cubes.push_back(calibration_cube);
+                            }
                         }
                         
 
