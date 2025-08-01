@@ -211,22 +211,14 @@ bool CalibrationPoint::compute_average_offset()
 
 float GazeCalibration::get_x_position_from_index(const int x_index)
 {
-	if(x_index != EYE_TRACKING_CALIBRATION_CELL_CENTER_X)
-	{
-		const int x_delta = x_index - EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
-		const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
-		const float x_position = x_frac * EYE_TRACKING_CALIBRATION_CELL_SIZE_X;
-		return x_position;
-	}
-
-	return 0.0f;
+	const float x_position = (x_index - EYE_TRACKING_CALIBRATION_CELL_CENTER_X) * EYE_TRACKING_CALIBRATION_CELL_SIZE_X;
+	return x_position;
 }
 
 int GazeCalibration::get_x_index_from_position(const float x_position)
 {
 	const float x_frac = x_position / EYE_TRACKING_CALIBRATION_CELL_SIZE_X;
-	const int x_delta = int(x_frac * EYE_TRACKING_CALIBRATION_CELL_CENTER_X);
-	int x_index = x_delta + EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
+	int x_index = int(x_frac + EYE_TRACKING_CALIBRATION_CELL_CENTER_X);
 	x_index = bvr_clamp<int>(x_index, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1);
 
 	return x_index;
@@ -235,23 +227,16 @@ int GazeCalibration::get_x_index_from_position(const float x_position)
 
 float GazeCalibration::get_y_position_from_index(const int y_index)
 {
-	if(y_index != EYE_TRACKING_CALIBRATION_CELL_CENTER_Y)
-	{
-		const int y_delta = EYE_TRACKING_CALIBRATION_CELL_CENTER_Y - y_index;
-		const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
-		const float y_position = y_frac * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
-		return y_position;
-	}
-
-	return 0.0f;
+	const float y_position = (y_index - EYE_TRACKING_CALIBRATION_CELL_CENTER_Y) * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
+	return y_position;
 }
 
 int GazeCalibration::get_y_index_from_position(const float y_position)
 {
 	const float y_frac = y_position / EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
-	const int y_delta = int(y_frac * EYE_TRACKING_CALIBRATION_CELL_CENTER_Y);
-	int y_index = EYE_TRACKING_CALIBRATION_CELL_CENTER_Y - y_delta;
+	int y_index = int(y_frac + EYE_TRACKING_CALIBRATION_CELL_CENTER_Y);
 	y_index = bvr_clamp<int>(y_index, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
+
 
 	return y_index;
 }
