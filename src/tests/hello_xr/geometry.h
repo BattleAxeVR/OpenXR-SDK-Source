@@ -31,9 +31,8 @@ constexpr XrVector3f RBF{0.5f, -0.5f, 0.5f};
 constexpr XrVector3f RTB{0.5f, 0.5f, -0.5f};
 constexpr XrVector3f RTF{0.5f, 0.5f, 0.5f};
 
-
 #define USE_GRADIENT_CUBES 0
-#define USE_WHITE_CUBES 0
+#define USE_WHITE_CUBES (ENABLE_GAZE_CALIBRATION && 1)
 
 #define CUBE_SIDE(V1, V2, V3, V4, V5, V6, COLOR) {V1, COLOR}, {V2, COLOR}, {V3, COLOR}, {V4, COLOR}, {V5, COLOR}, {V6, COLOR},
 #define CUBE_SIDE_GADRIENT(V1, V2, V3, V4, V5, V6, C1, C2, C3, C4) {V1, C1}, {V2, C2}, {V3, C3}, {V4, C1}, {V5, C3}, {V6, C4},
