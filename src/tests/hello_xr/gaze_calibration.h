@@ -55,12 +55,9 @@ namespace BVR
 		glm::vec3 average_delta_ = { 0.0f, 0.0f, 0.0f };
 		float average_error_ = EYE_TRACKING_CALIBRATION_TOLERANCE_MAX_ERROR;
 
-#if !EYE_TRACKING_CALIBRATION_IN_CARTESIAN_COORDS
-		glm::fquat calibrated_rotation_correction_ = default_rotation;
-#endif
 		bool is_calibrated_ = false;
 
-		bool add_sample(const glm::vec3& input);// , const glm::vec3& output);
+		bool add_sample(const glm::vec3& input);
 		bool compute_average_offset();
 	};
 

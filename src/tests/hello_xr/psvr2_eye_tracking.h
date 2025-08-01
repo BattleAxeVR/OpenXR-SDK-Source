@@ -79,7 +79,7 @@ namespace BVR
 
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
         bool is_combined_gaze_available() const;
-        bool get_combined_gaze(glm::vec3& combined_gaze_direction, glm::vec3* ref_gaze_direction_ptr);
+        bool get_combined_gaze(glm::vec3& combined_gaze_direction, const bool should_apply_gaze);
 
 #if ENABLE_GAZE_CALIBRATION
 		bool is_combined_calibrated() const 
@@ -107,7 +107,7 @@ namespace BVR
         
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
         bool is_gaze_available(const int eye) const;
-        bool get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_direction, glm::vec3* ref_gaze_direction_ptr);
+        bool get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_direction, const bool should_apply_gaze);
 
 #if ENABLE_GAZE_CALIBRATION
 		bool is_eye_calibrated(const int eye) const
@@ -177,9 +177,7 @@ namespace BVR
 		GLMPose get_calibration_cube() const;
 #endif
 
-#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
 		int increment_countdown_ = 0;
-#endif
 
     private:
         bool is_connected_ = false;

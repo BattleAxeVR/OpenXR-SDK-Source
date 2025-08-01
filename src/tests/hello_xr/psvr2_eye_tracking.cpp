@@ -173,12 +173,8 @@ bool PSVR2EyeTracker::is_gaze_available(const int eye) const
 #endif
 
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-bool PSVR2EyeTracker::get_combined_gaze(glm::vec3& combined_gaze_direction, glm::vec3* ref_gaze_direction_ptr)
+bool PSVR2EyeTracker::get_combined_gaze(glm::vec3& combined_gaze_direction, should_apply_gaze)
 {
-#if !ENABLE_GAZE_CALIBRATION
-	(void)ref_gaze_direction_ptr;
-#endif
-
     if (combined_gaze_.is_valid_)
     {
 #if ENABLE_GAZE_CALIBRATION
@@ -198,13 +194,9 @@ bool PSVR2EyeTracker::get_combined_gaze(glm::vec3& combined_gaze_direction, glm:
 #endif // ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
 
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_direction, glm::vec3* ref_gaze_direction_ptr)
+bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_direction, const bool should_apply_gaze)
 {
-#if !ENABLE_GAZE_CALIBRATION
-	(void)ref_gaze_direction_ptr;
-#endif
-
-#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
+#if AUTO_CALIBRATE
 	if(calibrations_[eye].is_calibrating() && (increment_countdown_ > 0))
 	{
 		increment_countdown_--;
@@ -229,9 +221,9 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 				increment_raster();
 #endif
 			}
-			else if (ref_gaze_direction_ptr)
+			else if (should_apply_gaze)
 			{
-				const bool sample_ok = point.add_sample(per_eye_gazes_[eye].local_gaze_direction_);// , * ref_gaze_direction_ptr);
+				const bool sample_ok = point.add_sample(per_eye_gazes_[eye].local_gaze_direction_);
 
 				if (sample_ok)
 				{
@@ -240,9 +232,7 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 						calibrations_[eye].num_calibrated_++;
 					}
 
-#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
-					increment_countdown_ = AUTO_INCREMENT_ON_PULL_TRIGGER_PULL_COUNTDOWN;
-#endif
+					increment_countdown_ = AUTO_INCREMENT_COUNTDOWN;
 				}
 			}
 		}

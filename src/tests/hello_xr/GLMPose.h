@@ -5,6 +5,8 @@
 #include "xr_linear.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
+#define GLM_FORCE_SILENT_WARNINGS
+
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/transform.hpp>
