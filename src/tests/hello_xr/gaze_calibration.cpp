@@ -254,7 +254,7 @@ void GazeCalibration::reset_calibration()
 		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
 		{
 			CalibrationPoint& point = calibration_.points_[y_index][x_index];
-			point.samples_.reserve(EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL);
+			point.samples_.resize(EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL);
 
 			point.local_pose_.translation_.x = get_x_position_from_index(x_index);
 			point.local_pose_.translation_.y = get_y_position_from_index(y_index);
