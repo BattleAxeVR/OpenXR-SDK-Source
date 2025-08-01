@@ -268,7 +268,13 @@ void GazeCalibration::reset_calibration()
 	calibration_ = {};
 	num_calibrated_ = 0;
 
-	const glm::vec3 local_scale(EYE_TRACKING_CALIBRATION_CELL_SCALE, EYE_TRACKING_CALIBRATION_CELL_SCALE, 0.0f);
+	const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
+	const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
+
+	const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
+	const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
+
+	const glm::vec3 local_scale(x_scale, y_scale, 0.0f);
 
 	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
 	{
