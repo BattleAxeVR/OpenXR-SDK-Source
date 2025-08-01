@@ -80,12 +80,18 @@ bool GazeCalibration::load_calibration()
 			const int clamped_red   = bvr_clamp<int>((int)red_val, -127, 127);
 			const int clamped_green = bvr_clamp<int>((int)green_val, -127, 127);
 
+			CalibrationPoint& point = calibration_.points_[y_index][x_index];
+
+#if EYE_TRACKING_CALIBRATION_IN_CARTESIAN_COORDS
+			const float x_delta = (127 - clamped_red) * EYE_TRACKING_CALIBRATION_TOLERANCE_DIST / 127.0f;
+			const float y_delta = (127 - clamped_green) * EYE_TRACKING_CALIBRATION_TOLERANCE_DIST / 127.0f;
+			point.average_delta_ = glm::vec3(x_delta, y_delta, 0.0f);
+#else
 			const float euler_x_deg = (127 - clamped_red) * EYE_TRACKING_CALIBRATION_TOLERANCE_DEG / 127.0f;
 			const float euler_y_deg = (127 - clamped_green) * EYE_TRACKING_CALIBRATION_TOLERANCE_DEG / 127.0f;
-
-			CalibrationPoint& point = calibration_.points_[y_index][x_index];
 			point.average_euler_deg_ = glm::vec3(euler_x_deg, euler_y_deg, 0.0f);
 			point.calibrated_rotation_correction_ = glm::normalize(glm::fquat(deg2rad(point.average_euler_deg_)));
+#endif
 		}
 	}
 
@@ -127,9 +133,21 @@ bool GazeCalibration::save_calibration()
 			stbi_uc& green_val = write_buf[byte_offset + 1];
 			stbi_uc& blue_val = write_buf[byte_offset + 2];
 
-#if 0
 			const CalibrationPoint& point = calibration_.points_[y_index][x_index];
 
+#if EYE_TRACKING_CALIBRATION_IN_CARTESIAN_COORDS
+			const float normalized_red = point.average_delta_.x / EYE_TRACKING_CALIBRATION_TOLERANCE_DIST;
+			const float normalized_green = point.average_delta_.y / EYE_TRACKING_CALIBRATION_TOLERANCE_DIST;
+			const float normalized_blue = point.average_error_ / EYE_TRACKING_CALIBRATION_TOLERANCE_MAX_ERROR;
+
+			const int red_int = bvr_clamp<int>(int(normalized_red * 127.0f), -127, 127) + 127;
+			const int green_int = bvr_clamp<int>(int(normalized_green * 127.0f), -127, 127) + 127;
+			const int blue_int = bvr_clamp<int>(int(normalized_blue * 127.0f), -127, 127) + 127;
+
+			red_val = (stbi_uc)red_int;
+			green_val = (stbi_uc)green_int;
+			blue_val = (stbi_uc)blue_int;
+#elif 0
 			const float normalized_red = point.average_euler_deg_.x / EYE_TRACKING_CALIBRATION_TOLERANCE_DEG;
 			const float normalized_green = point.average_euler_deg_.y / EYE_TRACKING_CALIBRATION_TOLERANCE_DEG;
 
@@ -158,24 +176,37 @@ bool GazeCalibration::save_calibration()
 	return calibration_was_saved_;
 }
 
-bool CalibrationPoint::add_sample(const glm::vec3& input, const glm::vec3& output)
+bool CalibrationPoint::add_sample(const glm::vec3& input)//, const glm::vec3& output)
 {
 	if(is_calibrated_)
 	{
 		return false;
 	}
 
+	glm::vec3 output = local_pose_.translation_;
+	output.z = -DISTANCE_TO_VIEW_FRONT_METERS;
+	output = glm::normalize(output);
+
+#if 1
+	const glm::vec3 delta = (output - input);
+	const glm::vec2 delta_xy = glm::vec2(delta.x, delta.y);
+	const float error = glm::length(delta_xy);
+
+	if (error < EYE_TRACKING_CALIBRATION_TOLERANCE_DIST)
+#else
 	const glm::fquat rotation = glm::rotation(glm::normalize(input), glm::normalize(output));
 	const glm::vec3 euler_rad = glm::eulerAngles(rotation);
-	const glm::vec3 euler_deg = rad2deg(euler_rad);
-	const float euler_mag = glm::length(euler_deg);
+	const glm::vec3 delta = rad2deg(euler_rad);
+	const float error = glm::length(euler_deg);
 
-	if (euler_mag < EYE_TRACKING_CALIBRATION_TOLERANCE_DEG)
+	if (error < EYE_TRACKING_CALIBRATION_TOLERANCE_DEG)
+#endif
 	{
 		CalibrationMapping& sample = samples_[num_samples_++];
 		sample.input_ = input;
 		sample.output_ = output;
-		sample.euler_deg_ = euler_deg;
+		sample.delta_ = delta;
+		sample.error_ = error;
 
 		if(num_samples_ == EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL)
 		{
@@ -195,15 +226,21 @@ bool CalibrationPoint::compute_average_offset()
 		return false;
 	}
 
-	average_euler_deg_ = zero_vec3;
+	average_delta_ = zero_vec3;
+	average_error_ = 0;
 
 	for(const CalibrationMapping& sample : samples_)
 	{
-		average_euler_deg_ += sample.euler_deg_;
+		average_delta_ += sample.delta_;
+		average_error_ += sample.error_;
 	}
 
-	average_euler_deg_ /= (float)EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL;
-	calibrated_rotation_correction_ = glm::normalize(glm::fquat(deg2rad(average_euler_deg_)));
+	average_delta_ /= (float)EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL;
+	average_error_ /= (float)EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL;
+	
+#if !EYE_TRACKING_CALIBRATION_IN_CARTESIAN_COORDS
+	calibrated_rotation_correction_ = glm::normalize(glm::fquat(deg2rad(average_delta_)));
+#endif
 
 	is_calibrated_ = true;
 	return true;
@@ -331,6 +368,23 @@ void GazeCalibration::increment_raster()
 	{
 		raster_x_++;
 	}
+
+#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
+	if ((raster_x_ == 0) && (raster_y_ == 0) && (num_calibrated_ == EYE_TRACKING_CALIBRATION_NUM_CELLS))
+	{
+		// We're done!
+		compute_calibration();
+		stop_calibration();
+
+#if AUTO_SAVE_CALIBRATION_WHEN_DONE
+		save_calibration();
+#endif
+
+#if AUTO_QUIT_APP_WHEN_DONE
+		exit(0);
+#endif
+	}
+#endif
 }
 
 CalibrationPoint& GazeCalibration::get_raster_point()
@@ -363,8 +417,13 @@ glm::vec3 GazeCalibration::apply_calibration(const glm::vec3& raw_gaze_direction
 
 	if (point.is_calibrated_)
 	{
+#if EYE_TRACKING_CALIBRATION_IN_CARTESIAN_COORDS
+		const glm::vec3 calibrated_gaze_direction = glm::normalize(point.average_delta_ + raw_gaze_direction);
+		return calibrated_gaze_direction;
+#else
 		const glm::vec3 calibrated_gaze_direction = glm::normalize(point.calibrated_rotation_correction_ * raw_gaze_direction);
 		return calibrated_gaze_direction;
+#endif
 	}
 
 	return raw_gaze_direction;

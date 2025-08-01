@@ -168,9 +168,17 @@ namespace BVR
 		bool save_calibrations();
 
 		bool is_calibrating() const;
+		bool is_fully_calibrated() const;
+
+		void start_calibrating();
+		void stop_calibrating();
 
 		void increment_raster();
 		GLMPose get_calibration_cube() const;
+#endif
+
+#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
+		int increment_countdown_ = 0;
 #endif
 
     private:

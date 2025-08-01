@@ -354,10 +354,12 @@ bool is_snap_turn_enabled()
 }
 #endif
 
-bool currently_gripping[Side::COUNT] = {false, false};
-float current_grip_value[Side::COUNT] = {0.0f, 0.0f};
+bool currently_gripping[Side::COUNT] = { false, false };
+bool previously_gripping[Side::COUNT] = { false, false };
+float current_grip_value[Side::COUNT] = { 0.0f, 0.0f };
 
 bool currently_squeezing_trigger[Side::COUNT] = { false, false };
+bool previously_squeezing_trigger[Side::COUNT] = { false, false };
 float current_trigger_value[Side::COUNT] = { 0.0f, 0.0f };
 
 #if USE_WAIST_ORIENTATION_FOR_STICK_DIRECTION
@@ -3144,6 +3146,9 @@ struct OpenXrProgram : IOpenXrProgram
         // Get pose and grab action state and start haptic vibrate when hand is 90% squeezed.
         for (auto hand : {Side::LEFT, Side::RIGHT}) 
         {
+			previously_gripping[hand] = currently_gripping[hand];
+            previously_squeezing_trigger[hand] = currently_squeezing_trigger[hand];
+
             XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
             getInfo.action = m_input.grabAction;
             getInfo.subactionPath = m_input.handSubactionPath[hand];
@@ -3333,6 +3338,15 @@ struct OpenXrProgram : IOpenXrProgram
         }
 
 #if ENABLE_GAZE_CALIBRATION
+
+#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
+
+        if (!psvr2_eye_tracker_.is_fully_calibrated() && !psvr2_eye_tracker_.is_calibrating())
+        {
+            psvr2_eye_tracker_.start_calibrating();
+        }
+
+#else
         const bool gripping_either_hand = currently_gripping[Side::LEFT] || currently_gripping[Side::RIGHT];
 
         if (gripping_either_hand)
@@ -3352,6 +3366,7 @@ struct OpenXrProgram : IOpenXrProgram
             psvr2_eye_tracker_.set_combined_calibration_enabled(false);
 #endif
         }
+#endif
 #endif
 
         // There were no subaction paths specified for the quit action, because we don't care which hand did it.
@@ -3592,6 +3607,12 @@ struct OpenXrProgram : IOpenXrProgram
                                 }
 #endif
 
+#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
+                                if (psvr2_eye_tracker_.increment_countdown_ > 0)
+                                {
+                                    calibration_cube.colour_ = white;
+                                }
+#endif
                                 cubes.push_back(calibration_cube);
                             }
                         }
@@ -4184,7 +4205,14 @@ struct OpenXrProgram : IOpenXrProgram
 				const glm::vec3 eye_position_glm = BVR::convert_to_glm(hand_eye_pose.position);
 
                 glm::vec3 eye_to_hand_local_dir = glm::normalize(glm_local_grip_poses_[hand].translation_ - eye_position_glm);
-                glm::vec3* ref_eye_gaze_vector_ptr = calibrating_now ? &eye_to_hand_local_dir : nullptr;
+
+                bool should_apply_gaze = true;
+
+#if SAMPLE_GAZE_ON_PULL_TRIGGER_PULL
+                should_apply_gaze = (currently_squeezing_trigger[hand] && !previously_squeezing_trigger[hand]);
+
+#endif
+                glm::vec3* ref_eye_gaze_vector_ptr = should_apply_gaze && calibrating_now ? &eye_to_hand_local_dir : nullptr;
 #else
                 glm::vec3* ref_eye_gaze_vector_ptr = nullptr;
 #endif

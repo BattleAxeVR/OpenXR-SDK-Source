@@ -43,7 +43,8 @@ namespace BVR
 	{
 		glm::vec3 input_ = { 0.0f, 0.0f, 0.0f };
 		glm::vec3 output_ = { 0.0f, 0.0f, 0.0f };
-		glm::vec3 euler_deg_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 delta_ = { 0.0f, 0.0f, 0.0f };
+		float error_ = EYE_TRACKING_CALIBRATION_TOLERANCE_MAX_ERROR;
 	};
 
 	struct CalibrationPoint
@@ -51,11 +52,15 @@ namespace BVR
 		GLMPose local_pose_;
 		std::vector<CalibrationMapping> samples_;
 		int num_samples_ = 0;
-		glm::vec3 average_euler_deg_ = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 average_delta_ = { 0.0f, 0.0f, 0.0f };
+		float average_error_ = EYE_TRACKING_CALIBRATION_TOLERANCE_MAX_ERROR;
+
+#if !EYE_TRACKING_CALIBRATION_IN_CARTESIAN_COORDS
 		glm::fquat calibrated_rotation_correction_ = default_rotation;
+#endif
 		bool is_calibrated_ = false;
 
-		bool add_sample(const glm::vec3& input, const glm::vec3& output);
+		bool add_sample(const glm::vec3& input);// , const glm::vec3& output);
 		bool compute_average_offset();
 	};
 
@@ -116,6 +121,8 @@ namespace BVR
 
 		GLMPose	get_calibration_cube() const;
 
+		int num_calibrated_ = 0;
+
     private:
         
 		bool is_calibrating_ = false;
@@ -125,7 +132,6 @@ namespace BVR
 
 		int raster_x_ = 0;// EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
 		int raster_y_ = 0;;// EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
-		int num_calibrated_ = 0;
     };
 }
 

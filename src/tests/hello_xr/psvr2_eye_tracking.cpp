@@ -204,6 +204,18 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 	(void)ref_gaze_direction_ptr;
 #endif
 
+#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
+	if(calibrations_[eye].is_calibrating() && (increment_countdown_ > 0))
+	{
+		increment_countdown_--;
+
+		if(increment_countdown_ == 0)
+		{
+			increment_raster();
+		}
+	}
+#endif
+
 	if(per_eye_gazes_[eye].is_valid_)
 	{
 #if ENABLE_GAZE_CALIBRATION
@@ -219,7 +231,19 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 			}
 			else if (ref_gaze_direction_ptr)
 			{
-				point.add_sample(per_eye_gazes_[eye].local_gaze_direction_, *ref_gaze_direction_ptr);
+				const bool sample_ok = point.add_sample(per_eye_gazes_[eye].local_gaze_direction_);// , * ref_gaze_direction_ptr);
+
+				if (sample_ok)
+				{
+					if(point.is_calibrated_)
+					{
+						calibrations_[eye].num_calibrated_++;
+					}
+
+#if AUTO_INCREMENT_ON_PULL_TRIGGER_PULL
+					increment_countdown_ = AUTO_INCREMENT_ON_PULL_TRIGGER_PULL_COUNTDOWN;
+#endif
+				}
 			}
 		}
 
@@ -297,23 +321,70 @@ bool PSVR2EyeTracker::save_calibrations()
 bool PSVR2EyeTracker::is_calibrating() const
 {
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-	if (calibrating_eye_index_ != INVALID_INDEX)
+	if (is_eye_calibrating(LEFT) || is_eye_calibrating(RIGHT))
 	{
-		if(calibrations_[calibrating_eye_index_].is_calibrating())
-		{
-			return true;
-		}
+		return true;
 	}
 #endif
 
 #if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-	if(calibrations_[COMBINED_CALIBRATION_INDEX].is_calibrating())
+	if(is_combined_calibrating())
 	{
 		return true;
 	}
 #endif
 
 	return false;
+}
+
+bool PSVR2EyeTracker::is_fully_calibrated() const
+{
+	bool calibrated = true;
+
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+	calibrated &= is_eye_calibrated(LEFT);
+	calibrated &= is_eye_calibrated(RIGHT);
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+	calibrated &= is_combined_calibrated();
+#endif
+
+	return calibrated;
+}
+
+void PSVR2EyeTracker::start_calibrating()
+{
+	if (is_fully_calibrated() || is_calibrating())
+	{
+		return;
+	}
+
+#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
+	if (!is_eye_calibrated(LEFT))
+	{
+		start_eye_calibration(LEFT);
+		return;
+	}
+	else if(is_eye_calibrated(LEFT) && !is_eye_calibrated(RIGHT))
+	{
+		start_eye_calibration(RIGHT);
+		return;
+	}
+#endif
+
+#if ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
+	if(!is_combined_calibrated())
+	{
+		start_combined_calibration();
+		return;
+	}
+#endif
+}
+
+void PSVR2EyeTracker::stop_calibrating()
+{
+
 }
 
 void PSVR2EyeTracker::increment_raster()
