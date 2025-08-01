@@ -211,13 +211,13 @@ bool CalibrationPoint::compute_average_offset()
 
 float GazeCalibration::get_x_position_from_index(const int x_index)
 {
-	const float x_position = (x_index * EYE_TRACKING_CALIBRATION_CELL_SIZE_X) - EYE_TRACKING_CALIBRATION_HALF_CELL_RANGE_X;
+	const float x_position = (x_index * EYE_TRACKING_CALIBRATION_CELL_SIZE_X) - EYE_TRACKING_CALIBRATION_CENTER_X;
 	return x_position;
 }
 
 int GazeCalibration::get_x_index_from_position(const float x_position)
 {
-	const float x_norm = (x_position + EYE_TRACKING_CALIBRATION_HALF_CELL_RANGE_X) / EYE_TRACKING_CALIBRATION_CELL_SIZE_X;
+	const float x_norm = (x_position + EYE_TRACKING_CALIBRATION_CENTER_X) / EYE_TRACKING_CALIBRATION_CELL_SIZE_X;
 	const int x_index = bvr_clamp<int>((int)x_norm, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1);
 	return x_index;
 }
@@ -225,13 +225,13 @@ int GazeCalibration::get_x_index_from_position(const float x_position)
 
 float GazeCalibration::get_y_position_from_index(const int y_index)
 {
-	const float y_position = (y_index * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y) - EYE_TRACKING_CALIBRATION_HALF_CELL_RANGE_Y;
+	const float y_position = (y_index * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y) - EYE_TRACKING_CALIBRATION_CENTER_Y;
 	return y_position;
 }
 
 int GazeCalibration::get_y_index_from_position(const float y_position)
 {
-	const float y_norm = (y_position + EYE_TRACKING_CALIBRATION_HALF_CELL_RANGE_Y) / EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
+	const float y_norm = (y_position + EYE_TRACKING_CALIBRATION_CENTER_Y) / EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
 	const int y_index = bvr_clamp<int>((int)y_norm, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
 	return y_index;
 }
