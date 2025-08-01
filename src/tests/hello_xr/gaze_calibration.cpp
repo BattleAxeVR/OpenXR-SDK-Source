@@ -209,6 +209,30 @@ bool CalibrationPoint::compute_average_offset()
 	return true;
 }
 
+void GazeCalibration::start_calibration()
+{
+	if(!is_calibrated())
+	{
+		is_calibrating_ = true;
+	}
+	else
+	{
+		is_calibrating_ = false;
+	}
+}
+
+void GazeCalibration::stop_calibration()
+{
+	if (is_calibrating_)
+	{
+		is_calibrating_ = false;
+
+#if AUTO_INCREMENT_ON_STOP_CALIBRATION
+		increment_raster();
+#endif
+	}
+}
+
 float GazeCalibration::get_x_position_from_index(const int x_index)
 {
 	const float x_position = (x_index * EYE_TRACKING_CALIBRATION_CELL_SIZE_X) - EYE_TRACKING_CALIBRATION_CENTER_X;

@@ -161,15 +161,8 @@ namespace BVR
 #endif // ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 
 #if ENABLE_GAZE_CALIBRATION
-		void set_apply_calibration(const bool enabled)
-		{
-            apply_calibration_ = enabled;
-		}
-
-		void toggle_apply_calibration()
-		{
-			apply_calibration_ = !apply_calibration_;
-		}
+		void set_apply_calibration(const bool enabled);
+		void toggle_apply_calibration();
 		void reset_calibrations();
 		bool load_calibrations();
 		bool save_calibrations();

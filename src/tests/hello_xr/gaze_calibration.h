@@ -83,22 +83,8 @@ namespace BVR
 			return is_calibrated_;
 		}
 		
-		void start_calibration()
-		{
-			if(!is_calibrated())
-			{
-				is_calibrating_ = true;
-			}
-			else
-			{
-				is_calibrating_ = false;
-			}
-		}
-		
-		void stop_calibration()
-		{
-			is_calibrating_ = false;
-		}
+		void start_calibration();
+		void stop_calibration();
 
 		float get_x_position_from_index(const int x_index);
 		int get_x_index_from_position(const float x_position);

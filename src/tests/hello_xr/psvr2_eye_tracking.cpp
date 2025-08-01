@@ -213,7 +213,7 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 
 			if (point.is_calibrated_)
 			{
-#if (!ANIMATE_CALIBRATION_CUBES && !DRAW_ALL_CALIBRATION_CUBES)
+#if AUTO_INCREMENT_ON_CALIBRATION_DONE
 				increment_raster();
 #endif
 			}
@@ -239,6 +239,16 @@ bool PSVR2EyeTracker::get_per_eye_gaze(const int eye, glm::vec3& per_eye_gaze_di
 #endif // ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
 
 #if ENABLE_GAZE_CALIBRATION
+void PSVR2EyeTracker::set_apply_calibration(const bool enabled)
+{
+	apply_calibration_ = enabled;
+}
+
+void PSVR2EyeTracker::toggle_apply_calibration()
+{
+	apply_calibration_ = !apply_calibration_;
+}
+
 void PSVR2EyeTracker::reset_calibrations()
 {
 #if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
