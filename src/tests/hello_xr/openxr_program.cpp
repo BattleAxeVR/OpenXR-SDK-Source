@@ -629,8 +629,8 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::strin
     if (EqualsIgnoreCase(referenceSpaceTypeStr, "View")) {
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "ViewFront")) {
-        // Render head-locked 2m in front of device.
-        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({0.f, 0.f, -2.f}),
+        // Render head-locked X meter in front of device.
+        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({0.f, 0.f, -DISTANCE_TO_VIEW_FRONT_METERS}),
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "Local")) {
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
