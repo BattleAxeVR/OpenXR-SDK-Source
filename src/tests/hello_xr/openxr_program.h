@@ -60,11 +60,6 @@ struct IOpenXrProgram
     virtual void SetSharpeningEnabled(const bool enabled) = 0;
 #endif
 
-#if ENABLE_OPENXR_FB_LOCAL_DIMMING
-	virtual bool IsLocalDimmingEnabled() const = 0;
-	virtual void SetLocalDimmingEnabled(const bool enabled) = 0;
-#endif
-
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
     virtual bool GetGazePoseSocial(const int eye, XrPosef& gaze_pose) = 0;
     virtual void SetSocialEyeTrackerEnabled(const bool enabled) = 0;

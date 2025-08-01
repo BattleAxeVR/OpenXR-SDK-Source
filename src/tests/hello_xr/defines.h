@@ -26,6 +26,8 @@ namespace BVR
 
 #define THUMBSTICK_TURNING_SPEED_POWER 2.0f
 #define GRIP_THRESHOLD 0.1f
+
+#define ENABLE_HAPTICS 0
 #define VIBRATION_GRIP_THRESHOLD 0.9f
 
 #if ENABLE_ADVANCED_FEATURES
@@ -56,9 +58,6 @@ namespace BVR
 #define ENABLE_OPENXR_FB_SHARPENING (PLATFORM_ANDROID && 1) // Only works on standalone Android builds, not PC / Link
 #define TOGGLE_SHARPENING_AT_RUNTIME_USING_RIGHT_GRIP (ENABLE_OPENXR_FB_SHARPENING && 0) // for debugging / comparison
 #define ENABLE_OPENXR_FB_COMPOSITION_LAYER_SETTINGS ENABLE_OPENXR_FB_SHARPENING
-
-// This is pointless, as Quest Pro supports LD as a platform-wide system setting. Just use that.
-#define ENABLE_OPENXR_FB_LOCAL_DIMMING (PLATFORM_ANDROID && 0)
 
 // Eye tracking only enabled on PC for now (needs permissions on Android, requires java calls. TODO)
 #define ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL (PLATFORM_PC && 0)  // An OpenXR API layer plugin will be written to expose PSVR 2 independent gazes through this API.
@@ -232,7 +231,6 @@ namespace BVR
 #define ADD_GROUND 0
 
 #define SUPPORT_SCREENSHOTS 0
-#define ENABLE_LOCAL_DIMMING_WITH_RIGHT_GRAB (ENABLE_OPENXR_FB_LOCAL_DIMMING && 0)
 #define LOG_IPD 0
 #define LOG_FOV 0
 #define LOG_MATRICES 0

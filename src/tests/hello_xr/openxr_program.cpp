@@ -203,11 +203,6 @@ bool supports_render_model_ = false;
 bool supports_composition_layer_ = false;
 #endif
 
-#if ENABLE_OPENXR_FB_LOCAL_DIMMING
-bool supports_local_dimming_ = false;
-XrLocalDimmingFrameEndInfoMETA local_dimming_settings_ = { (XrStructureType)1000216000, nullptr, XR_LOCAL_DIMMING_MODE_ON_META };
-#endif
-
 #if ENABLE_OPENXR_HAND_TRACKING
 bool supports_hand_tracking_ = false;
 #endif
@@ -798,14 +793,6 @@ struct OpenXrProgram : IOpenXrProgram
 				}
 #endif
 
-#if ENABLE_OPENXR_FB_LOCAL_DIMMING
-				if (!strcmp(extension.extensionName, XR_META_LOCAL_DIMMING_EXTENSION_NAME))
-				{
-                    Log::Write(Log::Level::Info, "FB OPENXR XR_META_local_dimming - DETECTED");
-					supports_local_dimming_ = true;
-				}
-#endif
-
 #if ENABLE_OPENXR_HAND_TRACKING
 				if (!strcmp(extension.extensionName, XR_EXT_HAND_TRACKING_EXTENSION_NAME))
 				{
@@ -963,15 +950,6 @@ struct OpenXrProgram : IOpenXrProgram
             SetSharpeningEnabled(true);
 #endif
 
-        }
-#endif
-
-#if ENABLE_OPENXR_FB_LOCAL_DIMMING
-        if (supports_local_dimming_)
-        {
-            extensions.push_back(XR_META_LOCAL_DIMMING_EXTENSION_NAME);
-
-            SetLocalDimmingEnabled(true);
         }
 #endif
 
@@ -2482,33 +2460,6 @@ struct OpenXrProgram : IOpenXrProgram
 	XrCompositionLayerSettingsFB composition_layer_settings_ = { XR_TYPE_COMPOSITION_LAYER_SETTINGS_FB, nullptr, 0 };
 #endif
 
-
-#if ENABLE_OPENXR_FB_LOCAL_DIMMING
-	bool is_local_dimming_enabled_ = false;
-	XrLocalDimmingFrameEndInfoMETA local_dimming_settings_ = { XR_TYPE_FRAME_END_INFO, nullptr, XR_LOCAL_DIMMING_MODE_ON_META };
-
-	bool IsLocalDimmingEnabled() const override
-	{
-		return (supports_local_dimming_ && is_local_dimming_enabled_);
-	}
-
-	void SetLocalDimmingEnabled(const bool enabled) override
-	{
-		if (!supports_local_dimming_)
-		{
-            is_local_dimming_enabled_ = false;
-			return;
-		}
-        
-        if (enabled != is_local_dimming_enabled_)
-        {
-            Log::Write(Log::Level::Info, Fmt("OPENXR LOCAL DIMMING = %s", enabled ? "ON" : "OFF"));
-            local_dimming_settings_.localDimmingMode = enabled ? XR_LOCAL_DIMMING_MODE_ON_META : XR_LOCAL_DIMMING_MODE_OFF_META;
-            is_local_dimming_enabled_ = enabled;
-        }
-	}
-#endif
-
 #if ENABLE_OPENXR_HAND_TRACKING
 #endif
 
@@ -3206,7 +3157,7 @@ struct OpenXrProgram : IOpenXrProgram
                 m_input.handScale[hand] = 1.0f - 0.5f * grabValue.currentState;
                 
                 const float grip_val = grabValue.currentState;
-                bool should_vibrate = (grip_val >= VIBRATION_GRIP_THRESHOLD);
+                const bool should_vibrate = (ENABLE_HAPTICS && (grip_val >= VIBRATION_GRIP_THRESHOLD));
 
                 currently_gripping[hand] = (grip_val >= GRIP_THRESHOLD);
                 current_grip_value[hand] = grip_val;
@@ -3223,16 +3174,6 @@ struct OpenXrProgram : IOpenXrProgram
                     hapticActionInfo.subactionPath = m_input.handSubactionPath[hand];
                     CHECK_XRCMD(xrApplyHapticFeedback(m_session, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
                 }
-
-#if ENABLE_LOCAL_DIMMING_WITH_RIGHT_GRAB
-                if (hand == Side::RIGHT)
-                {
-                    const bool enable_local_dimming = (grabValue.currentState > 0.9f);
-                    SetLocalDimmingEnabled(enable_local_dimming);
-
-                    m_input.handScale[hand] = 1.0f;
-                }
-#endif
 
 #if USE_THUMBSTICKS
                 XrActionStateFloat axis_state_x = { XR_TYPE_ACTION_STATE_FLOAT };
@@ -3492,14 +3433,6 @@ struct OpenXrProgram : IOpenXrProgram
         frameEndInfo.environmentBlendMode = m_options->Parsed.EnvironmentBlendMode;
         frameEndInfo.layerCount = (uint32_t)layers.size();
         frameEndInfo.layers = layers.data();
-
-#if ENABLE_OPENXR_FB_LOCAL_DIMMING
-		if (supports_local_dimming_)
-		{
-			local_dimming_settings_.localDimmingMode = is_local_dimming_enabled_ ? XR_LOCAL_DIMMING_MODE_ON_META : XR_LOCAL_DIMMING_MODE_OFF_META;
-			frameEndInfo.next = &local_dimming_settings_;
-		}
-#endif
 
         CHECK_XRCMD(xrEndFrame(m_session, &frameEndInfo));
     }
