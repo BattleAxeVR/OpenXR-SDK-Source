@@ -213,10 +213,9 @@ float GazeCalibration::get_x_position_from_index(const int x_index)
 {
 	if(x_index != EYE_TRACKING_CALIBRATION_CELL_CENTER_X)
 	{
-		const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
 		const int x_delta = x_index - EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
 		const float x_frac = x_delta / (float)EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
-		const float x_position = x_frac * x_cell_offset;
+		const float x_position = x_frac * EYE_TRACKING_CALIBRATION_CELL_SIZE_X;
 		return x_position;
 	}
 
@@ -225,8 +224,7 @@ float GazeCalibration::get_x_position_from_index(const int x_index)
 
 int GazeCalibration::get_x_index_from_position(const float x_position)
 {
-	const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
-	const float x_frac = x_position / x_cell_offset;
+	const float x_frac = x_position / EYE_TRACKING_CALIBRATION_CELL_SIZE_X;
 	const int x_delta = int(x_frac * EYE_TRACKING_CALIBRATION_CELL_CENTER_X);
 	int x_index = x_delta + EYE_TRACKING_CALIBRATION_CELL_CENTER_X;
 	x_index = bvr_clamp<int>(x_index, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_X - 1);
@@ -239,10 +237,9 @@ float GazeCalibration::get_y_position_from_index(const int y_index)
 {
 	if(y_index != EYE_TRACKING_CALIBRATION_CELL_CENTER_Y)
 	{
-		const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
 		const int y_delta = EYE_TRACKING_CALIBRATION_CELL_CENTER_Y - y_index;
 		const float y_frac = y_delta / (float)EYE_TRACKING_CALIBRATION_CELL_CENTER_Y;
-		const float y_position = y_frac * y_cell_offset;
+		const float y_position = y_frac * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
 		return y_position;
 	}
 
@@ -251,8 +248,7 @@ float GazeCalibration::get_y_position_from_index(const int y_index)
 
 int GazeCalibration::get_y_index_from_position(const float y_position)
 {
-	const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
-	const float y_frac = y_position / y_cell_offset;
+	const float y_frac = y_position / EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
 	const int y_delta = int(y_frac * EYE_TRACKING_CALIBRATION_CELL_CENTER_Y);
 	int y_index = EYE_TRACKING_CALIBRATION_CELL_CENTER_Y - y_delta;
 	y_index = bvr_clamp<int>(y_index, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
@@ -268,13 +264,7 @@ void GazeCalibration::reset_calibration()
 	calibration_ = {};
 	num_calibrated_ = 0;
 
-	const float x_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_X / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_X;
-	const float x_scale = x_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_X;
-
-	const float y_cell_offset = EYE_TRACKING_CALIBRATION_CELL_RANGE_Y / (float)EYE_TRACKING_CALIBRATION_NUM_CELLS_Y;
-	const float y_scale = y_cell_offset * EYE_TRACKING_CALIBRATION_CELL_SCALE_Y;
-
-	const glm::vec3 local_scale(x_scale, y_scale, 0.0f);
+	const glm::vec3 local_scale(EYE_TRACKING_CALIBRATION_CELL_SCALE_X, EYE_TRACKING_CALIBRATION_CELL_SCALE_Y, 0.0f);
 
 	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
 	{
