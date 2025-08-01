@@ -30,6 +30,17 @@
 #define SPV_SUFFIX
 #endif
 
+struct vk_push_constant
+{
+	XrMatrix4x4f mvp;
+
+#if ENABLE_TINT
+	XrVector3f tint;
+	float intensity;
+#endif
+
+};
+
 extern int current_eye;
 extern float IPD;
 
@@ -113,6 +124,49 @@ inline VkResult CheckVkResult(VkResult res, const char* originator = nullptr, co
 #define CHECK_VKRESULT(res, cmdStr) CheckVkResult(res, cmdStr, FILE_AND_LINE);
 
 #ifdef USE_ONLINE_VULKAN_SHADERC
+
+#if ENABLE_TINT
+constexpr char VertexShaderGlsl[] =
+R"_(
+    #version 430
+    #extension GL_ARB_separate_shader_objects : enable
+
+    layout (std140, push_constant) uniform buf
+    {
+        mat4 mvp;
+    } ubuf;
+
+    layout (location = 0) in vec3 Position;
+    layout (location = 1) in vec3 Color;
+
+    layout (location = 0) out vec4 oColor;
+    out gl_PerVertex
+    {
+        vec4 gl_Position;
+    };
+
+    void main()
+    {
+        oColor.rgba  = Color.rgba;
+        gl_Position = ubuf.mvp * Position;
+    }
+)_";
+
+constexpr char FragmentShaderGlsl[] =
+R"_(
+    #version 430
+    #extension GL_ARB_separate_shader_objects : enable
+
+    layout (location = 0) in vec4 oColor;
+
+    layout (location = 0) out vec4 FragColor;
+
+    void main()
+    {
+        FragColor = oColor;
+    }
+)_";
+#else
 constexpr char VertexShaderGlsl[] =
     R"_(
     #version 430
@@ -153,6 +207,8 @@ constexpr char FragmentShaderGlsl[] =
         FragColor = oColor;
     }
 )_";
+#endif
+
 #endif  // USE_ONLINE_VULKAN_SHADERC
 
 struct MemoryAllocator {
@@ -1791,13 +1847,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             XrMatrix4x4f vp;
             XrMatrix4x4f_Multiply(&vp, &proj, &view);
 
-			struct vk_push_constant
-			{
-				XrMatrix4x4f mvp;
-                XrVector3f tint;
-                float intensity;
-			};
-
             // Render each cube
             for(const Cube& cube : cubes)
             {
@@ -1805,17 +1854,15 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
                 XrMatrix4x4f model;
                 XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
 
-                vk_push_constant push{};
-                XrMatrix4x4f_Multiply(&push.mvp, &vp, &model);
+                vk_push_constant push_constants{};
+                XrMatrix4x4f_Multiply(&push_constants.mvp, &vp, &model);
 
-                push.tint = Geometry::White;
-                push.intensity = cube.intensity_;
+#if ENABLE_TINT
+                push_constants.tint = BVR::convert_to_xr(cube.colour_);
+                push_constants.intensity = cube.intensity_;
+#endif
 
-                vkCmdPushConstants(cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), &push);
-				
-				//XrMatrix4x4f mvp;
-				//XrMatrix4x4f_Multiply(&mvp, &vp, &model);
-				//vkCmdPushConstants(cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(mvp.m), &mvp.m[0]);
+                vkCmdPushConstants(cmdBuffer.buf, m_pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_constants), &push_constants);
 
                 // Draw the cube.
                 vkCmdDrawIndexed(cmdBuffer.buf, m_drawBuffer.count.idx, 1, 0, 0, 0);

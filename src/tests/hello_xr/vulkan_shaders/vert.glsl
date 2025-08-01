@@ -7,12 +7,18 @@
 
 #pragma vertex
 
-layout (std140, push_constant) uniform buf
+#define ENABLE_TINT 1
+
+layout (std140, push_constant) uniform pushC
 {
     mat4 mvp;
+
+#if ENABLE_TINT
     vec3 tint;
     float intensity;
-} ubuf;
+#endif
+
+} push_constants;
 
 layout (location = 0) in vec3 Position;
 layout (location = 1) in vec3 Color;
@@ -27,7 +33,11 @@ void main()
 {
     oColor.rgb  = Color.rgb;
     oColor.a  = 1.0;
-    oColor.rgb *= ubuf.tint;
-    oColor.rgb *= ubuf.intensity;
-    gl_Position = ubuf.mvp * vec4(Position, 1);
+
+#if ENABLE_TINT
+    oColor.rgb *= push_constants.tint;
+    oColor.rgb *= push_constants.intensity;
+#endif
+
+    gl_Position = push_constants.mvp * vec4(Position, 1);
 }
