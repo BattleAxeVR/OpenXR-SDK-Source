@@ -83,7 +83,7 @@ bool GazeCalibration::load_calibration()
 			const float euler_x_deg = (127 - clamped_red) * EYE_TRACKING_CALIBRATION_TOLERANCE_DEG / 127.0f;
 			const float euler_y_deg = (127 - clamped_green) * EYE_TRACKING_CALIBRATION_TOLERANCE_DEG / 127.0f;
 
-			CalibrationPoint& point = calibration_.points_[x_index][y_index];
+			CalibrationPoint& point = calibration_.points_[y_index][x_index];
 			point.average_euler_deg_ = glm::vec3(euler_x_deg, euler_y_deg, 0.0f);
 			point.calibrated_rotation_correction_ = glm::normalize(glm::fquat(deg2rad(point.average_euler_deg_)));
 		}
@@ -128,7 +128,7 @@ bool GazeCalibration::save_calibration()
 			stbi_uc& blue_val = write_buf[byte_offset + 2];
 
 #if 0
-			const CalibrationPoint& point = calibration_.points_[x_index][y_index];
+			const CalibrationPoint& point = calibration_.points_[y_index][x_index];
 
 			const float normalized_red = point.average_euler_deg_.x / EYE_TRACKING_CALIBRATION_TOLERANCE_DEG;
 			const float normalized_green = point.average_euler_deg_.y / EYE_TRACKING_CALIBRATION_TOLERANCE_DEG;
@@ -222,7 +222,6 @@ int GazeCalibration::get_x_index_from_position(const float x_position)
 	return x_index;
 }
 
-
 float GazeCalibration::get_y_position_from_index(const int y_index)
 {
 	const float y_position = (y_index * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y) - EYE_TRACKING_CALIBRATION_CENTER_Y;
@@ -236,7 +235,6 @@ int GazeCalibration::get_y_index_from_position(const float y_position)
 	return y_index;
 }
 
-
 void GazeCalibration::reset_calibration()
 {
 	is_calibrating_ = false;
@@ -244,13 +242,19 @@ void GazeCalibration::reset_calibration()
 	calibration_ = {};
 	num_calibrated_ = 0;
 
+	calibration_.points_.clear();
+	calibration_.points_.resize(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y);
+
 	const glm::vec3 local_scale(EYE_TRACKING_CALIBRATION_CELL_SCALE_X, EYE_TRACKING_CALIBRATION_CELL_SCALE_Y, 0.0f);
 
 	for(int y_index = 0; y_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_Y; y_index++)
 	{
+		calibration_.points_[y_index].resize(EYE_TRACKING_CALIBRATION_NUM_CELLS_X);
+
 		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
 		{
-			CalibrationPoint& point = calibration_.points_[x_index][y_index];
+			CalibrationPoint& point = calibration_.points_[y_index][x_index];
+			point.samples_.reserve(EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL);
 
 			point.local_pose_.translation_.x = get_x_position_from_index(x_index);
 			point.local_pose_.translation_.y = get_y_position_from_index(y_index);
@@ -270,7 +274,7 @@ bool GazeCalibration::compute_calibration()
 	{
 		for(int x_index = 0; x_index < EYE_TRACKING_CALIBRATION_NUM_CELLS_X; x_index++)
 		{
-			const CalibrationPoint& point = calibration_.points_[x_index][y_index];
+			const CalibrationPoint& point = calibration_.points_[y_index][x_index];
 		}
 	}
 
@@ -307,12 +311,12 @@ void GazeCalibration::increment_raster()
 
 CalibrationPoint& GazeCalibration::get_raster_point()
 {
-	return calibration_.points_[raster_x_][raster_y_];
+	return calibration_.points_[raster_y_][raster_x_];
 }
 
 const CalibrationPoint& GazeCalibration::get_raster_point() const
 {
-	return calibration_.points_[raster_x_][raster_y_];
+	return calibration_.points_[raster_y_][raster_x_];
 }
 
 bool GazeCalibration::is_current_raster_cell_calibrated() const
@@ -331,7 +335,7 @@ glm::vec3 GazeCalibration::apply_calibration(const glm::vec3& raw_gaze_direction
 	int x_index = get_x_index_from_position(raw_gaze_direction.x);
 	int y_index = get_y_index_from_position(raw_gaze_direction.y);
 
-	CalibrationPoint& point = calibration_.points_[x_index][y_index];
+	CalibrationPoint& point = calibration_.points_[y_index][x_index];
 
 	if (point.is_calibrated_)
 	{
@@ -344,7 +348,7 @@ glm::vec3 GazeCalibration::apply_calibration(const glm::vec3& raw_gaze_direction
 
 GLMPose	GazeCalibration::get_calibration_cube() const
 {
-	const CalibrationPoint& point = calibration_.points_[raster_x_][raster_y_];
+	const CalibrationPoint& point = calibration_.points_[raster_y_][raster_x_];
 	return point.local_pose_;
 }
 

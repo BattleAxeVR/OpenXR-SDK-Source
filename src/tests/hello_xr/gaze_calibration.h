@@ -49,7 +49,7 @@ namespace BVR
 	struct CalibrationPoint
 	{
 		GLMPose local_pose_;
-		std::array<CalibrationMapping, EYE_TRACKING_CALIBRATION_MAX_SAMPLES_PER_CELL> samples_;
+		std::vector<CalibrationMapping> samples_;
 		int num_samples_ = 0;
 		glm::vec3 average_euler_deg_ = { 0.0f, 0.0f, 0.0f };
 		glm::fquat calibrated_rotation_correction_ = default_rotation;
@@ -61,7 +61,7 @@ namespace BVR
 
 	struct EyeTrackingCalibrationData
 	{
-        CalibrationPoint points_[EYE_TRACKING_CALIBRATION_NUM_CELLS_X][EYE_TRACKING_CALIBRATION_NUM_CELLS_Y];
+		std::vector<std::vector<CalibrationPoint>> points_;
         int completed_count_ = 0;
 	};
 
