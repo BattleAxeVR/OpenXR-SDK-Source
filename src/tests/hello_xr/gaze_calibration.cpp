@@ -224,14 +224,14 @@ int GazeCalibration::get_x_index_from_position(const float x_position)
 
 float GazeCalibration::get_y_position_from_index(const int y_index)
 {
-	const float y_position = (y_index * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y) - EYE_TRACKING_CALIBRATION_CENTER_Y;
+	const float y_position = ((EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1 - y_index) * EYE_TRACKING_CALIBRATION_CELL_SIZE_Y) - EYE_TRACKING_CALIBRATION_CENTER_Y;
 	return y_position;
 }
 
 int GazeCalibration::get_y_index_from_position(const float y_position)
 {
 	const float y_norm = (y_position + EYE_TRACKING_CALIBRATION_CENTER_Y) / EYE_TRACKING_CALIBRATION_CELL_SIZE_Y;
-	const int y_index = bvr_clamp<int>((int)y_norm, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
+	const int y_index = bvr_clamp<int>(EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1 - (int)y_norm, 0, EYE_TRACKING_CALIBRATION_NUM_CELLS_Y - 1);
 	return y_index;
 }
 
