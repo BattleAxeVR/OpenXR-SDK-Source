@@ -3536,11 +3536,8 @@ struct OpenXrProgram : IOpenXrProgram
 			{
 				if(is_pose_valid(spaceLocation.locationFlags))
 				{
-#if (ENABLE_GAZE_CALIBRATION && 1)
-
-#if (!DRAW_ALL_CALIBRATION_CUBES)
+#if ENABLE_GAZE_CALIBRATION
 					if(psvr2_eye_tracker_.is_calibrating())
-#endif
 					{
                         const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
 
@@ -3593,10 +3590,6 @@ struct OpenXrProgram : IOpenXrProgram
 					}
 #endif
 				}
-			}
-			else
-			{
-				Log::Write(Log::Level::Verbose, Fmt("Unable to locate a visualized reference space in app space: %d", res));
 			}
 		}
 
@@ -4634,6 +4627,7 @@ struct OpenXrProgram : IOpenXrProgram
                     const int calibrating_eye_index = Side::RIGHT; // Only calibrate with the Right hand grip for now
 #endif 
 
+#if DRAW_GRIP_POSES_DURING_CALIBRATION
 					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
 					{
                         XrPosef local_xr_pose = BVR::convert_to_xr_pose(glm_local_grip_poses_[Side::LEFT]);// calibrating_eye_index]);
@@ -4645,6 +4639,8 @@ struct OpenXrProgram : IOpenXrProgram
 
                         per_eye_cubes.push_back(calibration_cube);
 					}
+#endif
+
 #endif
 
                     m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, per_eye_cubes);
