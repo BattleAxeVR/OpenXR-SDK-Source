@@ -4016,7 +4016,7 @@ struct OpenXrProgram : IOpenXrProgram
                 if (GetGazePoseSocial(eye, gaze_pose))
                 {
 #if DRAW_EYE_LASERS
-                    XrVector4f social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
+                    Colour social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
 					const XrPosef& eye_pose = m_views[eye].pose;
 
                     const float laser_length = 10.0f;
@@ -4109,7 +4109,7 @@ struct OpenXrProgram : IOpenXrProgram
 
             if(GetGazePoseEXT(gaze_pose))
             {
-                XrVector4f ext_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
+                Colour ext_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
 
 				for(int eye : { Side::LEFT, Side::RIGHT })
 				{
