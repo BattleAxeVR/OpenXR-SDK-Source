@@ -215,10 +215,6 @@ bool supports_eye_tracking_social_ = false;
 bool supports_ext_eye_tracking_ = false;
 #endif
 
-#if ENABLE_OPENXR_META_FOVEATION_EYE_TRACKED
-bool supports_meta_foveation_eye_tracked_ = false;
-#endif
-
 #if ENABLE_OPENXR_FB_FACE_TRACKING
 #include <openxr/fb_face_tracking.h>
 bool supports_face_tracking_ = false;
@@ -688,10 +684,6 @@ struct OpenXrProgram : IOpenXrProgram
 		DestroyEXTEeyeTracking();
 #endif
 
-#if ENABLE_OPENXR_META_FOVEATION_EYE_TRACKED
-		DestroyFoveationEyeTracked();
-#endif
-
         if (m_input.actionSet != XR_NULL_HANDLE) 
         {
             for (auto hand : {Side::LEFT, Side::RIGHT}) 
@@ -816,14 +808,6 @@ struct OpenXrProgram : IOpenXrProgram
 				{
 					Log::Write(Log::Level::Info, "FB OPENXR XR_EXT_eye_gaze_interaction - DETECTED");
                     supports_ext_eye_tracking_ = true;
-				}
-#endif
-
-#if ENABLE_OPENXR_META_FOVEATION_EYE_TRACKED
-				if (!strcmp(extension.extensionName, XR_META_FOVEATION_EYE_TRACKED_EXTENSION_NAME))
-				{
-					Log::Write(Log::Level::Info, "FB OPENXR XR_META_foveation_eye_tracked - DETECTED");
-					supports_meta_foveation_eye_tracked_ = true;
 				}
 #endif
 
@@ -988,18 +972,6 @@ struct OpenXrProgram : IOpenXrProgram
 		else
 		{
 			Log::Write(Log::Level::Info, "EXT Eye Tracking is NOT supported");
-		}
-#endif
-
-#if ENABLE_OPENXR_META_FOVEATION_EYE_TRACKED
-		if (supports_meta_foveation_eye_tracked_)
-		{
-			Log::Write(Log::Level::Info, "Foveation Eye Tracking is supported");
-			extensions.push_back(XR_META_FOVEATION_EYE_TRACKED_EXTENSION_NAME);
-		}
-		else
-		{
-			Log::Write(Log::Level::Info, "Foveation Eye Tracking is NOT supported");
 		}
 #endif
 
@@ -1996,10 +1968,6 @@ struct OpenXrProgram : IOpenXrProgram
         }
 #endif
 
-#if ENABLE_OPENXR_META_FOVEATION_EYE_TRACKED
-		CreateFoveationEyeTracked();
-#endif
-
 #if ENABLE_OPENXR_FB_BODY_TRACKING
 		CreateBodyTracker();
 #endif
@@ -2672,18 +2640,6 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
         }
 	}
-#endif
-
-#if ENABLE_OPENXR_META_FOVEATION_EYE_TRACKED
-	void CreateFoveationEyeTracked()
-	{
-
-	}
-
-    void DestroyFoveationEyeTracked()
-    {
-
-    }
 #endif
 
 #if ENABLE_OPENXR_FB_FACE_TRACKING
