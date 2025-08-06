@@ -1983,6 +1983,14 @@ struct OpenXrProgram : IOpenXrProgram
 	XrSystemProperties xr_system_properties_{ XR_TYPE_SYSTEM_PROPERTIES };
 	bool system_properties_initialized_ = false;
 
+#if ENABLE_EXT_EYE_TRACKING
+	XrSystemEyeGazeInteractionPropertiesEXT ext_gaze_interaction_properties_{ XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
+#endif
+
+#if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
+	XrSystemEyeTrackingPropertiesFB eye_tracking_social_properties_{ XR_TYPE_SYSTEM_EYE_TRACKING_PROPERTIES_FB };
+#endif
+
     void GetSystemProperties()
     {
         CHECK(m_session != XR_NULL_HANDLE);
@@ -2020,7 +2028,18 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
+#if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
+		if(supports_eye_tracking_social_)
+		{
+            eye_tracking_social_properties_.next = xr_system_properties_.next;
+			xr_system_properties_.next = &eye_tracking_social_properties_;
+		}
+#endif
+
 		CHECK_XRCMD(xrGetSystemProperties(m_instance, m_systemId, &xr_system_properties_));
+
+        bool supports_EXT_ET = false;
+        bool supports_Social_ET = false;
 
 #if ENABLE_OPENXR_META_FULL_BODY_TRACKING
 		supports_meta_full_body_tracking_ = meta_full_body_tracking_properties.supportsFullBodyTracking;
@@ -2032,6 +2051,12 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if ENABLE_EXT_EYE_TRACKING
         supports_ext_eye_tracking_ = ext_gaze_interaction_properties_.supportsEyeGazeInteraction;
+        supports_EXT_ET = supports_ext_eye_tracking_;
+#endif
+
+#if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
+        supports_eye_tracking_social_ = eye_tracking_social_properties_.supportsEyeTracking;
+        supports_Social_ET = supports_eye_tracking_social_;
 #endif
 
 		// Log system properties.
@@ -2046,6 +2071,8 @@ struct OpenXrProgram : IOpenXrProgram
 		Log::Write(Log::Level::Info, Fmt("System Tracking Properties: OrientationTracking=%s PositionTracking=%s",
             xr_system_properties_.trackingProperties.orientationTracking == XR_TRUE ? "True" : "False",
             xr_system_properties_.trackingProperties.positionTracking == XR_TRUE ? "True" : "False"));
+
+		Log::Write(Log::Level::Info, Fmt("System Eye Tracking support: EXT = %d, Social Gazes = %d", (int)supports_EXT_ET, (int)supports_Social_ET));
 
 		// Note: No other view configurations exist at the time this code was written. If this
 		// condition is not met, the project will need to be audited to see how support should be
@@ -2439,6 +2466,8 @@ struct OpenXrProgram : IOpenXrProgram
 	PFN_xrGetEyeGazesFB xrGetEyeGazesFB = nullptr;
 
     bool social_eye_tracking_enabled_ = false;
+
+    XrSystemEyeTrackingPropertiesFB ext_gaze_interaction_properties_{ XR_TYPE_SYSTEM_EYE_TRACKING_PROPERTIES_FB };
 	XrEyeTrackerFB social_eye_tracker_ = nullptr;
 	XrEyeGazesFB social_eye_gazes_{ XR_TYPE_EYE_GAZES_FB, nullptr };
 
@@ -2548,8 +2577,7 @@ struct OpenXrProgram : IOpenXrProgram
     bool ext_gaze_pose_valid_ = false;
 
     XrEyeGazeSampleTimeEXT last_ext_gaze_pose_time_{ XR_TYPE_EYE_GAZE_SAMPLE_TIME_EXT };
-    XrSystemEyeGazeInteractionPropertiesEXT ext_gaze_interaction_properties_{ XR_TYPE_SYSTEM_EYE_GAZE_INTERACTION_PROPERTIES_EXT };
-	
+
 	bool GetGazePoseEXT(XrPosef& gaze_pose) override
 	{
 		if(supports_ext_eye_tracking_ && ext_eye_tracking_enabled_ && ext_gaze_pose_valid_)
