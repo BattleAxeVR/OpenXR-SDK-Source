@@ -2504,6 +2504,26 @@ struct OpenXrProgram : IOpenXrProgram
 				return;
 			}
 
+			if(xrDestroyEyeTrackerFB == nullptr)
+			{
+				XR_LOAD(m_instance, xrDestroyEyeTrackerFB);
+			}
+
+			if(xrDestroyEyeTrackerFB == nullptr)
+			{
+				return;
+			}
+
+			if(xrGetEyeGazesFB == nullptr)
+			{
+				XR_LOAD(m_instance, xrGetEyeGazesFB);
+			}
+
+			if(xrGetEyeGazesFB == nullptr)
+			{
+				return;
+			}
+
 			XrEyeTrackerCreateInfoFB create_info{ XR_TYPE_EYE_TRACKER_CREATE_INFO_FB };
 			XrResult result = xrCreateEyeTrackerFB(m_session, &create_info, &social_eye_tracker_);
 
@@ -2517,18 +2537,8 @@ struct OpenXrProgram : IOpenXrProgram
 
 	void DestroySocialEyeTracker()
 	{
-		if (social_eye_tracker_)
+		if (social_eye_tracker_ && xrDestroyEyeTrackerFB)
 		{
-			if (xrDestroyEyeTrackerFB == nullptr)
-			{
-				XR_LOAD(m_instance, xrDestroyEyeTrackerFB);
-			}
-
-			if (xrDestroyEyeTrackerFB == nullptr)
-			{
-				return;
-			}
-
 			xrDestroyEyeTrackerFB(social_eye_tracker_);
 			social_eye_tracker_ = nullptr;
             social_eye_tracking_enabled_ = false;
@@ -2539,18 +2549,8 @@ struct OpenXrProgram : IOpenXrProgram
 
 	void UpdateSocialEyeTrackerGazes(const XrTime& predicted_display_time) override
 	{
-		if (social_eye_tracker_ && social_eye_tracking_enabled_)
+		if (social_eye_tracker_ && social_eye_tracking_enabled_ && xrGetEyeGazesFB)
 		{
-			if (xrGetEyeGazesFB == nullptr)
-			{
-				XR_LOAD(m_instance, xrGetEyeGazesFB);
-			}
-
-			if (xrGetEyeGazesFB == nullptr)
-			{
-				return;
-			}
-
 			XrEyeGazesInfoFB gazes_info{ XR_TYPE_EYE_GAZES_INFO_FB };
             gazes_info.time = predicted_display_time;
             gazes_info.baseSpace = m_appSpace;
