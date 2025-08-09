@@ -112,12 +112,6 @@ target_include_directories(hello_xr PUBLIC $ENV{OCULUS_OPENXR_MOBILE_SDK}/OpenXR
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/glm)
 target_include_directories(hello_xr PUBLIC ${PROJECT_SOURCE_DIR}/src/external/SDL/include)
 
-target_include_directories(hello_xr PUBLIC $ENV{PSVR2_TOOLBOX_ROOT}/projects/PSVR2ToolboxSDK)
-target_link_directories(hello_xr PUBLIC $ENV{PSVR2_TOOLBOX_ROOT}/x64/$(Configuration))
-
-#target_include_directories(hello_xr PUBLIC $ENV{PSVR2_TOOLKIT_ROOT}/include)
-#target_link_directories(hello_xr PUBLIC $ENV{PSVR2_TOOLKIT_ROOT}/x64/$(Configuration))
-
 compile_glsl(run_hello_xr_glsl_compiles ${VULKAN_SHADERS})
 
 add_dependencies(hello_xr run_hello_xr_glsl_compiles)

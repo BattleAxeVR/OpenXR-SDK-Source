@@ -14,11 +14,7 @@
 #include <array>
 #include <cmath>
 #include <set>
-
-#if ENABLE_PSVR2_EYE_TRACKING
-#include "psvr2_eye_tracking.h"
 #include "glm/gtx/quaternion.hpp"
-#endif
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -664,10 +660,6 @@ struct OpenXrProgram : IOpenXrProgram
 
     ~OpenXrProgram() override 
     {
-#if ENABLE_PSVR2_EYE_TRACKING
-        psvr2_eye_tracker_.disconnect();
-#endif
-
 #if USE_SDL_JOYSTICKS
         ShutdownSDLJoySticks();
 #endif
@@ -1953,19 +1945,6 @@ struct OpenXrProgram : IOpenXrProgram
 
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
 		CreateSocialEyeTracker();
-#endif
-
-#if ENABLE_PSVR2_EYE_TRACKING
-        const bool psvr2_toolkit_connected = psvr2_eye_tracker_.connect();
-        if (psvr2_toolkit_connected)
-        {
-			Log::Write(Log::Level::Info, Fmt("PSVR 2 Toolkit connected, enabling Direct per-gaze Eye Tracking"));
-
-#if (ENABLE_GAZE_CALIBRATION && 0)
-            const bool save_ok = psvr2_eye_tracker_.save_calibrations();
-            const bool load_ok = psvr2_eye_tracker_.load_calibrations();
-#endif
-        }
 #endif
 
 #if ENABLE_OPENXR_FB_BODY_TRACKING
@@ -3280,7 +3259,7 @@ struct OpenXrProgram : IOpenXrProgram
                     }
                     
 #if TOGGLE_APPLY_CALIBRATION
-                    psvr2_eye_tracker_.toggle_apply_calibration();
+                    toggle_apply_calibration();
 #endif
 
 
@@ -3325,31 +3304,21 @@ struct OpenXrProgram : IOpenXrProgram
 #if ENABLE_GAZE_CALIBRATION
 
 #if AUTO_CALIBRATE
-        if (!psvr2_eye_tracker_.is_fully_calibrated() && !psvr2_eye_tracker_.is_calibrating())
+        if (!eye_tracker_.is_fully_calibrated() && !eye_tracker_.is_calibrating())
         {
-            psvr2_eye_tracker_.start_calibrating();
+            start_calibrating();
         }
 #else
         const bool gripping_either_hand = currently_gripping[Side::LEFT] || currently_gripping[Side::RIGHT];
 
         if (gripping_either_hand)
         {
-#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-			int calibrating_eye = currently_gripping[Side::LEFT] ? Side::LEFT : Side::RIGHT;
-			psvr2_eye_tracker_.start_eye_calibration(calibrating_eye);
-#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-			psvr2_eye_tracker_.set_combined_calibration_enabled(true);
-#endif
         }
         else
         {
-#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-            psvr2_eye_tracker_.stop_eye_calibration();
-#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-            psvr2_eye_tracker_.set_combined_calibration_enabled(false);
-#endif
         }
 #endif
+
 #endif
 
         // There were no subaction paths specified for the quit action, because we don't care which hand did it.
@@ -3361,14 +3330,6 @@ struct OpenXrProgram : IOpenXrProgram
         {
             CHECK_XRCMD(xrRequestExitSession(m_session));
         }
-
-#if ENABLE_PSVR2_EYE_TRACKING
-        if (psvr2_eye_tracker_.is_connected() && psvr2_eye_tracker_.is_enabled())
-        {
-            psvr2_eye_tracker_.update_gazes();
-        }
-#endif
-
     }
 
     void RenderFrame() override 
@@ -3535,7 +3496,7 @@ struct OpenXrProgram : IOpenXrProgram
 				if(is_pose_valid(spaceLocation.locationFlags))
 				{
 #if ENABLE_GAZE_CALIBRATION
-					if(psvr2_eye_tracker_.is_calibrating())
+					if(is_calibrating())
 					{
                         const BVR::GLMPose base_cube_pose_glm = BVR::convert_to_glm_pose(spaceLocation.pose);
 
@@ -3552,7 +3513,7 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
                             {
 
-                                const BVR::GLMPose local_calibration_cube_glm = psvr2_eye_tracker_.get_calibration_cube();
+                                const BVR::GLMPose local_calibration_cube_glm = eye_tracker_.get_calibration_cube();
                                 const glm::vec3 cube_offset_world = base_cube_pose_glm.rotation_ * local_calibration_cube_glm.translation_;
                                 const XrVector3f xr_cube_scale = BVR::convert_to_xr(local_calibration_cube_glm.scale_);
 
@@ -3575,10 +3536,10 @@ struct OpenXrProgram : IOpenXrProgram
                                     calibration_cube.colour_ = BVR::green;
                                 }
 
-                                psvr2_eye_tracker_.increment_raster();
+                                increment_raster();
 
 #if DRAW_ONLY_EVEN_CALIBRATION_CUBES
-                                psvr2_eye_tracker_.increment_raster();
+                                increment_raster();
                                 x_index++;
 #endif
 
@@ -3586,11 +3547,11 @@ struct OpenXrProgram : IOpenXrProgram
                                 static int frame_index = 0;
                                 if(frame_index++ % ANIMATE_CALIBRATION_CUBES_EVERY_N == 0)
                                 {
-                                    psvr2_eye_tracker_.increment_raster();
+                                    increment_raster();
                                 }
 #endif
 
-                                if (psvr2_eye_tracker_.increment_countdown_ > 0)
+                                if (increment_countdown_ > 0)
                                 {
                                     calibration_cube.colour_ = white;
                                 }
@@ -4155,28 +4116,10 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
-#if ENABLE_PSVR2_EYE_TRACKING
+#if ENABLE_GAZE_CALIBRATION
         for(int eye : { Side::LEFT, Side::RIGHT })
 		{
-
-#if ENABLE_GAZE_CALIBRATION
-            //const int hand = eye; // Use left hand to calibrate left eye, right for right
-
-#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-            //const bool calibrating_now = psvr2_eye_tracker_.is_eye_calibrating(eye) && glm_local_grip_poses_[hand].is_valid_;
-#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-			//const bool calibrating_now = psvr2_eye_tracker_.is_combined_calibrated() && glm_local_grip_poses_[hand].is_valid_;
-#endif
-
-#endif
-
-#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-            if(psvr2_eye_tracker_.is_gaze_available(eye))
-#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-            if(psvr2_eye_tracker_.is_combined_gaze_available())
-#else
-            if (false)
-#endif
+            const int hand = eye; // Use left hand to calibrate left eye, right for right
 			{
                 glm::vec3 per_eye_gaze_vector = BVR::zero_vec3;
 
@@ -4187,19 +4130,15 @@ struct OpenXrProgram : IOpenXrProgram
                 const bool was_trigger_pressed = (currently_squeezing_trigger[hand]) && !previously_squeezing_trigger[hand]);
                 if (was_trigger_pressed)
                 {
-                    should_apply_gaze = (psvr2_eye_tracker_.increment_countdown_ == 0);
+                    //should_apply_gaze = (increment_countdown_ == 0);
                 }
 #else
-                should_apply_gaze = (psvr2_eye_tracker_.increment_countdown_ == 0);
+                //should_apply_gaze = (increment_countdown_ == 0);
 #endif
 
 #endif
 
-#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-                if(psvr2_eye_tracker_.get_per_eye_gaze(eye, per_eye_gaze_vector, should_apply_gaze))
-#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-                if(psvr2_eye_tracker_.get_combined_gaze(per_eye_gaze_vector, should_apply_gaze))
-#endif
+                //if get_gaze()
 				{
                     BVR::GLMPose glm_gaze_pose;
                     glm_gaze_pose.rotation_ = glm::quatLookAt(per_eye_gaze_vector, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -4293,7 +4232,7 @@ struct OpenXrProgram : IOpenXrProgram
 				}
 			}
 		}
-#endif // ENABLE_PSVR2_EYE_TRACKING
+#endif // ENABLE_GAZE_CALIBRATION
 
 #if ENABLE_OPENXR_FB_BODY_TRACKING
         if (fb_body_tracking_enabled_)
@@ -4623,7 +4562,7 @@ struct OpenXrProgram : IOpenXrProgram
                     for (const Cube& cube : cubes)
                     {
 #if ENABLE_GAZE_CALIBRATION
-                        if (psvr2_eye_tracker_.is_calibrating())
+                        if (is_calibrating())
                         {
                             // Draw nothing onscreen except the one cube that's currently gripping
                             //continue;
@@ -4636,15 +4575,10 @@ struct OpenXrProgram : IOpenXrProgram
                     }
 
 #if ENABLE_GAZE_CALIBRATION
-
-#if ENABLE_PSVR2_EYE_TRACKING_PER_EYE_GAZES
-                    //const int calibrating_eye_index = psvr2_eye_tracker_.get_calibrating_eye_index();
-#elif ENABLE_PSVR2_EYE_TRACKING_COMBINED_GAZE
-                    const int calibrating_eye_index = Side::RIGHT; // Only calibrate with the Right hand grip for now
-#endif 
+                    const int calibrating_eye_index = Side::RIGHT;
 
 #if DRAW_GRIP_POSES_DURING_CALIBRATION
-					if(psvr2_eye_tracker_.is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
+					if(is_calibrating() && (calibrating_eye_index != INVALID_INDEX))
 					{
                         XrPosef local_xr_pose = BVR::convert_to_xr_pose(glm_local_grip_poses_[Side::LEFT]);// calibrating_eye_index]);
 
@@ -4895,10 +4829,6 @@ struct OpenXrProgram : IOpenXrProgram
     InputState m_input;
 
     const std::set<XrEnvironmentBlendMode> m_acceptableBlendModes;
-
-#if ENABLE_PSVR2_EYE_TRACKING
-    BVR::PSVR2EyeTracker psvr2_eye_tracker_;
-#endif
 };
 
 }  // namespace
