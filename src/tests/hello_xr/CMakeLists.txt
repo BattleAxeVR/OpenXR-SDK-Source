@@ -29,7 +29,6 @@ set(LOCAL_HEADERS
     platformdata.h
     platformplugin.h
     defines.h
-    psvr2_eye_tracking.h
     gaze_calibration.h
     GLMPose.h
 )
@@ -50,7 +49,6 @@ set(LOCAL_SOURCE
     platformplugin_factory.cpp
     platformplugin_posix.cpp
     platformplugin_win32.cpp
-    psvr2_eye_tracking.cpp
     gaze_calibration.cpp
     GLMPose.cpp
 )
