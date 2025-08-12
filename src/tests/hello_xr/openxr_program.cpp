@@ -3960,7 +3960,7 @@ struct OpenXrProgram : IOpenXrProgram
                 if (GetGazePoseSocial(eye, gaze_pose))
                 {
 #if DRAW_EYE_LASERS
-                    Colour social_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
+                    Colour social_laser_colour{ 0.0f, 1.0f, 0.0f, 1.0f };
 					const XrPosef& eye_pose = m_views[eye].pose;
 
                     const float laser_length = 10.0f;
@@ -4011,7 +4011,7 @@ struct OpenXrProgram : IOpenXrProgram
                         world_eye_laser_pose.orientation = BVR::convert_to_xr(world_eye_laser_rotation);
     
     #if ENABLE_EXT_EYE_TRACKING
-                        if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
+                        //if(!supports_ext_eye_tracking_ || !ext_eye_tracking_enabled_)
     #endif
                         {
                             cubes.push_back(Cube{ world_eye_laser_pose, gaze_cube_scale, social_laser_colour });
@@ -4053,7 +4053,7 @@ struct OpenXrProgram : IOpenXrProgram
 
             if(GetGazePoseEXT(gaze_pose))
             {
-                Colour ext_laser_colour{ 0.0f, 1.0f, 1.0f, 1.0f };
+                Colour ext_laser_colour{ 0.0f, 0.0f, 1.0f, 1.0f };
 
 				for(int eye : { Side::LEFT, Side::RIGHT })
 				{
@@ -4094,7 +4094,7 @@ struct OpenXrProgram : IOpenXrProgram
 #if DRAW_EYE_LASERS 
 
 #if ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL
-                    if(!supports_eye_tracking_social_ || !social_eye_tracking_enabled_)
+                    //if(!supports_eye_tracking_social_ || !social_eye_tracking_enabled_)
 #endif
                     {
                         cubes.push_back(Cube{ local_eye_laser_pose, gaze_cube_scale, ext_laser_colour });
