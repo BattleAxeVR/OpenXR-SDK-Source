@@ -2446,7 +2446,6 @@ struct OpenXrProgram : IOpenXrProgram
 
     bool social_eye_tracking_enabled_ = false;
 
-    XrSystemEyeTrackingPropertiesFB ext_gaze_interaction_properties_{ XR_TYPE_SYSTEM_EYE_TRACKING_PROPERTIES_FB };
 	XrEyeTrackerFB social_eye_tracker_ = nullptr;
 	XrEyeGazesFB social_eye_gazes_{ XR_TYPE_EYE_GAZES_FB, nullptr };
 

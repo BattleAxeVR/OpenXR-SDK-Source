@@ -61,7 +61,10 @@ namespace BVR
 
 // Eye tracking only enabled on PC for now (needs permissions on Android, requires java calls. TODO)
 #define ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL (PLATFORM_PC && 1)  // An OpenXR API layer plugin will be written to expose PSVR 2 independent gazes through this API.
-#define ENABLE_EXT_EYE_TRACKING (PLATFORM_PC && 0) // Quest Pro + API plugin via Meta Link, or PSVR 2 via same plugin -> SteamVR, or directly via SteamVR exposing ET internally
+#define ENABLE_EXT_EYE_TRACKING (PLATFORM_PC && 1) // Quest Pro + API plugin via Meta Link, or PSVR 2 via same plugin -> SteamVR, or directly via SteamVR exposing ET internally
+
+#define SUPPORTS_BOTH_EYE_TRACKING_TYPES (ENABLE_OPENXR_FB_EYE_TRACKING_SOCIAL && ENABLE_EXT_EYE_TRACKING)
+#define PREFER_EYE_TRACKING_SOCIAL_OVER_EXT (SUPPORTS_BOTH_EYE_TRACKING_TYPES && 1)
 
 #define ENABLE_GAZE_CALIBRATION 0
 #define TOGGLE_APPLY_CALIBRATION (ENABLE_GAZE_CALIBRATION && 1)
