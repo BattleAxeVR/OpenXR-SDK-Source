@@ -338,3 +338,5 @@ elseif(WIN32)
         )
     endforeach()
 endif()
+
+add_subdirectory(best_practices)
