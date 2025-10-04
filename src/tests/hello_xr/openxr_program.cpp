@@ -3388,11 +3388,11 @@ struct OpenXrProgram : IOpenXrProgram
                 {
                     if(hand == Side::LEFT)
                     {
-                        // X Button
+                        Log::Write(Log::Level::Verbose, Fmt("X BUTTON WAS PRESSED"));
                     }
                     else
                     {
-                        // A Button
+                        Log::Write(Log::Level::Verbose, Fmt("A BUTTON WAS PRESSED"));
                     }
                 }
 
@@ -3405,11 +3405,11 @@ struct OpenXrProgram : IOpenXrProgram
 				{
 					if(hand == Side::LEFT)
 					{
-						// Y Button
+                        Log::Write(Log::Level::Verbose, Fmt("Y BUTTON WAS PRESSED"));
 					}
 					else
 					{
-						// B Button
+                        Log::Write(Log::Level::Verbose, Fmt("B BUTTON WAS PRESSED"));
 					}
 				}
             }
