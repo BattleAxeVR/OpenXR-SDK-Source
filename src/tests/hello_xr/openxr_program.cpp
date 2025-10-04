@@ -1239,7 +1239,7 @@ struct OpenXrProgram : IOpenXrProgram
         XrAction triggerClickAction{ XR_NULL_HANDLE };
 #endif
 
-#if USE_BUTTONS
+#if USE_FACE_BUTTONS
         XrAction buttonAXClickAction{ XR_NULL_HANDLE };
         XrAction buttonBYClickAction{ XR_NULL_HANDLE };
 #endif
@@ -1333,7 +1333,7 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.triggerValueAction));
 #endif
 
-#if USE_BUTTONS
+#if USE_FACE_BUTTONS
             actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
             strcpy(actionInfo.actionName, "button_a_click");
             strcpy(actionInfo.localizedActionName, "Button A Click");
@@ -1434,7 +1434,7 @@ struct OpenXrProgram : IOpenXrProgram
         xrStringToPath(m_instance, "/user/hand/right/input/trigger/value", &triggerValuePath[Side::RIGHT]);
 #endif
 
-#if USE_BUTTONS
+#if USE_FACE_BUTTONS
         std::array<XrPath, Side::COUNT> XA_ClickPath;
 
         xrStringToPath(m_instance, "/user/hand/left/input/x/click", &XA_ClickPath[Side::LEFT]);
@@ -1511,7 +1511,7 @@ struct OpenXrProgram : IOpenXrProgram
                                                             {m_input.triggerValueAction, triggerValuePath[Side::LEFT]},
                                                             {m_input.triggerValueAction, triggerValuePath[Side::RIGHT]},
 #endif
-#if USE_BUTTONS
+#if USE_FACE_BUTTONS
                                                             {m_input.buttonAXClickAction, XA_ClickPath[Side::LEFT]},
                                                             {m_input.buttonAXClickAction, XA_ClickPath[Side::RIGHT]},
                                                             {m_input.buttonBYClickAction, YB_ClickPath[Side::LEFT]},
@@ -1560,7 +1560,7 @@ struct OpenXrProgram : IOpenXrProgram
 				{m_input.triggerValueAction, triggerValuePath[Side::LEFT]},
 				{m_input.triggerValueAction, triggerValuePath[Side::RIGHT]},
 #endif
-#if USE_BUTTONS
+#if USE_FACE_BUTTONS
 				{m_input.buttonAXClickAction, XA_ClickPath[Side::LEFT]},
 				{m_input.buttonAXClickAction, XA_ClickPath[Side::RIGHT]},
 				{m_input.buttonBYClickAction, YB_ClickPath[Side::LEFT]},
@@ -3374,7 +3374,7 @@ struct OpenXrProgram : IOpenXrProgram
             }
 #endif
 
-#if USE_BUTTONS
+#if USE_FACE_BUTTONS
             {
                 XrActionStateGetInfo action_get_info = { XR_TYPE_ACTION_STATE_GET_INFO };
                 action_get_info.subactionPath = m_input.handSubactionPath[hand];
