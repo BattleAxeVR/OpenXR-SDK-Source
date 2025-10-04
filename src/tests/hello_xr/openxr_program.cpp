@@ -1234,12 +1234,12 @@ struct OpenXrProgram : IOpenXrProgram
 		XrAction thumbstickYAction{ XR_NULL_HANDLE };
 #endif
 
-#if USE_TRIGGERS
+#if SUPPORT_TRIGGERS
         XrAction triggerValueAction{ XR_NULL_HANDLE };
         XrAction triggerClickAction{ XR_NULL_HANDLE };
 #endif
 
-#if USE_FACE_BUTTONS
+#if SUPPORT_FACE_BUTTONS
         XrAction buttonAXClickAction{ XR_NULL_HANDLE };
         XrAction buttonBYClickAction{ XR_NULL_HANDLE };
 #endif
@@ -1321,7 +1321,7 @@ struct OpenXrProgram : IOpenXrProgram
 			CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.thumbstickYAction));
 #endif
 
-#if USE_TRIGGERS
+#if SUPPORT_TRIGGERS
             actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
             strcpy(actionInfo.actionName, "trigger_click");
             strcpy(actionInfo.localizedActionName, "Trigger Click");
@@ -1333,7 +1333,7 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.triggerValueAction));
 #endif
 
-#if USE_FACE_BUTTONS
+#if SUPPORT_FACE_BUTTONS
             actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
             strcpy(actionInfo.actionName, "button_a_click");
             strcpy(actionInfo.localizedActionName, "Button A Click");
@@ -1417,7 +1417,7 @@ struct OpenXrProgram : IOpenXrProgram
 		CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/thumbstick/y", &stickYPath[Side::RIGHT]));
 #endif
 
-#if USE_TRIGGERS
+#if SUPPORT_TRIGGERS
         std::array<XrPath, Side::COUNT> triggerClickPath;
 
         xrStringToPath(m_instance, "/user/hand/left/input/trigger/click", &triggerClickPath[Side::LEFT]);
@@ -1434,7 +1434,7 @@ struct OpenXrProgram : IOpenXrProgram
         xrStringToPath(m_instance, "/user/hand/right/input/trigger/value", &triggerValuePath[Side::RIGHT]);
 #endif
 
-#if USE_FACE_BUTTONS
+#if SUPPORT_FACE_BUTTONS
         std::array<XrPath, Side::COUNT> XA_ClickPath;
 
         xrStringToPath(m_instance, "/user/hand/left/input/x/click", &XA_ClickPath[Side::LEFT]);
@@ -1505,13 +1505,13 @@ struct OpenXrProgram : IOpenXrProgram
                                                             {m_input.thumbstickTouchAction, stickTouchPath[Side::LEFT]},
                                                             {m_input.thumbstickTouchAction, stickTouchPath[Side::RIGHT]},
 #endif
-#if USE_TRIGGERS
+#if SUPPORT_TRIGGERS
                                                             {m_input.triggerClickAction, triggerValuePath[Side::LEFT]},
                                                             {m_input.triggerClickAction, triggerValuePath[Side::RIGHT]},
                                                             {m_input.triggerValueAction, triggerValuePath[Side::LEFT]},
                                                             {m_input.triggerValueAction, triggerValuePath[Side::RIGHT]},
 #endif
-#if USE_FACE_BUTTONS
+#if SUPPORT_FACE_BUTTONS
                                                             {m_input.buttonAXClickAction, XA_ClickPath[Side::LEFT]},
                                                             {m_input.buttonAXClickAction, XA_ClickPath[Side::RIGHT]},
                                                             {m_input.buttonBYClickAction, YB_ClickPath[Side::LEFT]},
@@ -1554,13 +1554,13 @@ struct OpenXrProgram : IOpenXrProgram
 				{m_input.thumbstickTouchAction, stickTouchPath[Side::LEFT]},
 				{m_input.thumbstickTouchAction, stickTouchPath[Side::RIGHT]},
 #endif
-#if USE_TRIGGERS
+#if SUPPORT_TRIGGERS
 				{m_input.triggerClickAction, triggerValuePath[Side::LEFT]},
 				{m_input.triggerClickAction, triggerValuePath[Side::RIGHT]},
 				{m_input.triggerValueAction, triggerValuePath[Side::LEFT]},
 				{m_input.triggerValueAction, triggerValuePath[Side::RIGHT]},
 #endif
-#if USE_FACE_BUTTONS
+#if SUPPORT_FACE_BUTTONS
 				{m_input.buttonAXClickAction, XA_ClickPath[Side::LEFT]},
 				{m_input.buttonAXClickAction, XA_ClickPath[Side::RIGHT]},
 				{m_input.buttonBYClickAction, YB_ClickPath[Side::LEFT]},
@@ -3349,7 +3349,7 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrGetActionStatePose(m_session, &getInfo, &poseState));
             m_input.handActive[hand] = poseState.isActive;
 
-#if USE_TRIGGERS
+#if SUPPORT_TRIGGERS
             {
 				XrActionStateFloat triggerValue{ XR_TYPE_ACTION_STATE_FLOAT };
 				getInfo.action = m_input.triggerValueAction;
@@ -3374,7 +3374,7 @@ struct OpenXrProgram : IOpenXrProgram
             }
 #endif
 
-#if USE_FACE_BUTTONS
+#if SUPPORT_FACE_BUTTONS
             {
                 XrActionStateGetInfo action_get_info = { XR_TYPE_ACTION_STATE_GET_INFO };
                 action_get_info.subactionPath = m_input.handSubactionPath[hand];
