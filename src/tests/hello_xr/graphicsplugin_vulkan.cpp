@@ -44,7 +44,7 @@ struct vk_push_constant
 extern int current_eye;
 extern float IPD;
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 extern BVR::GLMPose player_pose;
 extern BVR::GLMPose local_hmd_pose;
 #endif
@@ -1823,7 +1823,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             XrMatrix4x4f view;
             XrMatrix4x4f_InvertRigidBody(&view, &toView);
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
             const XrPosef xr_local_eye_pose = layerView.pose;
             const BVR::GLMPose local_eye_pose = BVR::convert_to_glm_pose(xr_local_eye_pose);
 

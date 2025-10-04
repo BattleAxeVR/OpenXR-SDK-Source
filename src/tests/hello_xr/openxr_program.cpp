@@ -174,7 +174,7 @@ XrPosef previous_grip_pose[Side::COUNT];
 XrPosef previous_aim_pose[Side::COUNT];
 #endif
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 const glm::vec3 forward_direction(0.0f, 0.0f, -1.0f);
 //const glm::vec3 back_direction(0.0f, 0.0f, 1.0f);
 //const glm::vec3 left_direction(-1.0f, 0.0f, 0.0f);
@@ -318,7 +318,7 @@ bool is_third_person_view_enabled()
 }
 #endif // SUPPORT_THIRD_PERSON
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 const float movement_speed = WALKING_SPEED;
 const float rotation_speed = SMOOTH_TURNING_ROTATION_SPEED;
 
@@ -686,7 +686,7 @@ struct OpenXrProgram : IOpenXrProgram
                     m_input.handSpace[hand] = nullptr;
                 }
 
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
                 if (m_input.aimSpace[hand])
                 {
                     xrDestroySpace(m_input.aimSpace[hand]);
@@ -1221,13 +1221,13 @@ struct OpenXrProgram : IOpenXrProgram
         std::array<float, Side::COUNT> handScale = {{1.0f, 1.0f}};
         std::array<XrBool32, Side::COUNT> handActive;
 
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
         XrAction aimPoseAction{XR_NULL_HANDLE};
         std::array<XrPath, Side::COUNT> aimSubactionPath;
         std::array<XrSpace, Side::COUNT> aimSpace{ XR_NULL_HANDLE, XR_NULL_HANDLE };
 #endif
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
         XrAction thumbstickTouchAction{ XR_NULL_HANDLE };
         XrAction thumbstickClickAction{ XR_NULL_HANDLE };
 		XrAction thumbstickXAction{ XR_NULL_HANDLE };
@@ -1290,7 +1290,7 @@ struct OpenXrProgram : IOpenXrProgram
             actionInfo.subactionPaths = m_input.handSubactionPath.data();
             CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.poseAction));
                         
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
             actionInfo.actionType = XR_ACTION_TYPE_POSE_INPUT;
             strcpy_s(actionInfo.actionName, "aim_pose");
             strcpy_s(actionInfo.localizedActionName, "Aim Pose");
@@ -1299,7 +1299,7 @@ struct OpenXrProgram : IOpenXrProgram
             CHECK_XRCMD(xrCreateAction(m_input.actionSet, &actionInfo, &m_input.aimPoseAction));
 #endif
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
             actionInfo.actionType = XR_ACTION_TYPE_BOOLEAN_INPUT;
             strcpy(actionInfo.actionName, "thumbstick_touch");
             strcpy(actionInfo.localizedActionName, "Thumbstick Touch");
@@ -1373,10 +1373,10 @@ struct OpenXrProgram : IOpenXrProgram
         std::array<XrPath, Side::COUNT> squeezeForcePath;
         std::array<XrPath, Side::COUNT> squeezeClickPath;
         std::array<XrPath, Side::COUNT> posePath;
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
         std::array<XrPath, Side::COUNT> aimPath;
 #endif
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 		std::array<XrPath, Side::COUNT> stickXPath;
         std::array<XrPath, Side::COUNT> stickYPath;
 #endif
@@ -1394,12 +1394,12 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/squeeze/click", &squeezeClickPath[Side::RIGHT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/grip/pose", &posePath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/grip/pose", &posePath[Side::RIGHT]));
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/aim/pose", &aimPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/aim/pose", &aimPath[Side::RIGHT]));
 #endif
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
         std::array<XrPath, Side::COUNT> stickClickPath;
 
         xrStringToPath(m_instance, "/user/hand/left/input/thumbstick/click", &stickClickPath[Side::LEFT]);
@@ -1464,7 +1464,7 @@ struct OpenXrProgram : IOpenXrProgram
                                                             {m_input.grabAction, selectPath[Side::RIGHT]},
                                                             {m_input.poseAction, posePath[Side::LEFT]},
                                                             {m_input.poseAction, posePath[Side::RIGHT]},
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
                                                             {m_input.aimPoseAction, aimPath[Side::LEFT]},
                                                             {m_input.aimPoseAction, aimPath[Side::RIGHT]},
 #endif
@@ -1491,11 +1491,11 @@ struct OpenXrProgram : IOpenXrProgram
                                                             {m_input.grabAction, squeezeValuePath[Side::RIGHT]},
                                                             {m_input.poseAction, posePath[Side::LEFT]},
                                                             {m_input.poseAction, posePath[Side::RIGHT]},
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
                                                             {m_input.aimPoseAction, aimPath[Side::LEFT]},
                                                             {m_input.aimPoseAction, aimPath[Side::RIGHT]},
 #endif
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 															{m_input.thumbstickXAction, stickXPath[Side::LEFT]},
 															{m_input.thumbstickXAction, stickXPath[Side::RIGHT]},
 															{m_input.thumbstickYAction, stickYPath[Side::LEFT]},
@@ -1540,11 +1540,11 @@ struct OpenXrProgram : IOpenXrProgram
 				{m_input.grabAction, squeezeValuePath[Side::RIGHT]},
 				{m_input.poseAction, posePath[Side::LEFT]},
 				{m_input.poseAction, posePath[Side::RIGHT]},
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
 				{m_input.aimPoseAction, aimPath[Side::LEFT]},
 				{m_input.aimPoseAction, aimPath[Side::RIGHT]},
 #endif
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 				{m_input.thumbstickXAction, stickXPath[Side::LEFT]},
 				{m_input.thumbstickXAction, stickXPath[Side::RIGHT]},
 				{m_input.thumbstickYAction, stickYPath[Side::LEFT]},
@@ -1951,7 +1951,7 @@ struct OpenXrProgram : IOpenXrProgram
         actionSpaceInfo.subactionPath = m_input.handSubactionPath[Side::RIGHT];
         CHECK_XRCMD(xrCreateActionSpace(m_session, &actionSpaceInfo, &m_input.handSpace[Side::RIGHT]));
 
-#if ADD_AIM_POSE
+#if SUPPORT_AIM_POSE
         actionSpaceInfo.action = m_input.aimPoseAction;
 
         actionSpaceInfo.subactionPath = m_input.handSubactionPath[Side::LEFT];
@@ -3214,7 +3214,7 @@ struct OpenXrProgram : IOpenXrProgram
                     CHECK_XRCMD(xrApplyHapticFeedback(m_session, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
                 }
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
                 XrActionStateFloat axis_state_x = { XR_TYPE_ACTION_STATE_FLOAT };
                 XrActionStateFloat axis_state_y = { XR_TYPE_ACTION_STATE_FLOAT };
 
@@ -3337,7 +3337,7 @@ struct OpenXrProgram : IOpenXrProgram
 
                 }
 
-#endif // USE_THUMBSTICKS
+#endif // SUPPORT_THUMBSTICKS
             }
             else
             {
@@ -4562,7 +4562,7 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 		const BVR::GLMPose local_left_eye_pose = BVR::convert_to_glm_pose(m_views[Side::LEFT].pose);
 		const BVR::GLMPose local_right_eye_pose = BVR::convert_to_glm_pose(m_views[Side::RIGHT].pose);
 

@@ -21,7 +21,7 @@
 extern int current_eye;
 extern float IPD;
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
 extern BVR::GLMPose player_pose;
 extern BVR::GLMPose local_hmd_pose;
 #endif
@@ -481,7 +481,7 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         }
 #endif
 
-#if USE_THUMBSTICKS
+#if SUPPORT_THUMBSTICKS
         const XrPosef xr_local_eye_pose = layerView.pose;
 		const BVR::GLMPose local_eye_pose = BVR::convert_to_glm_pose(xr_local_eye_pose);
 
