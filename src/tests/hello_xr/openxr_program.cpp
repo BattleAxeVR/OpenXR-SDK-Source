@@ -1443,7 +1443,8 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/left/input/b/click", &bClickPath[Side::LEFT]));
         CHECK_XRCMD(xrStringToPath(m_instance, "/user/hand/right/input/b/click", &bClickPath[Side::RIGHT]));
         
-        // Suggest bindings for KHR Simple.
+#if SUPPORT_KHR_SIMPLE_CONTROLLERS
+		// Suggest bindings for KHR Simple.
         {
             XrPath khrSimpleInteractionProfilePath;
             CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/khr/simple_controller", &khrSimpleInteractionProfilePath));
@@ -1468,6 +1469,9 @@ struct OpenXrProgram : IOpenXrProgram
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
+#endif
+
+#if SUPPORT_TOUCH_CONTROLLERS
         // Suggest bindings for the Oculus Touch.
         {
             XrPath oculusTouchInteractionProfilePath;
@@ -1511,6 +1515,56 @@ struct OpenXrProgram : IOpenXrProgram
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
+#endif
+
+#if SUPPORT_KHR_GENERIC_CONTROLLERS
+		// Suggest bindings for XR_KHR_generic_controller 
+        // https://registry.khronos.org/OpenXR/specs/1.1/html/xrspec.html#XR_KHR_generic_controller
+		{
+			XrPath khrGenericInteractionProfilePath;
+			CHECK_XRCMD(xrStringToPath(m_instance, "/interaction_profiles/khr/generic_controller", &khrGenericInteractionProfilePath));
+
+			std::vector<XrActionSuggestedBinding> bindings{ {{m_input.grabAction, squeezeValuePath[Side::LEFT]},
+				{m_input.grabAction, squeezeValuePath[Side::RIGHT]},
+				{m_input.poseAction, posePath[Side::LEFT]},
+				{m_input.poseAction, posePath[Side::RIGHT]},
+#if ADD_AIM_POSE
+				{m_input.aimPoseAction, aimPath[Side::LEFT]},
+				{m_input.aimPoseAction, aimPath[Side::RIGHT]},
+#endif
+#if USE_THUMBSTICKS
+				{m_input.thumbstickXAction, stickXPath[Side::LEFT]},
+				{m_input.thumbstickXAction, stickXPath[Side::RIGHT]},
+				{m_input.thumbstickYAction, stickYPath[Side::LEFT]},
+				{m_input.thumbstickYAction, stickYPath[Side::RIGHT]},
+				{m_input.thumbstickClickAction, stickClickPath[Side::LEFT]},
+				{m_input.thumbstickClickAction, stickClickPath[Side::RIGHT]},
+				{m_input.thumbstickTouchAction, stickTouchPath[Side::LEFT]},
+				{m_input.thumbstickTouchAction, stickTouchPath[Side::RIGHT]},
+#endif
+#if USE_BUTTONS_TRIGGERS
+				{m_input.triggerClickAction, triggerValuePath[Side::LEFT]},
+				{m_input.triggerClickAction, triggerValuePath[Side::RIGHT]},
+				{m_input.triggerValueAction, triggerValuePath[Side::LEFT]},
+				{m_input.triggerValueAction, triggerValuePath[Side::RIGHT]},
+				{m_input.buttonAXClickAction, XA_ClickPath[Side::LEFT]},
+				{m_input.buttonAXClickAction, XA_ClickPath[Side::RIGHT]},
+				{m_input.buttonBYClickAction, YB_ClickPath[Side::LEFT]},
+				{m_input.buttonBYClickAction, YB_ClickPath[Side::RIGHT]},
+#endif
+				{m_input.quitAction, menuClickPath[Side::LEFT]},
+				{m_input.vibrateAction, hapticPath[Side::LEFT]},
+				{m_input.vibrateAction, hapticPath[Side::RIGHT]}} };
+
+			XrInteractionProfileSuggestedBinding suggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
+			suggestedBindings.interactionProfile = khrGenericInteractionProfilePath;
+			suggestedBindings.suggestedBindings = bindings.data();
+			suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
+			CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
+		}
+#endif
+
+#if SUPPORT_VIVE_CONTROLLERS
         // Suggest bindings for the Vive Controller.
         {
             XrPath viveControllerInteractionProfilePath;
@@ -1530,7 +1584,9 @@ struct OpenXrProgram : IOpenXrProgram
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
+#endif
 
+#if SUPPORT_VALVE_INDEX_CONTROLLERS
         // Suggest bindings for the Valve Index Controller.
         {
             XrPath indexControllerInteractionProfilePath;
@@ -1551,7 +1607,9 @@ struct OpenXrProgram : IOpenXrProgram
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
+#endif
 
+#if SUPPORT_WMR_CONTROLLERS
         // Suggest bindings for the Microsoft Mixed Reality Motion Controller.
         {
             XrPath microsoftMixedRealityInteractionProfilePath;
@@ -1572,6 +1630,7 @@ struct OpenXrProgram : IOpenXrProgram
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(m_instance, &suggestedBindings));
         }
+#endif
 
 #if ENABLE_VIVE_TRACKERS
 		if(supports_HTCX_vive_tracker_interaction_)
