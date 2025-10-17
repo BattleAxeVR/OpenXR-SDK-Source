@@ -3165,7 +3165,7 @@ struct OpenXrProgram : IOpenXrProgram
 
     void PollActions() override 
     {
-        m_input.handActive = {XR_FALSE, XR_FALSE};
+		m_input.handActive = {{XR_FALSE, XR_FALSE}};
 
         // Sync actions
         const XrActiveActionSet activeActionSet{m_input.actionSet, XR_NULL_PATH};
