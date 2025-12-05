@@ -1574,80 +1574,103 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
     }
 #endif
 
-    void InitializeResources() {
+	void InitializeResources() {
 #ifdef USE_ONLINE_VULKAN_SHADERC
-        auto vertexSPIRV = CompileGlslShader("vertex", shaderc_glsl_default_vertex_shader, VertexShaderGlsl);
-        auto fragmentSPIRV = CompileGlslShader("fragment", shaderc_glsl_default_fragment_shader, FragmentShaderGlsl);
+		auto vertexSPIRV = CompileGlslShader("vertex", shaderc_glsl_default_vertex_shader, VertexShaderGlsl);
+		auto fragmentSPIRV = CompileGlslShader("fragment", shaderc_glsl_default_fragment_shader, FragmentShaderGlsl);
 #else
-        std::vector<uint32_t> vertexSPIRV = SPV_PREFIX
+		std::vector<uint32_t> vertexSPIRV = SPV_PREFIX
 #include "vert.spv"
-            SPV_SUFFIX;
-        std::vector<uint32_t> fragmentSPIRV = SPV_PREFIX
+			SPV_SUFFIX;
+		std::vector<uint32_t> fragmentSPIRV = SPV_PREFIX
 #include "frag.spv"
-            SPV_SUFFIX;
+			SPV_SUFFIX;
 #endif
-        if (vertexSPIRV.empty()) THROW("Failed to compile vertex shader");
-        if (fragmentSPIRV.empty()) THROW("Failed to compile fragment shader");
+		if(vertexSPIRV.empty()) THROW("Failed to compile vertex shader");
+		if(fragmentSPIRV.empty()) THROW("Failed to compile fragment shader");
 
-        m_shaderProgram.Init(m_vkDevice);
-        m_shaderProgram.LoadVertexShader(vertexSPIRV);
-        m_shaderProgram.LoadFragmentShader(fragmentSPIRV);
+		m_shaderProgram.Init(m_vkDevice);
+		m_shaderProgram.LoadVertexShader(vertexSPIRV);
+		m_shaderProgram.LoadFragmentShader(fragmentSPIRV);
 
-        // Semaphore to block on draw complete
-        VkSemaphoreCreateInfo semInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        CHECK_VKCMD(vkCreateSemaphore(m_vkDevice, &semInfo, nullptr, &m_vkDrawDone));
-        CHECK_VKCMD(m_namer.SetName(VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)m_vkDrawDone, "hello_xr draw done semaphore"));
+		// Semaphore to block on draw complete
+		VkSemaphoreCreateInfo semInfo{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+		XRC_CHECK_THROW_VKCMD(vkCreateSemaphore(m_vkDevice, &semInfo, nullptr, &m_vkDrawDone));
+		XRC_CHECK_THROW_VKCMD(m_namer.SetName(VK_OBJECT_TYPE_SEMAPHORE, (uint64_t)m_vkDrawDone, "hello_xr draw done semaphore"));
 
-        if (!m_cmdBuffer.Init(m_namer, m_vkDevice, m_queueFamilyIndex)) THROW("Failed to create command buffer");
+		if(!m_cmdBuffer.Init(m_namer, m_vkDevice, m_queueFamilyIndex)) THROW("Failed to create command buffer");
 
-        m_pipelineLayout.Create(m_vkDevice);
+		m_pipelineLayout.Create(m_vkDevice);
 
-        static_assert(sizeof(Geometry::Vertex) == 24, "Unexpected Vertex size");
-        m_drawBuffer.Init(m_vkDevice, &m_memAllocator,
-                          {{0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Position)},
-                           {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Color)}});
-        uint32_t numCubeIdicies = sizeof(Geometry::c_cubeIndices) / sizeof(Geometry::c_cubeIndices[0]);
-        uint32_t numCubeVerticies = sizeof(Geometry::c_cubeVertices) / sizeof(Geometry::c_cubeVertices[0]);
-        m_drawBuffer.Create(numCubeIdicies, numCubeVerticies);
-        m_drawBuffer.UpdateIndices(Geometry::c_cubeIndices, numCubeIdicies, 0);
-        m_drawBuffer.UpdateVertices(Geometry::c_cubeVertices, numCubeVerticies, 0);
+		// hello_xr: doesn't need compute shader support
+#if 0
+		XRC_CHECK_THROW_VKCMD(
+			m_namer.SetName(VK_OBJECT_TYPE_PIPELINE_LAYOUT, (uint64_t)m_pipelineLayout.layout, "hello_xr graphics pipeline layout"));
 
+		m_computePipelineLayout.Create(m_vkDevice, SHADER_PROGRAM_TYPE_COMPUTE);
+		XRC_CHECK_THROW_VKCMD(m_namer.SetName(VK_OBJECT_TYPE_PIPELINE_LAYOUT, (uint64_t)m_computePipelineLayout.layout,
+			"hello_xr compute pipeline layout"));
+		XRC_CHECK_THROW_VKCMD(m_namer.SetName(VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uint64_t)m_computePipelineLayout.descriptorSetLayout,
+			"hello_xr compute descriptor set layout"));
+
+		m_computeDescriptorPool.adopt(CreateDescriptorPool(m_vkDevice, 1, 1), m_vkDevice);
+
+		VkDescriptorSetAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+		allocInfo.descriptorPool = m_computeDescriptorPool.get();
+		allocInfo.descriptorSetCount = 1;
+		allocInfo.pSetLayouts = &m_computePipelineLayout.descriptorSetLayout;
+		XRC_CHECK_THROW_VKCMD(vkAllocateDescriptorSets(m_vkDevice, &allocInfo, &m_ComputeDescriptorSet));
+#endif
+
+		static_assert(sizeof(Geometry::Vertex) == 24, "Unexpected Vertex size");
+		m_drawBuffer.Init(m_vkDevice, &m_memAllocator,
+			{ {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Position)},
+			{1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::Vertex, Color)} });
+		uint32_t numCubeIdicies = sizeof(Geometry::c_cubeIndices) / sizeof(Geometry::c_cubeIndices[0]);
+		uint32_t numCubeVerticies = sizeof(Geometry::c_cubeVertices) / sizeof(Geometry::c_cubeVertices[0]);
+		m_drawBuffer.Create(numCubeIdicies, numCubeVerticies);
+
+		m_drawBuffer.UpdateIndices(span<const uint16_t>(Geometry::c_cubeIndices, numCubeIdicies), 0);
+		m_drawBuffer.UpdateVertices(span<const Geometry::Vertex>(Geometry::c_cubeVertices, numCubeVerticies), 0);
 #if defined(USE_MIRROR_WINDOW)
-        m_swapchain.Create(m_vkInstance, m_vkPhysicalDevice, m_vkDevice, m_graphicsBinding.queueFamilyIndex);
+		m_swapchain.Create(m_vkInstance, m_vkPhysicalDevice, m_vkDevice, m_graphicsBinding.queueFamilyIndex);
 
-        m_cmdBuffer.Reset();
-        m_cmdBuffer.Begin();
-        m_swapchain.Prepare(m_cmdBuffer.buf);
-        m_cmdBuffer.End();
-        m_cmdBuffer.Exec(m_vkQueue);
-        m_cmdBuffer.Wait();
+		m_cmdBuffer.Reset();
+		if(!m_cmdBuffer.Init(m_namer, m_vkDevice, m_queueFamilyIndex)) THROW("Failed to create command buffer");
+
+		m_cmdBuffer.Begin();
+		m_swapchain.Prepare(m_cmdBuffer.buf);
+		m_cmdBuffer.End();
+		m_cmdBuffer.Exec(m_vkQueue);
+		m_cmdBuffer.Wait();
 #endif
-    }
+	}
 
-    int64_t SelectColorSwapchainFormat(const std::vector<int64_t>& runtimeFormats) const override {
-        // List of supported color swapchain formats.
-        
-#if ENABLE_HDR_SWAPCHAIN
-        constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_R16G16B16A16_SFLOAT }; // OK on PSVR 2 and Quest 3
-        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_A2R10G10B10_UNORM_PACK32 };  // fail on Quest 3 and PSVR 2
-        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_A2R10G10B10_UINT_PACK32 };  // fail on Quest 3 and PSVR 2
-        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_B10G11R11_UFLOAT_PACK32 };   // fail on Quest 3 and PSVR 2      
-        //constexpr int64_t SupportedColorSwapchainFormats[] = { VK_FORMAT_E5B9G9R9_UFLOAT_PACK32 };  // fail on Quest 3 and PSVR 2    
-#else
-        constexpr int64_t SupportedColorSwapchainFormats[] = {VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_SRGB,
-                                                              VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM};
-#endif
+	// Select the preferred swapchain format from the list of available formats.
+	int64_t SelectColorSwapchainFormat(bool throwIfNotFound, span<const int64_t> imageFormatArray) const override {
+		// List of supported color swapchain formats.
+		return SelectSwapchainFormat(  //
+			throwIfNotFound, imageFormatArray,
+			{
+				VK_FORMAT_R8G8B8A8_SRGB,
+				VK_FORMAT_B8G8R8A8_SRGB,
+				VK_FORMAT_R8G8B8A8_UNORM,
+				VK_FORMAT_B8G8R8A8_UNORM,
+			});
+	}
 
-        auto swapchainFormatIt =
-            std::find_first_of(runtimeFormats.begin(), runtimeFormats.end(), std::begin(SupportedColorSwapchainFormats),
-                               std::end(SupportedColorSwapchainFormats));
-        if (swapchainFormatIt == runtimeFormats.end()) {
-            THROW("No runtime swapchain format supported for color swapchain");
-        }
-
-        return *swapchainFormatIt;
-    }
-
+	// Select the preferred swapchain format from the list of available formats.
+	int64_t SelectDepthSwapchainFormat(bool throwIfNotFound, span<const int64_t> imageFormatArray) const override {
+		// List of supported depth swapchain formats.
+		return SelectSwapchainFormat(  //
+			throwIfNotFound, imageFormatArray,
+			{
+				VK_FORMAT_D32_SFLOAT,
+				VK_FORMAT_D24_UNORM_S8_UINT,
+				VK_FORMAT_D16_UNORM,
+				VK_FORMAT_D32_SFLOAT_S8_UINT,
+			});
+	}
     const XrBaseInStructure* GetGraphicsBinding() const override {
         return reinterpret_cast<const XrBaseInStructure*>(&m_graphicsBinding);
     }
