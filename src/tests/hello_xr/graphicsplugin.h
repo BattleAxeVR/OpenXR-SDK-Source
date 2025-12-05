@@ -28,8 +28,11 @@ const Colour green(0.0f, 1.0f, 0.0f, 1.0f);
 const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
 #endif
 
-struct Cube 
-{
+#include "swapchain_image_data.h"
+#include <nonstd/span.hpp>
+using nonstd::span;
+
+struct Cube {
     XrPosef Pose;
     XrVector3f Scale;
     Colour colour_ = white;
@@ -55,15 +58,34 @@ struct IGraphicsPlugin {
     virtual void InitializeDevice(XrInstance instance, XrSystemId systemId) = 0;
 
     // Select the preferred swapchain format from the list of available formats.
-    virtual int64_t SelectColorSwapchainFormat(const std::vector<int64_t>& runtimeFormats) const = 0;
+    virtual int64_t SelectColorSwapchainFormat(bool throwIfNotFound, span<const int64_t> imageFormatArray) const = 0;
+    virtual int64_t SelectDepthSwapchainFormat(bool throwIfNotFound, span<const int64_t> imageFormatArray) const = 0;
 
     // Get the graphics binding header for session creation.
     virtual const XrBaseInStructure* GetGraphicsBinding() const = 0;
 
-    // Allocate space for the swapchain image structures. These are different for each graphics API. The returned
-    // pointers are valid for the lifetime of the graphics plugin.
-    virtual std::vector<XrSwapchainImageBaseHeader*> AllocateSwapchainImageStructs(
-        uint32_t capacity, const XrSwapchainCreateInfo& swapchainCreateInfo) = 0;
+    /// Allocates an object owning (among other things) an array of XrSwapchainImage* in a portable way and
+    /// returns an **observing** pointer to an interface providing generic access to the associated pointers.
+    /// (The object remains owned by the graphics plugin, and will be destroyed on @ref ShutdownDevice())
+    /// This is all for the purpose of being able to call the xrEnumerateSwapchainImages function
+    /// in a platform-independent way. The user of this must not use the images beyond @ref ShutdownDevice()
+    ///
+    /// Example usage:
+    ///
+    /// ```c++
+    /// ISwapchainImageData * p = graphicsPlugin->AllocateSwapchainImageData(3, swapchainCreateInfo);
+    /// xrEnumerateSwapchainImages(swapchain, 3, &count, p->GetColorImageArray());
+    /// ```
+    virtual ISwapchainImageData* AllocateSwapchainImageData(size_t size, const XrSwapchainCreateInfo& swapchainCreateInfo) = 0;
+
+    /// Allocates an object owning (among other things) an array of XrSwapchainImage* in a portable way and
+    /// returns an **observing** pointer to an interface providing generic access to the associated pointers.
+    ///
+    /// Signals that we will use a depth swapchain allocated by the runtime, instead of a fallback depth
+    /// allocated by the plugin.
+    virtual ISwapchainImageData* AllocateSwapchainImageDataWithDepthSwapchain(
+        size_t size, const XrSwapchainCreateInfo& colorSwapchainCreateInfo, XrSwapchain depthSwapchain,
+        const XrSwapchainCreateInfo& depthSwapchainCreateInfo) = 0;
 
     // Render to a swapchain image for a projection view.
     virtual void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage,
@@ -90,6 +112,35 @@ struct IGraphicsPlugin {
     virtual void SaveScreenShot(const std::string& filename) = 0;
 
 };
+
+// Graphics API factories are forward declared here.
+#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_OpenGLES(const std::shared_ptr<struct Options>& options,
+                                                               std::shared_ptr<struct IPlatformPlugin> platformPlugin);
+#endif
+#ifdef XR_USE_GRAPHICS_API_OPENGL
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_OpenGL(const std::shared_ptr<struct Options>& options,
+                                                             std::shared_ptr<struct IPlatformPlugin> platformPlugin);
+#endif
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_VulkanLegacy(const std::shared_ptr<struct Options>& options,
+                                                                   std::shared_ptr<struct IPlatformPlugin> platformPlugin);
+
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Vulkan(const std::shared_ptr<struct Options>& options,
+                                                             std::shared_ptr<struct IPlatformPlugin> platformPlugin);
+#endif
+#ifdef XR_USE_GRAPHICS_API_D3D11
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D11(const std::shared_ptr<struct Options>& options,
+                                                            std::shared_ptr<struct IPlatformPlugin> platformPlugin);
+#endif
+#ifdef XR_USE_GRAPHICS_API_D3D12
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_D3D12(const std::shared_ptr<struct Options>& options,
+                                                            std::shared_ptr<struct IPlatformPlugin> platformPlugin);
+#endif
+#ifdef XR_USE_GRAPHICS_API_METAL
+std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin_Metal(const std::shared_ptr<struct Options>& options,
+                                                            std::shared_ptr<struct IPlatformPlugin> platformPlugin);
+#endif
 
 // Create a graphics plugin for the graphics API specified in the options.
 std::shared_ptr<IGraphicsPlugin> CreateGraphicsPlugin(const std::shared_ptr<struct Options>& options,

@@ -19,6 +19,7 @@ set(LOCAL_HEADERS
     check.h
     common.h
     d3d_common.h
+    d3d12_utils.h
     geometry.h
     graphicsapi.h
     graphicsplugin.h
@@ -34,6 +35,7 @@ set(LOCAL_HEADERS
 )
 set(LOCAL_SOURCE
     d3d_common.cpp
+    d3d12_utils.cpp
     graphicsplugin_d3d11.cpp
     graphicsplugin_d3d12.cpp
     graphicsplugin_factory.cpp
@@ -124,6 +126,8 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/external/metal-cpp"
         # For including compiled shaders
         "${CMAKE_CURRENT_BINARY_DIR}"
+        # Backport of std::span functionality to pre-C++17
+        ${PROJECT_SOURCE_DIR}/src/external/span-lite/include
 )
 
 target_link_libraries(hello_xr PRIVATE OpenXR::openxr_loader)
