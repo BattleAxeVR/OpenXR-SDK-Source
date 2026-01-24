@@ -18,15 +18,15 @@ jobs:
     strategy:
         matrix:
           device: [
-            macos-13, # Tests Mac x86_64
-            macos-14, # Tests Mac arm64
+            macos-15-intel, # Tests Mac x86_64
+            macos-latest, # Tests Mac arm64
           ]
     runs-on: ${{ matrix.device }}
 
     steps:
       - uses: actions/checkout@v6
       - name: "Get modern CMake and Ninja"
-        uses: "lukka/get-cmake@v4.2.0"
+        uses: "lukka/get-cmake@v4.2.1"
       - name: Prepare Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
