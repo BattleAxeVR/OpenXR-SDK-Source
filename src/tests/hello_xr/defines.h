@@ -27,7 +27,7 @@ namespace BVR
 #define PREFER_THIRD_PERSON_AUTO (SUPPORT_THIRD_PERSON && 0)
 
 #ifndef ENABLE_ADVANCED_FEATURES
-#define ENABLE_ADVANCED_FEATURES 1
+#define ENABLE_ADVANCED_FEATURES 0
 #endif
 
 #define CEILING_HEIGHT_METERS 5.0f
@@ -38,16 +38,23 @@ namespace BVR
 #define ENABLE_HAPTICS 0
 #define VIBRATION_GRIP_THRESHOLD 0.9f
 
+#define BOTH_EYE_RELEVANCE -1
+
 #if ENABLE_ADVANCED_FEATURES
 
 #include <meta_openxr_preview/extx1_event_channel.h>
-#include <meta_openxr_preview/meta_body_tracking_calibration.h>
+#include <meta_openxr_preview/extx1_haptic_parametric.h>
+#include <meta_openxr_preview/extx2_stationary_reference_space.h>
 #include <meta_openxr_preview/meta_body_tracking_fidelity.h>
-#include <meta_openxr_preview/meta_body_tracking_full_body.h>
-#include <meta_openxr_preview/meta_detached_controllers.h>
+#include <meta_openxr_preview/meta_boundary_visibility.h>
+#include <meta_openxr_preview/meta_dynamic_object_keyboard.h>
+#include <meta_openxr_preview/meta_dynamic_object_tracker.h>
+#include <meta_openxr_preview/meta_face_tracking_visemes.h>
 #include <meta_openxr_preview/meta_hand_tracking_wide_motion_mode.h>
-#include <meta_openxr_preview/meta_simultaneous_hands_and_controllers.h>
+#include <meta_openxr_preview/meta_spatial_entity_room_mesh.h>
+#include <meta_openxr_preview/meta_spatial_entity_semantic_label.h>
 #include <meta_openxr_preview/openxr_extension_helpers.h>
+#include <meta_openxr_preview/openxr_oculus_helpers.h>
 
 #ifdef XR_USE_PLATFORM_ANDROID
 #define PLATFORM_ANDROID 1
@@ -147,7 +154,7 @@ namespace BVR
 #define EYE_LASER_WIDTH 0.005f
 #define EYE_LASER_DISTANCE_OFFSET 0.3f
 #define USE_CUBE_PER_EYE_RELEVANCE (ENABLE_EYE_TRACKING && 1)
-#define BOTH_EYE_RELEVANCE -1
+
 
 // Face tracking (not implemented yet)
 #define ENABLE_OPENXR_FB_FACE_TRACKING 0
