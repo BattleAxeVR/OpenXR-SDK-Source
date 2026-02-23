@@ -2506,6 +2506,18 @@ struct OpenXrProgram : IOpenXrProgram
 		if (social_eye_tracking_enabled_ && social_eye_gazes_.gaze[eye].isValid)
 		{
 			gaze_pose = social_eye_gazes_.gaze[eye].gazePose;
+
+#if FLIP_SOCIAL_GAZE_UPSIDE_DOWN
+            glm::fquat glm_gaze_rotation = BVR::convert_to_glm(gaze_pose.orientation);
+
+            glm_gaze_rotation.y *= -1.0f;
+            glm_gaze_rotation.w *= -1.0f;
+            glm_gaze_rotation = normalize(glm_gaze_rotation);
+
+            // Flip it upside down so down vs up is right
+            gaze_pose.orientation = BVR::convert_to_xr(glm_gaze_rotation);
+#endif
+
 			return true;
 		}
 
