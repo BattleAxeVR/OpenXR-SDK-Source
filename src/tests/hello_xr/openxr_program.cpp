@@ -3541,11 +3541,23 @@ struct OpenXrProgram : IOpenXrProgram
                 };
 
                 Cube floor_cube{cube_pose, scale_vec};
+
+#if ENABLE_TINT
+                floor_cube.colour_ = blue;
+                floor_cube.intensity_ = 0.5f;
+#endif
+
                 cubes.push_back(floor_cube);
 
                 cube_pose.position.y = CEILING_HEIGHT_METERS;
                 
                 Cube ceiling_cube{cube_pose, scale_vec};
+
+#if ENABLE_TINT
+                ceiling_cube.colour_ = red;
+                ceiling_cube.intensity_ = 0.5f;
+#endif
+
                 cubes.push_back(ceiling_cube);
             }
         }
@@ -4628,7 +4640,7 @@ struct OpenXrProgram : IOpenXrProgram
             }
 #endif
 
-            //const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
+            const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle]->GetGenericColorImage(swapchainImageIndex);
 
 #if ENABLE_BFI
             if (skip_frame) 
@@ -4710,7 +4722,6 @@ struct OpenXrProgram : IOpenXrProgram
                 depthInfos[i].farZ = 100.0f;
             }
 
-            const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle]->GetGenericColorImage(swapchainImageIndex);
             m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
 
             XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};

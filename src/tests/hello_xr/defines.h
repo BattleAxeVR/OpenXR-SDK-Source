@@ -23,14 +23,14 @@ namespace BVR
 #define INVALID_INDEX -1
 #define DRAW_FLOOR_AND_CEILING 1
 
-#define ENABLE_TINT 0
+#define ENABLE_TINT 1
 #define ENABLE_BLENDING (ENABLE_TINT && 0)
 
 #define SUPPORT_THIRD_PERSON 0
 #define PREFER_THIRD_PERSON_AUTO (SUPPORT_THIRD_PERSON && 0)
 
 #ifndef ENABLE_ADVANCED_FEATURES
-#define ENABLE_ADVANCED_FEATURES 0
+#define ENABLE_ADVANCED_FEATURES 1
 #endif
 
 #define CEILING_HEIGHT_METERS 5.0f
@@ -47,19 +47,17 @@ namespace BVR
 
 #if ENABLE_ADVANCED_FEATURES
 
-#include <meta_openxr_preview/extx1_event_channel.h>
-#include <meta_openxr_preview/extx1_haptic_parametric.h>
-#include <meta_openxr_preview/extx2_stationary_reference_space.h>
+//#include <meta_openxr_preview/extx1_event_channel.h>
+//#include <meta_openxr_preview/extx1_haptic_parametric.h>
+//#include <meta_openxr_preview/extx2_stationary_reference_space.h>
 #include <meta_openxr_preview/meta_body_tracking_fidelity.h>
 #include <meta_openxr_preview/meta_boundary_visibility.h>
-#include <meta_openxr_preview/meta_dynamic_object_keyboard.h>
-#include <meta_openxr_preview/meta_dynamic_object_tracker.h>
-#include <meta_openxr_preview/meta_face_tracking_visemes.h>
+//#include <meta_openxr_preview/meta_dynamic_object_keyboard.h>
+//#include <meta_openxr_preview/meta_dynamic_object_tracker.h>
+//#include <meta_openxr_preview/meta_face_tracking_visemes.h>
 #include <meta_openxr_preview/meta_hand_tracking_wide_motion_mode.h>
-#include <meta_openxr_preview/meta_spatial_entity_room_mesh.h>
-#include <meta_openxr_preview/meta_spatial_entity_semantic_label.h>
-#include <meta_openxr_preview/openxr_extension_helpers.h>
-#include <meta_openxr_preview/openxr_oculus_helpers.h>
+//#include <meta_openxr_preview/meta_spatial_entity_room_mesh.h>
+//#include <meta_openxr_preview/meta_spatial_entity_semantic_label.h>
 
 #ifdef XR_USE_PLATFORM_ANDROID
 #define PLATFORM_ANDROID 1
