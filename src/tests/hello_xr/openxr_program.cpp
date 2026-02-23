@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2025 The Khronos Group Inc.
+// Copyright (c) 2017-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -1056,7 +1056,7 @@ struct OpenXrProgram : IOpenXrProgram
             extensions.push_back(depthExtensionProperties->extensionName);
             m_supportsDepthLayer = true;
         } else {
-            Log::Write(Log::Level::Info, Fmt("Depth submission NOT supported (%s)", depthExtensionProperties->extensionName));
+            Log::Write(Log::Level::Info, Fmt("Depth submission NOT supported (%s)", XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME));
         }
 
         XrInstanceCreateInfo createInfo{XR_TYPE_INSTANCE_CREATE_INFO};

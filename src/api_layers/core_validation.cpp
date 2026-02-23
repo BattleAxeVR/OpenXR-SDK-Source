@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2025 The Khronos Group Inc.
+// Copyright (c) 2017-2026 The Khronos Group Inc.
 // Copyright (c) 2017-2019 Valve Corporation
 // Copyright (c) 2017-2019 LunarG, Inc.
 //
@@ -690,6 +690,12 @@ XRAPI_ATTR XrResult XRAPI_CALL CoreValidationXrCreateSession(XrInstance instance
 #endif
 #ifdef XR_USE_PLATFORM_WAYLAND
                 case XR_TYPE_GRAPHICS_BINDING_OPENGL_WAYLAND_KHR:
+#endif
+#ifdef XR_USE_GRAPHICS_API_METAL
+                case XR_TYPE_GRAPHICS_BINDING_METAL_KHR:
+#endif
+#ifdef XR_USE_PLATFORM_EGL
+                case XR_TYPE_GRAPHICS_BINDING_EGL_MNDX:
 #endif
                     num_graphics_bindings_found++;
                     break;

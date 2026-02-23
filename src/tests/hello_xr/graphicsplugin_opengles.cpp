@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2025 The Khronos Group Inc.
+// Copyright (c) 2017-2026 The Khronos Group Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -228,10 +228,12 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         m_contextApiMajorVersion = major;
 
 #if defined(XR_USE_PLATFORM_ANDROID)
-        m_graphicsBinding.display = window.display;
+        m_graphicsBinding.display = window.context.dpy;
         m_graphicsBinding.config = (EGLConfig)0;
-        m_graphicsBinding.context = window.context.context;
 
+        m_graphicsBinding.context = window.context.ctx;
+		
+		
 #if ENABLE_HDR_SWAPCHAIN
         // https://developer.qualcomm.com/sites/default/files/docs/adreno-gpu/snapdragon-game-toolkit/gdg/tutorials/android/hdr10.html
         
@@ -242,7 +244,8 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
         supports_hdr_ = supports_dci_p3_gamut && supports_bt2020_gamut && supports_smpte_2086;
 #endif
-        
+
+
 #endif
 
         glEnable(GL_DEBUG_OUTPUT);

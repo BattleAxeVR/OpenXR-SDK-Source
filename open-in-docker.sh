@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2025 The Khronos Group Inc.
+# Copyright (c) 2019-2026 The Khronos Group Inc.
 # Copyright (c) 2019 Collabora, Ltd.
 # SPDX-License-Identifier: Apache-2.0
 
@@ -17,7 +17,7 @@
 
 # This image/tag is generated from https://github.com/KhronosGroup/DockerContainers/blob/main/openxr.Dockerfile
 # Purpose: Spec (pdf/html) generation
-IMAGE_NAME=khronosgroup/docker-images:openxr.20240805
+IMAGE_NAME=khronosgroup/docker-images:openxr.20251023
 MOUNTPOINT=$(pwd)
 
 set -e
