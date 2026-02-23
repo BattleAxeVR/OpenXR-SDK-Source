@@ -454,30 +454,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         return ret;
     }
 
-#if ENABLE_QUAD_LAYER
-	std::vector<XrSwapchainImageBaseHeader*> AllocateSwapchainQuadLayerImageStructs(
-		uint32_t capacity, const XrSwapchainCreateInfo& /*swapchainCreateInfo*/) override {
-
-		// Allocate and initialize the buffer of image structs (must be sequential in memory for xrEnumerateSwapchainImages).
-		// Return back an array of pointers to each swapchain image struct so the consumer doesn't need to know the type/size.
-		std::vector<XrSwapchainImageOpenGLESKHR> swapchainImageBuffer(capacity, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_ES_KHR });
-		std::vector<XrSwapchainImageBaseHeader*> swapchainImageBase;
-		for(XrSwapchainImageOpenGLESKHR& image : swapchainImageBuffer) {
-			swapchainImageBase.push_back(reinterpret_cast<XrSwapchainImageBaseHeader*>(&image));
-		}
-
-		// Keep the buffer alive by moving it into the list of buffers.
-        m_swapchainQuadLayerImageBuffers.push_back(std::move(swapchainImageBuffer));
-
-		return swapchainImageBase;
-	}
-
-	void RenderQuadLayer(const XrCompositionLayerQuad& layer, const XrSwapchainImageBaseHeader* swapchainImage,
-		int64_t swapchainFormat, const std::vector<Cube>& cubes) override
-	{
-	}
-#endif
-
     uint32_t GetDepthTexture(uint32_t colorTexture) {
         // If a depth-stencil view has already been created for this back-buffer, use it.
         auto depthBufferIt = m_colorToDepthMap.find(colorTexture);
@@ -674,40 +650,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 
     void UpdateOptions(const std::shared_ptr<Options>& options) override { m_clearColor = options->GetBackgroundClearColor(); }
 
-    void SaveScreenShot(const std::string& filename) override 
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, m_swapchainFramebuffer);
-
-        GLint viewport[4] = {};
-        glGetIntegerv(GL_VIEWPORT, viewport);
-
-        int x = viewport[0];
-        int y = viewport[1];
-
-        int width = viewport[2];
-        int height = viewport[3];
-
-        int num_components = 4;  // 3 = RGB or 4 = RGBA
-        char* data = (char*)malloc((size_t)(width * height * num_components));
-
-        if (!data) 
-        {
-            return;
-        }
-
-        glPixelStorei(GL_PACK_ALIGNMENT, 1);
-        glReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
-        int write_status = stbi_write_png(filename.c_str(), width, height, num_components, data, 0);
-        Log::Write(Log::Level::Info, Fmt("SaveScreenShot %s status = %d", filename.c_str(), write_status));
-
-        free(data);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        check_gl_errors();
-    }
-
    private:
 #ifdef XR_USE_PLATFORM_ANDROID
     XrGraphicsBindingOpenGLESAndroidKHR m_graphicsBinding{XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
@@ -727,11 +669,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
     // Map color buffer to associated depth buffer. This map is populated on demand.
     std::map<uint32_t, uint32_t> m_colorToDepthMap;
     std::array<float, 4> m_clearColor;
-
-#if ENABLE_QUAD_LAYER
-	std::list<std::vector<XrSwapchainImageOpenGLESKHR>> m_swapchainQuadLayerImageBuffers;
-	GLuint m_swapchainQuadLayerFramebuffer{ 0 };
-#endif
 };
 }  // namespace
 

@@ -32,7 +32,8 @@ const Colour blue(0.0f, 0.0f, 1.0f, 1.0f);
 #include <nonstd/span.hpp>
 using nonstd::span;
 
-struct Cube {
+struct Cube 
+{
     XrPosef Pose;
     XrVector3f Scale;
     Colour colour_ = white;
@@ -91,16 +92,6 @@ struct IGraphicsPlugin {
     virtual void RenderView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage,
                             int64_t swapchainFormat, const std::vector<Cube>& cubes) = 0;
 
-    virtual void ClearView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage) = 0;
-
-#if ENABLE_QUAD_LAYER
-	virtual std::vector<XrSwapchainImageBaseHeader*> AllocateSwapchainQuadLayerImageStructs(
-		uint32_t capacity, const XrSwapchainCreateInfo& /*swapchainCreateInfo*/) = 0;
-
-	virtual void RenderQuadLayer(const XrCompositionLayerQuad& layer, const XrSwapchainImageBaseHeader* swapchainImage,
-		int64_t swapchainFormat, const std::vector<Cube>& cubes) = 0;
-#endif
-
     // Get recommended number of sub-data element samples in view (recommendedSwapchainSampleCount)
     // if supported by the graphics plugin. A supported value otherwise.
     virtual uint32_t GetSupportedSwapchainSampleCount(const XrViewConfigurationView& view) {
@@ -109,8 +100,6 @@ struct IGraphicsPlugin {
 
     // Perform required steps after updating Options
     virtual void UpdateOptions(const std::shared_ptr<struct Options>& options) = 0;
-    virtual void SaveScreenShot(const std::string& filename) = 0;
-
 };
 
 // Graphics API factories are forward declared here.

@@ -65,14 +65,8 @@ struct Options {
 
     struct {
         XrFormFactor FormFactor{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
-
         XrViewConfigurationType ViewConfigType{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
-
-#if USE_DUAL_LAYERS && 0
-        XrEnvironmentBlendMode EnvironmentBlendMode{ XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND };
-#else
         XrEnvironmentBlendMode EnvironmentBlendMode{XR_ENVIRONMENT_BLEND_MODE_OPAQUE};
-#endif
     } Parsed;
 
     void ParseStrings() {

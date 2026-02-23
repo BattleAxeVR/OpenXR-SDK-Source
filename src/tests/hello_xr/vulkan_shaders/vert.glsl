@@ -7,7 +7,7 @@
 
 #pragma vertex
 
-#define ENABLE_TINT 1
+#define ENABLE_TINT 0
 
 layout (std140, push_constant) uniform pushC
 {

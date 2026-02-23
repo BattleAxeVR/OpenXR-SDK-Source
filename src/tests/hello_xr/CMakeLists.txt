@@ -32,6 +32,8 @@ set(LOCAL_HEADERS
     defines.h
     gaze_calibration.h
     GLMPose.h
+	swapchain_image_data.h
+    vulkan_utils.h
 )
 set(LOCAL_SOURCE
     d3d_common.cpp
@@ -53,6 +55,7 @@ set(LOCAL_SOURCE
     platformplugin_win32.cpp
     gaze_calibration.cpp
     GLMPose.cpp
+	swapchain_image_data.cpp
 )
 set(VULKAN_SHADERS vulkan_shaders/frag.glsl vulkan_shaders/vert.glsl)
 

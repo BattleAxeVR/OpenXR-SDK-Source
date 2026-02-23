@@ -42,10 +42,6 @@ struct IOpenXrProgram
     // Get preferred blend mode based on the view configuration specified in the Options
     virtual XrEnvironmentBlendMode GetPreferredBlendMode() const = 0;
 
-#if SUPPORT_SCREENSHOTS
-    virtual void TakeScreenShot() = 0;
-#endif
-
 #if ENABLE_OPENXR_FB_REFRESH_RATE
     // Only works on Meta HMDs (SteamVR also supports it).
     virtual const std::vector<float>& GetSupportedRefreshRates() = 0;
@@ -95,27 +91,6 @@ struct Swapchain {
     int32_t width;
     int32_t height;
 };
-
-
-#if ENABLE_QUAD_LAYER
-struct QuadLayer {
-
-	XrCompositionLayerQuad xr_quad_layer_{ XR_TYPE_COMPOSITION_LAYER_QUAD };
-	XrCompositionLayerBaseHeader* header_ = {};
-
-	uint32_t width_ = 0;
-	uint32_t height_ = 0;
-	int64_t format_ = -1;
-
-	XrSwapchain quad_swapchain_{};
-	std::vector<XrSwapchainImageBaseHeader*> quad_images_;
-
-	bool initialized_ = false;
-
-    bool init(const uint32_t width, const uint32_t height, const int64_t format, std::shared_ptr<IGraphicsPlugin> plugin, XrSession session, XrSpace space);
-    void shutdown();
-};
-#endif
 
 
 std::shared_ptr<IOpenXrProgram> CreateOpenXrProgram(const std::shared_ptr<Options>& options,

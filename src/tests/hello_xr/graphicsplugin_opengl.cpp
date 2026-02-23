@@ -448,92 +448,6 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         return ret;
     }
 
-#if ENABLE_QUAD_LAYER
-	std::vector<XrSwapchainImageBaseHeader*> AllocateSwapchainQuadLayerImageStructs(
-		uint32_t capacity, const XrSwapchainCreateInfo& /*swapchainCreateInfo*/) override {
-		// Allocate and initialize the buffer of image structs (must be sequential in memory for xrEnumerateSwapchainImages).
-		// Return back an array of pointers to each swapchain image struct so the consumer doesn't need to know the type/size.
-		std::vector<XrSwapchainImageOpenGLKHR> swapchainImageBuffer(capacity, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
-		std::vector<XrSwapchainImageBaseHeader*> swapchainImageBase;
-		for(XrSwapchainImageOpenGLKHR& image : swapchainImageBuffer) {
-			swapchainImageBase.push_back(reinterpret_cast<XrSwapchainImageBaseHeader*>(&image));
-		}
-
-		// Keep the buffer alive by moving it into the list of buffers.
-		m_swapchainQuadLayerImageBuffers.push_back(std::move(swapchainImageBuffer));
-
-		return swapchainImageBase;
-	}
-
-	void RenderQuadLayer(const XrCompositionLayerQuad& layer, const XrSwapchainImageBaseHeader* swapchainImage,
-		int64_t swapchainFormat, const std::vector<Cube>& cubes) override
-	{
-		CHECK(layer.subImage.imageArrayIndex == 0);  // Texture arrays not supported.
-		UNUSED_PARM(swapchainFormat);                    // Not used in this function for now.
-
-		glBindFramebuffer(GL_FRAMEBUFFER, m_swapchainFramebuffer);
-
-		const uint32_t colorTexture = reinterpret_cast<const XrSwapchainImageOpenGLKHR*>(swapchainImage)->image;
-
-		glViewport(static_cast<GLint>(layer.subImage.imageRect.offset.x),
-			static_cast<GLint>(layer.subImage.imageRect.offset.y),
-			static_cast<GLsizei>(layer.subImage.imageRect.extent.width),
-			static_cast<GLsizei>(layer.subImage.imageRect.extent.height));
-
-		glFrontFace(GL_CW);
-		glCullFace(GL_BACK);
-		glEnable(GL_CULL_FACE);
-		glEnable(GL_DEPTH_TEST);
-
-		const uint32_t depthTexture = GetDepthTexture(colorTexture);
-
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
-
-		// Clear swapchain and depth buffer.
-		glClearColor(m_clearColor[0], m_clearColor[1], m_clearColor[2], m_clearColor[3]);
-		glClearDepth(1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-		// Set shaders and uniform variables.
-		glUseProgram(m_program);
-
-		const XrPosef& pose = layer.pose;
-
-		XrMatrix4x4f toView;
-		XrVector3f scale{ 1.f, 1.f, 1.f };
-		XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
-
-		XrMatrix4x4f view;
-		XrMatrix4x4f_InvertRigidBody(&view, &toView);
-
-		XrMatrix4x4f vp = view;
-
-		// Set cube primitive data.
-		glBindVertexArray(m_vao);
-
-		// Render each cube
-		for(const Cube& cube : cubes)
-		{
-			// Compute the model-view-projection transform and set it..
-			XrMatrix4x4f model;
-			XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
-
-			XrMatrix4x4f mvp;
-			XrMatrix4x4f_Multiply(&mvp, &vp, &model);
-			glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
-
-			// Draw the cube.
-			glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(ArraySize(Geometry::c_cubeIndices)), GL_UNSIGNED_SHORT, nullptr);
-		}
-
-		glBindVertexArray(0);
-		glUseProgram(0);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
-
-#endif
-
     uint32_t GetDepthTexture(uint32_t colorTexture) 
     {
         // If a depth-stencil view has already been created for this back-buffer, use it.
@@ -694,48 +608,10 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
         glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
-    
-    void ClearView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage) override
-    {
-        (void)layerView;
-        (void)swapchainImage;
-    }
 
     uint32_t GetSupportedSwapchainSampleCount(const XrViewConfigurationView&) override { return 1; }
 
     void UpdateOptions(const std::shared_ptr<Options>& options) override { m_clearColor = options->GetBackgroundClearColor(); }
-
-    void SaveScreenShot(const std::string& filename) override 
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, m_swapchainFramebuffer);
-
-        GLint viewport[4] = {};
-        glGetIntegerv(GL_VIEWPORT, viewport);
-
-        int x = viewport[0];
-        int y = viewport[1];
-
-        int width = viewport[2];
-        int height = viewport[3];
-
-        int num_components = 3;  // RGB
-        char* data = (char*)malloc((size_t)(width * height * num_components));
-
-        if (!data) 
-        {
-            return;
-        }
-
-        glPixelStorei(GL_PACK_ALIGNMENT, 1);
-        glReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
-
-        int write_status = stbi_write_png(filename.c_str(), width, height, num_components, data, 0);
-        Log::Write(Log::Level::Info, Fmt("SaveScreenShot %s status = %d", filename.c_str(), write_status));
-
-        free(data);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
 
    private:
 #ifdef XR_USE_PLATFORM_WIN32
@@ -765,11 +641,6 @@ struct OpenGLGraphicsPlugin : public IGraphicsPlugin {
     // Map color buffer to associated depth buffer. This map is populated on demand.
     std::map<uint32_t, uint32_t> m_colorToDepthMap;
     std::array<float, 4> m_clearColor;
-
-#if ENABLE_QUAD_LAYER
-    std::list<std::vector<XrSwapchainImageOpenGLKHR>> m_swapchainQuadLayerImageBuffers;
-    GLuint m_swapchainQuadLayerFramebuffer{ 0 };
-#endif
 };
 
 }  // namespace

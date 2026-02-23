@@ -337,16 +337,9 @@ struct D3D11GraphicsPlugin : public IGraphicsPlugin {
         }
     }
 
-    void ClearView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage) override
-    {
-        (void)layerView;
-        (void)swapchainImage;
-    }
-
     uint32_t GetSupportedSwapchainSampleCount(const XrViewConfigurationView&) override { return 1; }
 
     void UpdateOptions(const std::shared_ptr<Options>& options) override { m_clearColor = options->GetBackgroundClearColor(); }
-    void SaveScreenShot(const std::string& filename) override { (void)filename; }
 
    private:
     ComPtr<ID3D11Device> m_device;
@@ -364,10 +357,6 @@ struct D3D11GraphicsPlugin : public IGraphicsPlugin {
     // Map color buffer to associated depth buffer. This map is populated on demand.
     std::map<ID3D11Texture2D*, ComPtr<ID3D11DepthStencilView>> m_colorToDepthMap;
     std::array<float, 4> m_clearColor;
-
-#if ENABLE_QUAD_LAYER
-    std::list<std::vector<XrSwapchainImageD3D11KHR>> m_swapchainQuadLayerImageBuffers;
-#endif
 };
 }  // namespace
 

@@ -15,6 +15,7 @@
 #include <array>
 #include <cmath>
 #include <set>
+
 #include "glm/gtx/quaternion.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -28,7 +29,8 @@
 BVR::GLMPose glm_local_grip_poses_[2];
 BVR::GLMPose glm_local_eye_poses_[2];
 
-namespace Side {
+namespace Side 
+{
     const int LEFT = 0;
     const int RIGHT = 1;
     const int COUNT = 2;
@@ -581,7 +583,20 @@ void rotate_player(const float right_thumbstick_x_value)
 #endif
 
 
-namespace {
+struct TrackerInfo
+{
+    std::string subaction;
+    std::string actionName;
+    std::string localizedActionName;
+    std::string bindingPath;
+
+    XrPath tracker_role_path;
+    XrSpace tracker_pose_space{ XR_NULL_HANDLE };
+    XrAction tracker_pose_action{ XR_NULL_HANDLE };
+};
+
+namespace 
+{
 
 #if !defined(XR_USE_PLATFORM_WIN32)
 #define strcpy_s(dest, source) strncpy((dest), (source), sizeof(dest))
@@ -592,33 +607,42 @@ inline std::string GetXrVersionString(XrVersion ver)
     return Fmt("%d.%d.%d", XR_VERSION_MAJOR(ver), XR_VERSION_MINOR(ver), XR_VERSION_PATCH(ver));
 }
 
-namespace Math {
-namespace Pose {
-static XrPosef Identity() {
-    XrPosef t{};
-    t.orientation.w = 1;
-    return t;
-}
+namespace Math 
+{
 
-static XrPosef Translation(const XrVector3f& translation) {
-    XrPosef t = Identity();
-    t.position = translation;
-    return t;
-}
+    namespace Pose 
+    {
+        static XrPosef Identity() 
+        {
+            XrPosef t{};
+            t.orientation.w = 1;
+            return t;
+        }
 
-static XrPosef RotateCCWAboutYAxis(float radians, XrVector3f translation) {
-    XrPosef t = Identity();
-    t.orientation.x = 0.f;
-    t.orientation.y = std::sin(radians * 0.5f);
-    t.orientation.z = 0.f;
-    t.orientation.w = std::cos(radians * 0.5f);
-    t.position = translation;
-    return t;
-}
-}  // namespace Pose
+        static XrPosef Translation(const XrVector3f& translation) 
+        {
+            XrPosef t = Identity();
+            t.position = translation;
+            return t;
+        }
+
+        static XrPosef RotateCCWAboutYAxis(float radians, XrVector3f translation) 
+        {
+            XrPosef t = Identity();
+            t.orientation.x = 0.f;
+            t.orientation.y = std::sin(radians * 0.5f);
+            t.orientation.z = 0.f;
+            t.orientation.w = std::cos(radians * 0.5f);
+            t.position = translation;
+            return t;
+        }
+
+    }  // namespace Pose
+
 }  // namespace Math
 
-inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::string& referenceSpaceTypeStr) {
+inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::string& referenceSpaceTypeStr) 
+{
     XrReferenceSpaceCreateInfo referenceSpaceCreateInfo{XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
     referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Identity();
     if (EqualsIgnoreCase(referenceSpaceTypeStr, "View")) {
@@ -649,18 +673,67 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::strin
     return referenceSpaceCreateInfo;
 }
 
+struct InputState 
+{
+    XrActionSet actionSet{XR_NULL_HANDLE};
+    XrAction grabAction{XR_NULL_HANDLE};
+    XrAction poseAction{XR_NULL_HANDLE};
+    XrAction vibrateAction{XR_NULL_HANDLE};
+    XrAction quitAction{XR_NULL_HANDLE};
+    std::array<XrPath, Side::COUNT> handSubactionPath;
+    std::array<XrSpace, Side::COUNT> handSpace{ XR_NULL_HANDLE, XR_NULL_HANDLE };
+    std::array<float, Side::COUNT> handScale = {{1.0f, 1.0f}};
+    std::array<XrBool32, Side::COUNT> handActive;
+
+#if SUPPORT_AIM_POSE
+    XrAction aimPoseAction{XR_NULL_HANDLE};
+    std::array<XrPath, Side::COUNT> aimSubactionPath;
+    std::array<XrSpace, Side::COUNT> aimSpace{ XR_NULL_HANDLE, XR_NULL_HANDLE };
+#endif
+
+#if SUPPORT_THUMBSTICKS
+    XrAction thumbstickTouchAction{ XR_NULL_HANDLE };
+    XrAction thumbstickClickAction{ XR_NULL_HANDLE };
+    XrAction thumbstickXAction{ XR_NULL_HANDLE };
+    XrAction thumbstickYAction{ XR_NULL_HANDLE };
+#endif
+
+#if SUPPORT_TRIGGERS
+    XrAction triggerValueAction{ XR_NULL_HANDLE };
+    XrAction triggerClickAction{ XR_NULL_HANDLE };
+#endif
+
+#if SUPPORT_FACE_BUTTONS
+    XrAction buttonAXClickAction{ XR_NULL_HANDLE };
+    XrAction buttonBYClickAction{ XR_NULL_HANDLE };
+#endif
+
+#if ENABLE_EXT_EYE_TRACKING
+    XrAction gazeAction{ XR_NULL_HANDLE };
+    XrSpace gazeActionSpace{ XR_NULL_HANDLE };
+    //XrSpace localReferenceSpace{ XR_NULL_HANDLE };
+    XrBool32 gazeActive;
+#endif
+
+#if ENABLE_VIVE_TRACKERS
+    std::vector<TrackerInfo> tracker_infos_;
+#endif
+};
+
 struct OpenXrProgram : IOpenXrProgram 
 {
-    OpenXrProgram(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin>& platformPlugin,
-                  const std::shared_ptr<IGraphicsPlugin>& graphicsPlugin)
+    OpenXrProgram(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin>& platformPlugin, const std::shared_ptr<IGraphicsPlugin>& graphicsPlugin)
         : m_options(options),
-          m_platformPlugin(platformPlugin),
-          m_graphicsPlugin(graphicsPlugin),
-          m_acceptableBlendModes{XR_ENVIRONMENT_BLEND_MODE_OPAQUE, XR_ENVIRONMENT_BLEND_MODE_ADDITIVE,
-                                 XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND} {}
+        m_platformPlugin(platformPlugin),
+        m_graphicsPlugin(graphicsPlugin),
+        m_acceptableBlendModes{XR_ENVIRONMENT_BLEND_MODE_OPAQUE, XR_ENVIRONMENT_BLEND_MODE_ADDITIVE, XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND}
+    {
+    }
 
     ~OpenXrProgram() override 
     {
+#if 0
+
 #if USE_SDL_JOYSTICKS
         ShutdownSDLJoySticks();
 #endif
@@ -704,18 +777,6 @@ struct OpenXrProgram : IOpenXrProgram
             xrDestroySwapchain(swapchain.handle);
         }
 
-#if USE_DUAL_LAYERS
-		for (Swapchain swapchain : m_second_swapchains)
-		{
-			xrDestroySwapchain(swapchain.handle);
-		}
-#endif
-
-#if ENABLE_QUAD_LAYER
-        quad_layer_.shutdown();
-#endif
-
-
         for (XrSpace visualizedSpace : m_visualizedSpaces) 
         {
             xrDestroySpace(visualizedSpace);
@@ -735,7 +796,9 @@ struct OpenXrProgram : IOpenXrProgram
         {
             xrDestroyInstance(m_instance);
         }
+#endif
     }
+
 
     static void LogLayersAndExtensions() 
     {
@@ -1079,6 +1142,7 @@ struct OpenXrProgram : IOpenXrProgram
         LogInstanceInfo();
     }
 
+
     void LogViewConfigurations() 
     {
         CHECK(m_instance != XR_NULL_HANDLE);
@@ -1156,6 +1220,7 @@ struct OpenXrProgram : IOpenXrProgram
             Log::Write(Log::Level::Info, Fmt("Environment Blend Mode (%s) : %s", to_string(mode), blendModeMatch ? "(Selected)" : ""));
             blendModeFound |= blendModeMatch;
         }
+     
         CHECK(blendModeFound);
     }
 
@@ -1216,65 +1281,6 @@ struct OpenXrProgram : IOpenXrProgram
             Log::Write(Log::Level::Verbose, Fmt("  Name: %s", to_string(space)));
         }
     }
-
-	struct TrackerInfo
-	{
-		std::string subaction;
-		std::string actionName;
-		std::string localizedActionName;
-		std::string bindingPath;
-
-		XrPath tracker_role_path;
-		XrSpace tracker_pose_space{ XR_NULL_HANDLE };
-		XrAction tracker_pose_action{ XR_NULL_HANDLE };
-	};
-
-    struct InputState 
-    {
-        XrActionSet actionSet{XR_NULL_HANDLE};
-        XrAction grabAction{XR_NULL_HANDLE};
-        XrAction poseAction{XR_NULL_HANDLE};
-        XrAction vibrateAction{XR_NULL_HANDLE};
-        XrAction quitAction{XR_NULL_HANDLE};
-        std::array<XrPath, Side::COUNT> handSubactionPath;
-        std::array<XrSpace, Side::COUNT> handSpace{ XR_NULL_HANDLE, XR_NULL_HANDLE };
-        std::array<float, Side::COUNT> handScale = {{1.0f, 1.0f}};
-        std::array<XrBool32, Side::COUNT> handActive;
-
-#if SUPPORT_AIM_POSE
-        XrAction aimPoseAction{XR_NULL_HANDLE};
-        std::array<XrPath, Side::COUNT> aimSubactionPath;
-        std::array<XrSpace, Side::COUNT> aimSpace{ XR_NULL_HANDLE, XR_NULL_HANDLE };
-#endif
-
-#if SUPPORT_THUMBSTICKS
-        XrAction thumbstickTouchAction{ XR_NULL_HANDLE };
-        XrAction thumbstickClickAction{ XR_NULL_HANDLE };
-		XrAction thumbstickXAction{ XR_NULL_HANDLE };
-		XrAction thumbstickYAction{ XR_NULL_HANDLE };
-#endif
-
-#if SUPPORT_TRIGGERS
-        XrAction triggerValueAction{ XR_NULL_HANDLE };
-        XrAction triggerClickAction{ XR_NULL_HANDLE };
-#endif
-
-#if SUPPORT_FACE_BUTTONS
-        XrAction buttonAXClickAction{ XR_NULL_HANDLE };
-        XrAction buttonBYClickAction{ XR_NULL_HANDLE };
-#endif
-
-#if ENABLE_EXT_EYE_TRACKING
-		XrAction gazeAction{ XR_NULL_HANDLE };
-		XrSpace gazeActionSpace{ XR_NULL_HANDLE };
-        //XrSpace localReferenceSpace{ XR_NULL_HANDLE };
-		XrBool32 gazeActive;
-#endif
-
-#if ENABLE_VIVE_TRACKERS
-        std::vector<TrackerInfo> tracker_infos_;
-#endif
-    };
 
     void InitializeActions() 
     {
@@ -1987,7 +1993,8 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrAttachSessionActionSets(m_session, &attachInfo));
     }
 
-    void CreateVisualizedSpaces() {
+    void CreateVisualizedSpaces() 
+    {
         CHECK(m_session != XR_NULL_HANDLE);
 
         std::string visualizedSpaces[] = {"ViewFront", "Local", "Stage", "StageLeft", "StageRight", "StageLeftRotated",
@@ -2295,101 +2302,7 @@ struct OpenXrProgram : IOpenXrProgram
                 }
             }
         }
-
-#if USE_DUAL_LAYERS
-        CreateSecondSwapchains();
-#endif
-
-#if ENABLE_QUAD_LAYER
-		const uint32_t width = 512;
-		const uint32_t height = 512;
-		const int64_t format = m_colorSwapchainFormat;
-		const bool init_ok = quad_layer_.init(width, height, format, m_graphicsPlugin, m_session, m_appSpace);
-        assert(init_ok);
-#endif
     }
-
-#if USE_DUAL_LAYERS
-	void CreateSecondSwapchains()
-	{
-		CHECK(m_session != XR_NULL_HANDLE);
-		CHECK(m_second_swapchains.empty());
-
-        uint32_t viewCount = (uint32_t)m_views.size();
-	
-		// Create a swapchain for each view.
-		for (uint32_t i = 0; i < viewCount; i++)
-		{
-			const XrViewConfigurationView& vp = m_configViews[i];
-
-			Log::Write(Log::Level::Info,
-				Fmt("Creating swapchain for view %d with dimensions Width=%d Height=%d SampleCount=%d", i,
-					vp.recommendedImageRectWidth, vp.recommendedImageRectHeight, vp.recommendedSwapchainSampleCount));
-
-			// Create the swapchain.
-			XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
-			swapchainCreateInfo.arraySize = 1;
-			swapchainCreateInfo.format = m_colorSwapchainFormat;
-			swapchainCreateInfo.width = vp.recommendedImageRectWidth;
-			swapchainCreateInfo.height = vp.recommendedImageRectHeight;
-			swapchainCreateInfo.mipCount = 1;
-			swapchainCreateInfo.faceCount = 1;
-			swapchainCreateInfo.sampleCount = m_graphicsPlugin->GetSupportedSwapchainSampleCount(vp);
-			swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
-
-			Swapchain swapchain;
-			swapchain.width = swapchainCreateInfo.width;
-			swapchain.height = swapchainCreateInfo.height;
-			CHECK_XRCMD(xrCreateSwapchain(m_session, &swapchainCreateInfo, &swapchain.handle));
-
-			m_second_swapchains.push_back(swapchain);
-
-			uint32_t imageCount = 0;
-			CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain.handle, 0, &imageCount, nullptr));
-
-			// XXX This should really just return XrSwapchainImageBaseHeader*
-			std::vector<XrSwapchainImageBaseHeader*> swapchainImages =
-				m_graphicsPlugin->AllocateSwapchainImageStructs(imageCount, swapchainCreateInfo);
-
-			CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain.handle, imageCount, &imageCount, swapchainImages[0]));
-
-			m_second_swapchainImages.insert(std::make_pair(swapchain.handle, std::move(swapchainImages)));
-		}
-	}
-#endif
-
-#if SUPPORT_SCREENSHOTS
-    bool take_screenshot_ = false;
-
-    void TakeScreenShot() override 
-    {
-        if (!take_screenshot_) 
-        {
-            Log::Write(Log::Level::Verbose, "TakeScreenShot");
-            take_screenshot_ = true;
-        }
-    }
-
-    void SaveScreenShotIfNecessary()
-    {
-        if (!take_screenshot_ || !m_graphicsPlugin) 
-        {
-            return;
-        }
-
-        Log::Write(Log::Level::Verbose, "SaveScreenShotIfNecessary");
-
-#ifdef XR_USE_PLATFORM_WIN32
-        const std::string filename = "d:\\TEST\\windows_hello_xr_screenshot.png";
-#else
-        const std::string directory = "/sdcard/Android/data/com.khronos.openxr.hello_xr.opengles/files/";
-        const std::string filename = directory + "android_hello_xr_screenshot.png";
-#endif
-
-        m_graphicsPlugin->SaveScreenShot(filename);
-        take_screenshot_ = false;
-    }
-#endif
 
 #if ENABLE_OPENXR_FB_REFRESH_RATE
 	std::vector<float> supported_refresh_rates_;
@@ -3221,8 +3134,7 @@ struct OpenXrProgram : IOpenXrProgram
             sourceName += "'";
         }
 
-        Log::Write(Log::Level::Info,
-                   Fmt("%s action is bound to %s", actionName.c_str(), ((!sourceName.empty()) ? sourceName.c_str() : "nothing")));
+        Log::Write(Log::Level::Info, Fmt("%s action is bound to %s", actionName.c_str(), ((!sourceName.empty()) ? sourceName.c_str() : "nothing")));
     }
 
     bool IsSessionRunning() const override { return m_sessionRunning; }
@@ -3231,6 +3143,7 @@ struct OpenXrProgram : IOpenXrProgram
 
     void PollActions() override 
     {
+
 		m_input.handActive = {{XR_FALSE, XR_FALSE}};
 
         // Sync actions
@@ -3244,10 +3157,13 @@ struct OpenXrProgram : IOpenXrProgram
         bool should_third_person_be_enabled = false;
 #endif
 
+#if 1
         // Get pose and grab action state and start haptic vibrate when hand is 90% squeezed.
         for (auto hand : {Side::LEFT, Side::RIGHT}) 
         {
+#if SUPPORT_THUMBSTICKS
 			previously_gripping[hand] = currently_gripping[hand];
+#endif
 
             XrActionStateGetInfo getInfo{XR_TYPE_ACTION_STATE_GET_INFO};
             getInfo.action = m_input.grabAction;
@@ -3264,9 +3180,10 @@ struct OpenXrProgram : IOpenXrProgram
                 const float grip_val = grabValue.currentState;
                 const bool should_vibrate = (ENABLE_HAPTICS && (grip_val >= VIBRATION_GRIP_THRESHOLD));
 
+#if SUPPORT_THUMBSTICKS
                 currently_gripping[hand] = (grip_val >= GRIP_THRESHOLD);
                 current_grip_value[hand] = grip_val;
-
+#endif
                 if (should_vibrate) 
                 {
                     XrHapticVibration vibration{XR_TYPE_HAPTIC_VIBRATION};
@@ -3407,7 +3324,9 @@ struct OpenXrProgram : IOpenXrProgram
             }
             else
             {
+#if SUPPORT_THUMBSTICKS
                 currently_gripping[hand] = false;
+#endif
             }
 
             getInfo.action = m_input.poseAction;
@@ -3480,6 +3399,8 @@ struct OpenXrProgram : IOpenXrProgram
 				}
             }
 #endif
+
+#endif
         }
 
 #if ENABLE_GAZE_CALIBRATION
@@ -3510,6 +3431,7 @@ struct OpenXrProgram : IOpenXrProgram
         if ((quitValue.isActive == XR_TRUE) && (quitValue.changedSinceLastSync == XR_TRUE) && (quitValue.currentState == XR_TRUE)) 
         {
             CHECK_XRCMD(xrRequestExitSession(m_session));
+
         }
     }
 
@@ -3525,57 +3447,30 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrBeginFrame(m_session, &frameBeginInfo));
 
         std::vector<XrCompositionLayerBaseHeader*> layers;
-        XrCompositionLayerProjection first_layer{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
-
-#if USE_DUAL_LAYERS
-        XrCompositionLayerProjection second_layer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
-#endif
+        XrCompositionLayerProjection layer{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
 
         std::vector<XrCompositionLayerProjectionView> projectionLayerViews;
+        std::vector<XrCompositionLayerDepthInfoKHR> depthInfos;
 
-        if (frameState.shouldRender == XR_TRUE) 
+        if(frameState.shouldRender == XR_TRUE)
         {
-            if (RenderLayer(frameState.predictedDisplayTime, projectionLayerViews, first_layer))
+            if(RenderLayer(frameState.predictedDisplayTime, projectionLayerViews, depthInfos, layer))
             {
-                XrCompositionLayerBaseHeader* header = reinterpret_cast<XrCompositionLayerBaseHeader*>(&first_layer);
+                XrCompositionLayerBaseHeader* header = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
 
 #if ENABLE_OPENXR_FB_COMPOSITION_LAYER_SETTINGS
-				if (supports_composition_layer_)
-				{
+                if(supports_composition_layer_)
+                {
                     // Sharpening / Upscaling flags are set here. Mobile only (Quest)
                     header->next = &composition_layer_settings_;
-				}
+                }
 #endif
                 layers.push_back(header);
-				
-        std::vector<XrCompositionLayerDepthInfoKHR> depthInfos;
-		
-        if (frameState.shouldRender == XR_TRUE) 
-		{
-            if (RenderLayer(frameState.predictedDisplayTime, projectionLayerViews, depthInfos, layer)) {
-                layers.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer));
             }
-
-#if USE_DUAL_LAYERS
-			if (RenderExtraLayer(frameState.predictedDisplayTime, projectionLayerViews, second_layer))
-			{
-				XrCompositionLayerBaseHeader* header = reinterpret_cast<XrCompositionLayerBaseHeader*>(&second_layer);
-				layers.push_back(header);
-			}
-#endif
         }
 
-#if ENABLE_QUAD_LAYER
-		if(enable_quad_layer_ && quad_layer_.initialized_)
-        {
-            if(RenderQuadLayer(quad_layer_))
-            {
-                layers.push_back(quad_layer_.header_);
-            }
-		}
-#endif
 
-        XrFrameEndInfo frameEndInfo{XR_TYPE_FRAME_END_INFO};
+        XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = frameState.predictedDisplayTime;
         frameEndInfo.environmentBlendMode = m_options->Parsed.EnvironmentBlendMode;
         frameEndInfo.layerCount = (uint32_t)layers.size();
@@ -3584,8 +3479,8 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK_XRCMD(xrEndFrame(m_session, &frameEndInfo));
     }
 
-    bool RenderLayer(XrTime predictedDisplayTime, std::vector<XrCompositionLayerProjectionView>& projectionLayerViews,
-                     std::vector<XrCompositionLayerDepthInfoKHR>& depthInfos, XrCompositionLayerProjection& layer) {
+    bool RenderLayer(XrTime predictedDisplayTime, std::vector<XrCompositionLayerProjectionView>& projectionLayerViews, std::vector<XrCompositionLayerDepthInfoKHR>& depthInfos, XrCompositionLayerProjection& layer) 
+    {
         XrResult res;
 
         XrViewState viewState{XR_TYPE_VIEW_STATE};
@@ -3611,7 +3506,9 @@ struct OpenXrProgram : IOpenXrProgram
         CHECK(viewCountOutput == m_swapchains.size());
 
         projectionLayerViews.resize(viewCountOutput);
-        if (m_supportsDepthLayer) {
+
+        if (m_supportsDepthLayer) 
+        {
             depthInfos.resize(viewCountOutput);
         }
 
@@ -3673,8 +3570,7 @@ struct OpenXrProgram : IOpenXrProgram
                 Log::Write(Log::Level::Verbose, Fmt("Unable to locate a visualized reference space in app space: %d", res));
             }
         }
-#endif
-
+#elif 0
         if(!m_visualizedSpaces.empty())
         {
             XrSpace& visualizedSpace = m_visualizedSpaces[0];
@@ -3757,7 +3653,9 @@ struct OpenXrProgram : IOpenXrProgram
 				}
 			}
 		}
+#endif
 
+#if 1
 #if (DRAW_GRIP_POSE || DRAW_AIM_POSE)
         // Render a 10cm cube scaled by grabAction for each hand. Note renderHand will only be
         // true when the application has focus.
@@ -4638,6 +4536,8 @@ struct OpenXrProgram : IOpenXrProgram
 		}
 #endif
 
+#endif
+
 #if SUPPORT_THUMBSTICKS
 		const BVR::GLMPose local_left_eye_pose = BVR::convert_to_glm_pose(m_views[Side::LEFT].pose);
 		const BVR::GLMPose local_right_eye_pose = BVR::convert_to_glm_pose(m_views[Side::RIGHT].pose);
@@ -4669,6 +4569,8 @@ struct OpenXrProgram : IOpenXrProgram
 #endif
         
 #endif
+
+#if 1
 
         // Render view to the appropriate part of the swapchain image.
         for (uint32_t i = 0; i < viewCountOutput; i++) 
@@ -4726,10 +4628,11 @@ struct OpenXrProgram : IOpenXrProgram
             }
 #endif
 
-            const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
+            //const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
 
 #if ENABLE_BFI
-            if (skip_frame) {
+            if (skip_frame) 
+            {
                 m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, {});
                 std::this_thread::sleep_for(std::chrono::milliseconds(2));    
             }
@@ -4790,17 +4693,12 @@ struct OpenXrProgram : IOpenXrProgram
                 }
                 
 #else
-                m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
+                //m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
 #endif
             }
 
-#if SUPPORT_SCREENSHOTS
-            if (i == Side::LEFT) 
+            if (m_supportsDepthLayer) 
             {
-                SaveScreenShotIfNecessary();
-            }
-#endif
-            if (m_supportsDepthLayer) {
                 projectionLayerViews[i].next = &depthInfos[i];
                 depthInfos[i].type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
                 depthInfos[i].subImage.swapchain = m_depthSwapchains[i].handle;
@@ -4812,8 +4710,7 @@ struct OpenXrProgram : IOpenXrProgram
                 depthInfos[i].farZ = 100.0f;
             }
 
-            const XrSwapchainImageBaseHeader* const swapchainImage =
-                m_swapchainImages[viewSwapchain.handle]->GetGenericColorImage(swapchainImageIndex);
+            const XrSwapchainImageBaseHeader* const swapchainImage = m_swapchainImages[viewSwapchain.handle]->GetGenericColorImage(swapchainImageIndex);
             m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
 
             XrSwapchainImageReleaseInfo releaseInfo{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
@@ -4824,184 +4721,12 @@ struct OpenXrProgram : IOpenXrProgram
 
         layer.space = m_appSpace;
 
-#if USE_DUAL_LAYERS
-        layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;// XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
-#else
         layer.layerFlags = (m_options->Parsed.EnvironmentBlendMode == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND) ? XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT | XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT : 0;
-#endif
         layer.viewCount = (uint32_t)projectionLayerViews.size();
         layer.views = projectionLayerViews.data();
+#endif
         return true;
     }
-
-#if USE_DUAL_LAYERS
-	bool RenderExtraLayer(XrTime predictedDisplayTime, std::vector<XrCompositionLayerProjectionView>& projectionLayerViews, XrCompositionLayerProjection& layer)
-	{
-		XrResult res;
-
-		XrViewState viewState{ XR_TYPE_VIEW_STATE };
-		uint32_t viewCapacityInput = (uint32_t)m_views.size();
-		uint32_t viewCountOutput;
-
-		XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
-		viewLocateInfo.viewConfigurationType = m_options->Parsed.ViewConfigType;
-		viewLocateInfo.displayTime = predictedDisplayTime;
-		viewLocateInfo.space = m_appSpace;
-
-		res = xrLocateViews(m_session, &viewLocateInfo, &viewState, viewCapacityInput, &viewCountOutput, m_views.data());
-
-		CHECK_XRRESULT(res, "xrLocateViews");
-
-		if ((viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT) == 0 ||
-			(viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT) == 0) {
-			return false;  // There is no valid tracking poses for the views.
-		}
-
-		CHECK(viewCountOutput == viewCapacityInput);
-		CHECK(viewCountOutput == m_configViews.size());
-		CHECK(viewCountOutput == m_swapchains.size());
-
-		projectionLayerViews.resize(viewCountOutput);
-
-		// For each locatable space that we want to visualize, render a 25cm cube.
-		std::vector<Cube> cubes;
-
-#if ADD_EXTRA_CUBES
-		const int num_cubes_x = 1;
-		const int num_cubes_y = 200;
-		const int num_cubes_z = 1;
-
-		const float offset_x = (float)(num_cubes_x - 1) * 0.5f;
-		const float offset_y = (float)(num_cubes_y - 1) * 0.5f;
-		const float offset_z = 1.0f;
-
-#if defined(WIN32)
-		const int hand_for_cube_scale = Side::LEFT;
-#else
-		const int hand_for_cube_scale = Side::RIGHT;
-#endif
-
-		XrPosef cube_pose;
-		cube_pose.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-		float hand_scale = 0.1f * m_input.handScale[hand_for_cube_scale];
-		XrVector3f scale_vec{ hand_scale, hand_scale, hand_scale };
-
-		for (int cube_z_index = 0; cube_z_index < num_cubes_z; cube_z_index++)
-		{
-			for (int cube_y_index = 0; cube_y_index < num_cubes_y; cube_y_index++)
-			{
-				for (int cube_x_index = 0; cube_x_index < num_cubes_x; cube_x_index++)
-				{
-					cube_pose.position =
-					{
-						(float)cube_x_index - offset_x,
-						(float)cube_y_index - offset_y,
-						-(float)cube_z_index - offset_z
-					};
-
-					Cube cube{ cube_pose, scale_vec };
-					cubes.push_back(cube);
-				}
-			}
-		}
-#endif
-
-		// Render view to the appropriate part of the swapchain image.
-		for (uint32_t i = 0; i < viewCountOutput; i++)
-		{
-			// Each view has a separate swapchain which is acquired, rendered to, and released.
-			const Swapchain viewSwapchain = m_second_swapchains[i];
-
-			XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
-
-			uint32_t swapchainImageIndex = 0;
-			CHECK_XRCMD(xrAcquireSwapchainImage(viewSwapchain.handle, &acquireInfo, &swapchainImageIndex));
-
-			XrSwapchainImageWaitInfo waitInfo{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
-			waitInfo.timeout = XR_INFINITE_DURATION;
-			CHECK_XRCMD(xrWaitSwapchainImage(viewSwapchain.handle, &waitInfo));
-
-			projectionLayerViews[i] = { XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW };
-			projectionLayerViews[i].pose = m_views[i].pose;
-			projectionLayerViews[i].fov = m_views[i].fov;
-			projectionLayerViews[i].subImage.swapchain = viewSwapchain.handle;
-			projectionLayerViews[i].subImage.imageRect.offset = { 0, 0 };
-			projectionLayerViews[i].subImage.imageRect.extent = { viewSwapchain.width, viewSwapchain.height };
-
-			const XrSwapchainImageBaseHeader* const swapchainImage = m_second_swapchainImages[viewSwapchain.handle][swapchainImageIndex];
-			m_graphicsPlugin->RenderView(projectionLayerViews[i], swapchainImage, m_colorSwapchainFormat, cubes);
-
-			XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-			CHECK_XRCMD(xrReleaseSwapchainImage(viewSwapchain.handle, &releaseInfo));
-		}
-
-		layer.space = m_appSpace;
-
-        layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;// XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-		layer.viewCount = (uint32_t)projectionLayerViews.size();
-		layer.views = projectionLayerViews.data();
-		return true;
-	}
-#endif
-
-#if ENABLE_QUAD_LAYER
-	bool RenderQuadLayer(QuadLayer& quad_layer)
-	{
-		// For each locatable space that we want to visualize, render a 25cm cube.
-		std::vector<Cube> cubes;
-
-		const int num_cubes_x = 1;
-		const int num_cubes_y = 200;
-		const int num_cubes_z = 1;
-
-		const float offset_x = (float)(num_cubes_x - 1) * 0.5f;
-		const float offset_y = (float)(num_cubes_y - 1) * 0.5f;
-		const float offset_z = 1.0f;
-
-		XrPosef cube_pose;
-		cube_pose.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-		XrVector3f scale_vec{ 0.1f, 0.1f, 0.1f };
-
-		for(int cube_z_index = 0; cube_z_index < num_cubes_z; cube_z_index++)
-		{
-			for(int cube_y_index = 0; cube_y_index < num_cubes_y; cube_y_index++)
-			{
-				for(int cube_x_index = 0; cube_x_index < num_cubes_x; cube_x_index++)
-				{
-					cube_pose.position =
-					{
-						(float)cube_x_index - offset_x,
-						(float)cube_y_index - offset_y,
-						-(float)cube_z_index - offset_z
-					};
-
-					Cube cube{ cube_pose, scale_vec };
-					cubes.push_back(cube);
-				}
-			}
-		}
-
-		XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
-
-		uint32_t swapchainImageIndex = 0;
-		CHECK_XRCMD(xrAcquireSwapchainImage(quad_layer.quad_swapchain_, &acquireInfo, &swapchainImageIndex));
-
-		XrSwapchainImageWaitInfo waitInfo{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
-		waitInfo.timeout = XR_INFINITE_DURATION;
-		CHECK_XRCMD(xrWaitSwapchainImage(quad_layer.quad_swapchain_, &waitInfo));
-
-		const XrSwapchainImageBaseHeader* const swapchainImage = quad_layer.quad_images_[swapchainImageIndex];
-
-		m_graphicsPlugin->RenderQuadLayer(quad_layer.xr_quad_layer_, swapchainImage, m_colorSwapchainFormat, cubes);
-
-		XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-		CHECK_XRCMD(xrReleaseSwapchainImage(quad_layer.quad_swapchain_, &releaseInfo));
-
-		return true;
-	}
-#endif
 
    private:
     const std::shared_ptr<const Options> m_options;
@@ -5037,112 +4762,9 @@ struct OpenXrProgram : IOpenXrProgram
     const std::set<XrEnvironmentBlendMode> m_acceptableBlendModes;
 };
 
+
+
 }  // namespace
-
-
-#if ENABLE_QUAD_LAYER
-bool QuadLayer::init(const uint32_t width, const uint32_t height, const int64_t format, std::shared_ptr<IGraphicsPlugin> plugin, XrSession session, XrSpace space)
-{
-	if(initialized_)
-	{
-		return true;
-	}
-
-	if((width < 1) || (height < 1) || (format <= 0))
-	{
-		return false;
-	}
-
-	width_ = width;
-	height_ = height;
-	format_ = format;
-
-	XrSwapchainCreateInfo swapchain_create_info{};
-	swapchain_create_info.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
-	swapchain_create_info.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
-	swapchain_create_info.createFlags = 0;
-	swapchain_create_info.format = format_;
-	swapchain_create_info.sampleCount = 1;
-	swapchain_create_info.width = width_;
-	swapchain_create_info.height = height_;
-	swapchain_create_info.faceCount = 1;
-	swapchain_create_info.arraySize = 1;
-	swapchain_create_info.mipCount = 1;
-	swapchain_create_info.next = NULL;
-
-	XrResult create_result = xrCreateSwapchain(session, &swapchain_create_info, &quad_swapchain_);
-	assert(create_result == XR_SUCCESS);
-
-	if(create_result != XR_SUCCESS) 
-    {
-		return false;
-	}
-
-	uint32_t image_count = 0;
-	XrResult enumerate_result = xrEnumerateSwapchainImages(quad_swapchain_, 0, &image_count, nullptr);
-
-	assert(enumerate_result == XR_SUCCESS);
-
-	if(enumerate_result != XR_SUCCESS)
-	{
-		return false;
-	}
-
-	quad_images_ = plugin->AllocateSwapchainQuadLayerImageStructs(image_count, swapchain_create_info);
-
-	enumerate_result = xrEnumerateSwapchainImages(quad_swapchain_, image_count, &image_count, quad_images_[0]);
-
-	assert(enumerate_result == XR_SUCCESS);
-
-	if(enumerate_result != XR_SUCCESS)
-	{
-		return false;
-	}
-
-	xr_quad_layer_.next = nullptr;
-	xr_quad_layer_.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
-	xr_quad_layer_.space = space;
-	xr_quad_layer_.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-	xr_quad_layer_.subImage.swapchain = quad_swapchain_;
-	xr_quad_layer_.subImage.imageRect.offset = { 0, 0 };
-	xr_quad_layer_.subImage.imageRect.extent = { (int)width_, (int)height_ };
-
-	XrPosef xr_quad_pose{};
-    xr_quad_pose.position = { 0.0f, 0.0f, -1.0f };
-    xr_quad_pose.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
-
-	xr_quad_layer_.pose = xr_quad_pose;
-
-	float aspect_ratio = (float)width_ / (float)height_;
-
-	float worldspace_width = 1.0f;
-	float worldspace_height = aspect_ratio;
-
-	xr_quad_layer_.size.width = worldspace_width;
-	xr_quad_layer_.size.height = worldspace_height;
-
-	header_ = reinterpret_cast<XrCompositionLayerBaseHeader*>(&xr_quad_layer_);
-
-	initialized_ = (enumerate_result == XR_SUCCESS);
-
-	assert(initialized_);
-
-	return initialized_;
-}
-
-void QuadLayer::shutdown()
-{
-	if(!initialized_)
-	{
-		return;
-	}
-
-	xrDestroySwapchain(quad_swapchain_);
-	quad_swapchain_ = nullptr;
-	initialized_ = false;
-}
-
-#endif
 
 std::shared_ptr<IOpenXrProgram> CreateOpenXrProgram(const std::shared_ptr<Options>& options,
                                                     const std::shared_ptr<IPlatformPlugin>& platformPlugin,
