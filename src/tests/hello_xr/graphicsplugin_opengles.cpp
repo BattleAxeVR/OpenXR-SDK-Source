@@ -14,42 +14,6 @@
 #include "common/gfxwrapper_opengl.h"
 #include <common/xr_linear.h>
 
-#include "stb_image.h"
-#include "stb_image_write.h"
-
-#define EGL_EGLEXT_PROTOTYPES
-#include "EGL/egl.h"
-#include "EGL/eglext.h"
-#include "GLES/gl.h"
-#define GL_GLEXT_PROTOTYPES
-#include "GLES/glext.h"
-
-#include <jni.h>
-#include <cassert>
-#include <cstdint>
-#include <dlfcn.h>
-#include <android/log.h>
-#include <sys/time.h>
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES/gl.h>
-#include <GLES/glext.h>
-#include <GLES2/gl2.h>
-#include <GLES3/gl3.h>
-#include <map>
-
-#define HARDCODE_VIEW_MATRIX 0
-#define HARDCODE_PROJECTION_MATRIX 0
-#define HARDCODE_FOV 0
-
-extern int current_eye;
-extern float IPD;
-
-#if SUPPORT_THUMBSTICKS
-extern BVR::GLMPose player_pose;
-extern BVR::GLMPose local_hmd_pose;
-#endif
-
 #define GL(glcmd)                                                                                                    \
     {                                                                                                                \
         GLint err = glGetError();                                                                                    \
@@ -65,43 +29,8 @@ extern BVR::GLMPose local_hmd_pose;
 
 namespace {
 
-#if ENABLE_HDR_SWAPCHAIN
-bool has_GL_extension(const char *extension) 
-{
-    GLint numExtensions = 0;
-    glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-    
-    for (int i = 0; i < numExtensions; i++) 
-    {
-        const GLubyte *string = glGetStringi(GL_EXTENSIONS, i);
-        
-        if (strcmp((const char *)string, extension) == 0) 
-        {
-            return true;
-        }
-    }
-    return false;
-}
-#endif
-
-bool check_gl_errors()
-{
-    bool no_error_occurred = true;
-    int error =  eglGetError();
-
-    while (error != EGL_SUCCESS)
-    {
-        //const char* error_string = EglErrorString(error);
-        Log::Write(Log::Level::Info, "check_gl_errors - " + std::to_string(error));
-
-        error = eglGetError();
-        no_error_occurred = false;
-    }
-
-    return no_error_occurred;
-}
-
-    static const char* VertexShaderGlsl = R"_(#version 320 es
+// The version statement has come on first line.
+static const char* VertexShaderGlsl = R"_(#version 320 es
 
     in vec3 VertexPos;
     in vec3 VertexColor;
@@ -116,19 +45,6 @@ bool check_gl_errors()
     }
     )_";
 
-#if ENABLE_TINT
-    static const char* FragmentShaderGlsl = R"_(#version 320 es
-
-    in lowp vec3 PSVertexColor;
-    out lowp vec4 FragColor;
-
-    uniform lowp vec4 Tint;
-
-    void main() {
-       FragColor = vec4(PSVertexColor, 1) * Tint;
-    }
-    )_";
-#else
 // The version statement has come on first line.
 static const char* FragmentShaderGlsl = R"_(#version 320 es
 
@@ -139,7 +55,6 @@ static const char* FragmentShaderGlsl = R"_(#version 320 es
        FragColor = vec4(PSVertexColor, 1);
     }
     )_";
-#endif // ENABLE_TINT
 
 struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
     OpenGLESGraphicsPlugin(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin> /*unused*/&)
@@ -149,10 +64,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
     OpenGLESGraphicsPlugin& operator=(const OpenGLESGraphicsPlugin&) = delete;
     OpenGLESGraphicsPlugin(OpenGLESGraphicsPlugin&&) = delete;
     OpenGLESGraphicsPlugin& operator=(OpenGLESGraphicsPlugin&&) = delete;
-
-#if ENABLE_TINT
-    GLint tint_location_ = 0;
-#endif
 
     ~OpenGLESGraphicsPlugin() override {
         if (m_swapchainFramebuffer != 0) {
@@ -192,10 +103,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         Log::Write(Log::Level::Info, "GLES Debug: " + std::string(message, 0, length));
     }
 
-#if ENABLE_HDR_SWAPCHAIN
-        bool supports_hdr_ = false;
-#endif
-
     void InitializeDevice(XrInstance instance, XrSystemId systemId) override {
         // Extension function must be loaded by name
         PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = nullptr;
@@ -230,22 +137,7 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
 #if defined(XR_USE_PLATFORM_ANDROID)
         m_graphicsBinding.display = window.context.dpy;
         m_graphicsBinding.config = (EGLConfig)0;
-
         m_graphicsBinding.context = window.context.ctx;
-		
-		
-#if ENABLE_HDR_SWAPCHAIN
-        // https://developer.qualcomm.com/sites/default/files/docs/adreno-gpu/snapdragon-game-toolkit/gdg/tutorials/android/hdr10.html
-        
-        // Check extensions for HDR
-        const bool supports_dci_p3_gamut = has_GL_extension("EGL_EXT_gl_colorspace_display_p3");
-        const bool supports_bt2020_gamut = has_GL_extension("EGL_EXT_gl_colorspace_bt2020_pq");
-        const bool supports_smpte_2086 = has_GL_extension("EGL_EXT_surface_SMPTE2086_metadata");
-
-        supports_hdr_ = supports_dci_p3_gamut && supports_bt2020_gamut && supports_smpte_2086;
-#endif
-
-
 #endif
 
         glEnable(GL_DEBUG_OUTPUT);
@@ -277,10 +169,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glAttachShader(m_program, fragmentShader);
         glLinkProgram(m_program);
         CheckProgram(m_program);
-        
-#if ENABLE_TINT
-        tint_location_ = glGetUniformLocation(m_program, "Tint");
-#endif
 
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
@@ -334,7 +222,6 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
     // Select the preferred swapchain format from the list of available formats.
     int64_t SelectColorSwapchainFormat(bool throwIfNotFound, span<const int64_t> imageFormatArray) const override {
         // List of supported color swapchain formats.
-
         // The order of this list does not effect the priority of selecting formats, the runtime list defines that.
         return SelectSwapchainFormat(  //
             throwIfNotFound, imageFormatArray,
@@ -497,6 +384,11 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
                    static_cast<GLsizei>(layerView.subImage.imageRect.extent.width),
                    static_cast<GLsizei>(layerView.subImage.imageRect.extent.height));
 
+        glFrontFace(GL_CW);
+        glCullFace(GL_BACK);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_DEPTH_TEST);
+
         const uint32_t depthTexture = GetDepthTexture(colorTexture);
 
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
@@ -506,143 +398,38 @@ struct OpenGLESGraphicsPlugin : public IGraphicsPlugin {
         glClearColor(m_clearColor[0], m_clearColor[1], m_clearColor[2], m_clearColor[3]);
         glClearDepthf(1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        
-        if (!cubes.empty())
-        {
-            glFrontFace(GL_CW);
-            glCullFace(GL_BACK);
-            glEnable(GL_CULL_FACE);
-            glEnable(GL_DEPTH_TEST);
 
-            // Set shaders and uniform variables.
-            glUseProgram(m_program);
-
+        // Set shaders and uniform variables.
+        glUseProgram(m_program);
 
         const auto& pose = layerView.pose;
         XrMatrix4x4f proj;
         XrMatrix4x4f_CreateProjectionFov(&proj, GRAPHICS_OPENGL_ES, layerView.fov, 0.05f, 100.0f);
+        XrMatrix4x4f toView;
+        XrMatrix4x4f_CreateFromRigidTransform(&toView, &pose);
+        XrMatrix4x4f view;
+        XrMatrix4x4f_InvertRigidBody(&view, &toView);
+        XrMatrix4x4f vp;
+        XrMatrix4x4f_Multiply(&vp, &proj, &view);
 
-#if HARDCODE_PROJECTION_MATRIX
-#endif
+        // Set cube primitive data.
+        glBindVertexArray(m_vao);
 
-		XrMatrix4x4f toView;
-		XrVector3f scale{1.f, 1.f, 1.f};
-		XrMatrix4x4f_CreateTranslationRotationScale(&toView, &pose.position, &pose.orientation, &scale);
-
-		XrMatrix4x4f view;
-		XrMatrix4x4f_InvertRigidBody(&view, &toView);
-
-#if HARDCODE_VIEW_MATRIX
-		{
-            static int eye = 1;
-            const float ipd = 0.0680999979f;
-            const float half_ipd = ipd / 2.0f;
-
-            XrPosef hardcoded_pose;
-            hardcoded_pose.position.x = half_ipd * ((eye == 0) ? -1.0f : 1.0f);
-            hardcoded_pose.position.y = 1.0f;
-            hardcoded_pose.position.z = 0.0f;
-
-            hardcoded_pose.orientation.x = 0.0f;
-            hardcoded_pose.orientation.y = 0.0f;
-            hardcoded_pose.orientation.z = 0.0f;
-            hardcoded_pose.orientation.w = 1.0f;
-
-            XrMatrix4x4f_CreateTranslationRotationScale(&view, &hardcoded_pose.position, &hardcoded_pose.orientation, &scale);
-            eye = 1 - eye;
-        }
-#endif
-
-#if SUPPORT_THUMBSTICKS
-		const XrPosef xr_local_eye_pose = layerView.pose;
-		const BVR::GLMPose local_eye_pose = BVR::convert_to_glm_pose(xr_local_eye_pose);
-
-		const glm::vec3 local_hmd_to_eye = local_eye_pose.translation_ - local_hmd_pose.translation_;
-		const glm::vec3 world_hmd_to_eye = player_pose.rotation_ * local_hmd_to_eye;
-
-		const glm::vec3 world_hmd_offset = player_pose.rotation_ * local_hmd_pose.translation_;
-		const glm::vec3 world_hmd_position = player_pose.translation_ + world_hmd_offset;
-
-		const glm::vec3 world_eye_position = world_hmd_position + world_hmd_to_eye;
-		const glm::fquat world_orientation = glm::normalize(player_pose.rotation_ * local_hmd_pose.rotation_);
-
-		BVR::GLMPose world_eye_pose;
-		world_eye_pose.translation_ = world_eye_position;
-		world_eye_pose.rotation_ = world_orientation;
-
-		const glm::mat4 inverse_view_glm = world_eye_pose.to_matrix();
-		const glm::mat4 view_glm = glm::inverse(inverse_view_glm);
-
-		view = BVR::convert_to_xr_pose(view_glm);
-#endif
-
-		XrMatrix4x4f vp;
-		XrMatrix4x4f_Multiply(&vp, &proj, &view);
-
-		// Set cube primitive data.
-		glBindVertexArray(m_vao);
-
-		// Render each cube
-		for (const Cube& cube : cubes) {
-
-#if ENABLE_TINT
-            glUniform4fv(tint_location_, 1, &cube.Colour.x);
-
-#if ENABLE_BLENDING
-            if (cube.enable_blend)
-            {
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-                glDepthMask(GL_FALSE);
-            }
-            else
-            {
-                glDepthMask(GL_TRUE);
-                glDisable(GL_BLEND);
-            }
-#endif
-            
-#endif
-            
+        // Render each cube
+        for (const Cube& cube : cubes) {
             // Compute the model-view-projection transform and set it..
-			XrMatrix4x4f model;
-			XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
-			XrMatrix4x4f mvp;
-			XrMatrix4x4f_Multiply(&mvp, &vp, &model);
-			glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
+            XrMatrix4x4f model;
+            XrMatrix4x4f_CreateTranslationRotationScale(&model, &cube.Pose.position, &cube.Pose.orientation, &cube.Scale);
+            XrMatrix4x4f mvp;
+            XrMatrix4x4f_Multiply(&mvp, &vp, &model);
+            glUniformMatrix4fv(m_modelViewProjectionUniformLocation, 1, GL_FALSE, reinterpret_cast<const GLfloat*>(&mvp));
 
-			// Draw the cube.
-			glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(ArraySize(Geometry::c_cubeIndices)), GL_UNSIGNED_SHORT, nullptr);
-		}
-
-		glBindVertexArray(0);
-		glUseProgram(0);
+            // Draw the cube.
+            glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(ArraySize(Geometry::c_cubeIndices)), GL_UNSIGNED_SHORT, nullptr);
         }
-        
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
 
-    void ClearView(const XrCompositionLayerProjectionView& layerView, const XrSwapchainImageBaseHeader* swapchainImage) override
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, m_swapchainFramebuffer);
-
-        const uint32_t colorTexture = reinterpret_cast<const XrSwapchainImageOpenGLESKHR*>(swapchainImage)->image;
-
-        glViewport(static_cast<GLint>(layerView.subImage.imageRect.offset.x),
-                   static_cast<GLint>(layerView.subImage.imageRect.offset.y),
-                   static_cast<GLsizei>(layerView.subImage.imageRect.extent.width),
-                   static_cast<GLsizei>(layerView.subImage.imageRect.extent.height));
-
-        const uint32_t depthTexture = GetDepthTexture(colorTexture);
-
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTexture, 0);
-
-        glClearColor(m_clearColor[0], m_clearColor[1], m_clearColor[2], m_clearColor[3]);
-        glClearDepthf(1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
+        glBindVertexArray(0);
+        glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 

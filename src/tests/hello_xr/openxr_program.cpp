@@ -16,8 +16,16 @@
 #include <cmath>
 #include <set>
 
+#ifndef XR_USE_PLATFORM_WIN32
+#define XR_USE_PLATFORM_WIN32 0
+
+#define strcpy_s(dest, source) strncpy((dest), (source), sizeof(dest))
+
+#endif
+
 #include "glm/gtx/quaternion.hpp"
 
+#if 0
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #include "stb_image_write.c"
@@ -25,6 +33,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "stb_image.c"
+#endif
 
 BVR::GLMPose glm_local_grip_poses_[2];
 BVR::GLMPose glm_local_eye_poses_[2];
