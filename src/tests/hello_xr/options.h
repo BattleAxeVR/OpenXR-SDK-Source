@@ -39,19 +39,6 @@ inline XrEnvironmentBlendMode GetXrEnvironmentBlendMode(const std::string& envir
     throw std::invalid_argument(Fmt("Unknown environment blend mode '%s'", environmentBlendModeStr.c_str()));
 }
 
-inline const char* GetXrEnvironmentBlendModeStr(XrEnvironmentBlendMode environmentBlendMode) {
-    switch (environmentBlendMode) {
-        case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
-            return "Opaque";
-        case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
-            return "Additive";
-        case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
-            return "AlphaBlend";
-        default:
-            throw std::invalid_argument(Fmt("Unknown environment blend mode '%s'", to_string(environmentBlendMode)));
-    }
-}
-
 struct Options {
     std::string GraphicsPlugin;
 
@@ -59,41 +46,25 @@ struct Options {
 
     std::string ViewConfiguration{"Stereo"};
 
-    std::string EnvironmentBlendMode{"Opaque"};
+    std::string EnvironmentBlendMode;
 
     std::string AppSpace{"Stage"};
 
     struct {
         XrFormFactor FormFactor{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
         XrViewConfigurationType ViewConfigType{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
-        XrEnvironmentBlendMode EnvironmentBlendMode{XR_ENVIRONMENT_BLEND_MODE_OPAQUE};
+
+        bool EnvironmentBlendModeOverride = false;
+        XrEnvironmentBlendMode EnvironmentBlendMode{XR_ENVIRONMENT_BLEND_MODE_MAX_ENUM};
     } Parsed;
 
     void ParseStrings() {
         Parsed.FormFactor = GetXrFormFactor(FormFactor);
         Parsed.ViewConfigType = GetXrViewConfigurationType(ViewConfiguration);
-        Parsed.EnvironmentBlendMode = GetXrEnvironmentBlendMode(EnvironmentBlendMode);
-    }
 
-    std::array<float, 4> GetBackgroundClearColor() const {
-        static const std::array<float, 4> SlateGrey{{0.184313729f, 0.309803933f, 0.309803933f, 1.0f}};
-        static const std::array<float, 4> TransparentBlack{{0.0f, 0.0f, 0.0f, 0.0f}};
-        static const std::array<float, 4> Black{{0.0f, 0.0f, 0.0f, 1.0f}};
-
-        switch (Parsed.EnvironmentBlendMode) {
-            case XR_ENVIRONMENT_BLEND_MODE_OPAQUE:
-                return Black;//Black;// SlateGrey;
-            case XR_ENVIRONMENT_BLEND_MODE_ADDITIVE:
-                return TransparentBlack;//Black;
-            case XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND:
-                return TransparentBlack;
-            default:
-                return SlateGrey;
+        if (!EnvironmentBlendMode.empty()) {
+            Parsed.EnvironmentBlendModeOverride = true;
+            Parsed.EnvironmentBlendMode = GetXrEnvironmentBlendMode(EnvironmentBlendMode);
         }
-    }
-
-    void SetEnvironmentBlendMode(XrEnvironmentBlendMode environmentBlendMode) {
-        EnvironmentBlendMode = GetXrEnvironmentBlendModeStr(environmentBlendMode);
-        Parsed.EnvironmentBlendMode = environmentBlendMode;
     }
 };

@@ -12,13 +12,14 @@ struct IOpenXrProgram
     virtual void CreateInstance() = 0;
 
     // Select a System for the view configuration specified in the Options
-    virtual void InitializeSystem() = 0;
+    virtual void InitializeSystem(XrFormFactor formFactor, XrViewConfigurationType viewConfigType, bool ebmOverride,
+                                  XrEnvironmentBlendMode ebm) = 0;
 
     // Initialize the graphics device for the selected system.
     virtual void InitializeDevice() = 0;
 
     // Create a Session and other basic session-level initialization.
-    virtual void InitializeSession() = 0;
+    virtual void InitializeSession(std::string appSpace) = 0;
 
     // Create a Swapchain which requires coordinating with the graphics plugin to select the format, getting the system graphics
     // properties, getting the view configuration and grabbing the resulting swapchain images.
@@ -40,7 +41,7 @@ struct IOpenXrProgram
     virtual void RenderFrame() = 0;
 
     // Get preferred blend mode based on the view configuration specified in the Options
-    virtual XrEnvironmentBlendMode GetPreferredBlendMode() const = 0;
+    //virtual XrEnvironmentBlendMode GetPreferredBlendMode() const = 0;
 
 #if ENABLE_OPENXR_FB_REFRESH_RATE
     // Only works on Meta HMDs (SteamVR also supports it).
@@ -84,6 +85,10 @@ struct IOpenXrProgram
     virtual void ShutdownSDLJoySticks() = 0;
     virtual void UpdateSDLJoysticks() = 0;
 #endif
+
+    // Query the appropriate clear color based on the environment (blend mode)
+    virtual std::array<float, 4> GetBackgroundClearColor() const = 0;
+
 };
 
 struct Swapchain {
@@ -93,6 +98,4 @@ struct Swapchain {
 };
 
 
-std::shared_ptr<IOpenXrProgram> CreateOpenXrProgram(const std::shared_ptr<Options>& options,
-                                                    const std::shared_ptr<IPlatformPlugin>& platformPlugin,
-                                                    const std::shared_ptr<IGraphicsPlugin>& graphicsPlugin);
+std::shared_ptr<IOpenXrProgram> CreateOpenXrProgram(const std::shared_ptr<IPlatformPlugin>& platformPlugin, const std::shared_ptr<IGraphicsPlugin>& graphicsPlugin);
