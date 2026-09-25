@@ -100,12 +100,21 @@ add_library(
 set_target_properties(
     XrApiLayer_api_dump PROPERTIES FOLDER ${API_LAYERS_FOLDER}
 )
+add_sanitizers(XrApiLayer_api_dump)
 
 target_link_libraries(
     XrApiLayer_api_dump PRIVATE Threads::Threads OpenXR::headers
 )
 if(ANDROID)
     target_link_libraries(XrApiLayer_api_dump PRIVATE ${ANDROID_LOG_LIBRARY})
+    # Force 16KB page sizes for Android 15+ compatibility.
+    target_link_options(
+        XrApiLayer_api_dump
+        PRIVATE
+        "-Wl,-z,max-page-size=16384"
+        "-Wl,-z,common-page-size=16384"
+    )
+
 endif()
 target_compile_definitions(
     XrApiLayer_api_dump PRIVATE ${OPENXR_ALL_SUPPORTED_DEFINES}
@@ -179,6 +188,7 @@ add_library(
 set_target_properties(
     XrApiLayer_core_validation PROPERTIES FOLDER ${API_LAYERS_FOLDER}
 )
+add_sanitizers(XrApiLayer_core_validation)
 
 target_link_libraries(
     XrApiLayer_core_validation PRIVATE Threads::Threads OpenXR::headers
@@ -187,6 +197,14 @@ if(ANDROID)
     target_link_libraries(
         XrApiLayer_core_validation PRIVATE ${ANDROID_LOG_LIBRARY}
     )
+    # Force 16KB page sizes for Android 15+ compatibility.
+    target_link_options(
+        XrApiLayer_core_validation
+        PRIVATE
+        "-Wl,-z,max-page-size=16384"
+        "-Wl,-z,common-page-size=16384"
+    )
+
 endif()
 target_compile_definitions(
     XrApiLayer_core_validation PRIVATE ${OPENXR_ALL_SUPPORTED_DEFINES}
@@ -250,13 +268,13 @@ if(WIN32)
     # XrApiLayer_api_dump
     target_sources(
         XrApiLayer_api_dump
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_api_dump.def"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.def"
     )
 
     # XrApiLayer_core_validation
     target_sources(
         XrApiLayer_core_validation
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_core_validation.def"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.def"
     )
 elseif(APPLE)
     # XrApiLayer_api_dump
@@ -264,11 +282,11 @@ elseif(APPLE)
         XrApiLayer_api_dump
         PROPERTIES
             LINK_FLAGS
-            "-Wl,-exported_symbols_list,\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_api_dump.expsym\""
+            "-Wl,-exported_symbols_list,\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.expsym\""
     )
     target_sources(
         XrApiLayer_api_dump
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_api_dump.expsym"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.expsym"
     )
 
     # XrApiLayer_core_validation
@@ -276,11 +294,11 @@ elseif(APPLE)
         XrApiLayer_core_validation
         PROPERTIES
             LINK_FLAGS
-            "-Wl,-exported_symbols_list,\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_core_validation.expsym\""
+            "-Wl,-exported_symbols_list,\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.expsym\""
     )
     target_sources(
         XrApiLayer_core_validation
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_core_validation.expsym"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.expsym"
     )
 else()
     # XrApiLayer_api_dump
@@ -288,11 +306,11 @@ else()
         XrApiLayer_api_dump
         PROPERTIES
             LINK_FLAGS
-            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_api_dump.map\""
+            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.map\""
     )
     target_sources(
         XrApiLayer_api_dump
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_api_dump.map"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.map"
     )
 
     # XrApiLayer_core_validation
@@ -300,11 +318,11 @@ else()
         XrApiLayer_core_validation
         PROPERTIES
             LINK_FLAGS
-            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_core_validation.map\""
+            "-Wl,--version-script=\"${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.map\""
     )
     target_sources(
         XrApiLayer_core_validation
-        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer_core_validation.map"
+        PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/XrApiLayer.map"
     )
 endif()
 
@@ -322,6 +340,51 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             TARGETS ${TARGET_NAME}
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
             COMPONENT Layers
+        )
+    endforeach()
+elseif(ANDROID)
+    foreach(TARGET_NAME ${TARGET_NAMES})
+        string(
+            REPLACE
+                "XrApiLayer_"
+                "apilayer_"
+                ARTIFACT_ID
+                "${TARGET_NAME}"
+        )
+        set(POM_NAME
+            "${CMAKE_CURRENT_BINARY_DIR}/${ARTIFACT_ID}-${OPENXR_FULL_VERSION}${OPENXR_ANDROID_VERSION_SUFFIX}.pom"
+        )
+        configure_file(${ARTIFACT_ID}.pom "${POM_NAME}")
+        install(
+            FILES "${POM_NAME}"
+            DESTINATION .
+            COMPONENT Layers
+        )
+        install(
+            FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.json"
+            DESTINATION
+                "${TARGET_NAME}/assets/openxr/${MAJOR}/api_layers/implicit.d"
+            COMPONENT Layers
+        )
+        # Manifest to merge with the consuming app
+        set(PACKAGE org.khronos.openxr.${ARTIFACT_ID})
+        configure_file(
+            AndroidManifest.xml.in
+            "${CMAKE_CURRENT_BINARY_DIR}/${ARTIFACT_ID}_AndroidManifest.xml"
+        )
+        install(
+            FILES
+                "${CMAKE_CURRENT_BINARY_DIR}/${ARTIFACT_ID}_AndroidManifest.xml"
+            DESTINATION "${TARGET_NAME}"
+            RENAME "AndroidManifest.xml"
+            COMPONENT Layers
+        )
+        set(LIB_DIR "${TARGET_NAME}/jni/${ANDROID_ABI}/")
+        install(
+            TARGETS ${TARGET_NAME}
+            RUNTIME DESTINATION "${LIB_DIR}" COMPONENT Layers
+            LIBRARY DESTINATION "${LIB_DIR}" COMPONENT Layers
+            ARCHIVE DESTINATION "${LIB_DIR}" COMPONENT Layers
         )
     endforeach()
 elseif(WIN32)

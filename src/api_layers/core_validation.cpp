@@ -22,6 +22,7 @@
 #include "api_layer_platform_defines.h"
 #include "extra_algorithms.h"
 #include "hex_and_handles.h"
+#include "platform_exports.h"
 #include "platform_utils.hpp"
 #include "validation_utils.h"
 #include "xr_generated_core_validation.hpp"
@@ -49,16 +50,6 @@
 
 #ifdef __ANDROID__
 #include "android/log.h"
-#endif
-
-#if defined(__GNUC__) && __GNUC__ >= 4
-#define LAYER_EXPORT __attribute__((visibility("default")))
-#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
-#define LAYER_EXPORT __attribute__((visibility("default")))
-#elif defined(_MSC_VER)
-#define LAYER_EXPORT __declspec(dllexport)
-#else
-#define LAYER_EXPORT
 #endif
 
 // Log recording information
@@ -570,6 +561,13 @@ XRAPI_ATTR XrResult XRAPI_CALL CoreValidationXrCreateApiLayerInstance(const XrIn
         // Call the generated pre valid usage check.
         validation_result = GenValidUsageInputsXrCreateInstance(info, instance);
 
+        // If validation failed, return the validation error immediately without
+        // forwarding the call to the next layer (which would likely crash or
+        // return a misleading error when given invalid parameters).
+        if (XR_SUCCESS != validation_result) {
+            return validation_result;
+        }
+
         // Copy the contents of the layer info struct, but then move the next info up by
         // one slot so that the next layer gets information.
         memcpy(&new_api_layer_info, apiLayerInfo, sizeof(XrApiLayerCreateInfo));
@@ -583,6 +581,13 @@ XRAPI_ATTR XrResult XRAPI_CALL CoreValidationXrCreateApiLayerInstance(const XrIn
         XrInstance returned_instance = *instance;
         XrResult next_result = next_create_api_layer_instance(info, &new_api_layer_info, &returned_instance);
         *instance = returned_instance;
+
+        // If instance creation failed downstream, return that error immediately
+        // without attempting to set up instance tracking state (which would fail
+        // or throw when given an invalid instance handle).
+        if (XR_FAILED(next_result)) {
+            return next_result;
+        }
 
         // Create the instance information
         std::unique_ptr<GenValidUsageXrInstanceInfo> instance_info(
@@ -642,7 +647,13 @@ XRAPI_ATTR XrResult XRAPI_CALL CoreValidationXrDestroyInstance(XrInstance instan
         auto info_with_lock = g_instance_info.getWithLock(instance);
         GenValidUsageXrInstanceInfo *gen_instance_info = info_with_lock.second;
         if (nullptr != gen_instance_info) {
-            gen_instance_info->debug_messengers.clear();
+            // Destroy any messenger handles the layer created implicitly
+            // (e.g. from the next chain during instance creation).
+            while (!gen_instance_info->debug_messengers.empty()) {
+                XrDebugUtilsMessengerEXT messenger = gen_instance_info->debug_messengers.back()->messenger;
+                gen_instance_info->debug_messengers.pop_back();
+                CoreValidationXrDestroyDebugUtilsMessengerEXT(messenger);
+            }
         }
     }
 
@@ -887,7 +898,7 @@ XRAPI_ATTR XrResult XRAPI_CALL CoreValidationXrSessionInsertDebugUtilsLabelEXT(X
 
 // Function used to negotiate an interface betewen the loader and an API layer.  Each library exposing one or
 // more API layers needs to expose at least this function.
-extern "C" LAYER_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrNegotiateLoaderApiLayerInterface(
+extern "C" PLATFORM_EXPORT XRAPI_ATTR XrResult XRAPI_CALL xrNegotiateLoaderApiLayerInterface(
     const XrNegotiateLoaderInfo *loaderInfo, const char * /*apiLayerName*/, XrNegotiateApiLayerRequest *apiLayerRequest) {
     if (loaderInfo == nullptr || loaderInfo->structType != XR_LOADER_INTERFACE_STRUCT_LOADER_INFO ||
         loaderInfo->structVersion != XR_LOADER_INFO_STRUCT_VERSION || loaderInfo->structSize != sizeof(XrNegotiateLoaderInfo)) {

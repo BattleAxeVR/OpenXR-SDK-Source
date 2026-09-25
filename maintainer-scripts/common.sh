@@ -190,12 +190,15 @@ getSDKSourceFilenames() {
         maintainer-scripts/archive-sdk.sh \
         maintainer-scripts/check-changelog-fragments.sh \
         maintainer-scripts/build-aar.sh \
+        maintainer-scripts/build-aar-layer.sh \
         maintainer-scripts/build-and-publish-aar-mavencentral.sh \
         maintainer-scripts/build-and-publish-aar-snapshot.sh \
         maintainer-scripts/publish-aar \
         specification/.gitignore \
         specification/config/attribs.adoc \
+        specification/config/khronos.css \
         specification/registry/*.xml \
+        specification/registry/fragments \
         specification/scripts \
         specification/loader \
         specification/Makefile \
@@ -260,6 +263,7 @@ getSDKFilenames() {
         src/external/android-jni-wrappers \
         src/external/jnipp \
         src/external/jsoncpp \
+        src/external/sanitizers-cmake \
         src/loader \
         src/version.cmake \
         | grep -E -v "${COMMON_EXCLUDE_PATTERN}" \

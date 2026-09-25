@@ -13,6 +13,7 @@
 #include <common/xr_linear.h>
 #include <array>
 #include <cmath>
+#include <inttypes.h>
 #include <set>
 
 #ifndef XR_USE_PLATFORM_WIN32
@@ -1245,7 +1246,7 @@ struct OpenXrProgram : IOpenXrProgram
     void InitializeSystem(XrFormFactor formFactor, XrViewConfigurationType viewConfigType, bool ebmOverride, XrEnvironmentBlendMode ebm) override 
 	{
 
-        Log::Write(Log::Level::Verbose, Fmt("Using system %d for form factor %s", m_systemId, to_string(formFactor)));
+        Log::Write(Log::Level::Verbose, Fmt("Using system %" PRIu64 " for form factor %s", m_systemId, to_string(formFactor)));
         CHECK(m_instance != XR_NULL_HANDLE);
         CHECK(m_systemId != XR_NULL_SYSTEM_ID);
 
